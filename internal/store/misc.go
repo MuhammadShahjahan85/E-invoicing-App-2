@@ -252,3 +252,35 @@ func (s *Store) ListIncidents(ctx context.Context, companyID int64, limit int) (
 	}
 	return out, rows.Err()
 }
+
+// InvoiceBrief is a short invoice reference used in letters and lists.
+type InvoiceBrief struct {
+	ID               int64  `json:"id"`
+	InternalNo       string `json:"internalNo"`
+	InvoiceDate      string `json:"invoiceDate"`
+	Status           string `json:"status"`
+	FBRInvoiceNumber string `json:"fbrInvoiceNumber"`
+	AcceptedAt       string `json:"acceptedAt"`
+}
+
+// InvoicesCreatedBetween lists invoices created in a time window (RFC 3339).
+func (s *Store) InvoicesCreatedBetween(ctx context.Context, companyID int64, from, to string) ([]InvoiceBrief, error) {
+	if to == "" {
+		to = now()
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT id, internal_no, invoice_date, status, fbr_invoice_number, accepted_at FROM invoices
+		WHERE company_id=? AND environment='production' AND created_at>=? AND created_at<=? ORDER BY id`, companyID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []InvoiceBrief
+	for rows.Next() {
+		var b InvoiceBrief
+		if err := rows.Scan(&b.ID, &b.InternalNo, &b.InvoiceDate, &b.Status, &b.FBRInvoiceNumber, &b.AcceptedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
