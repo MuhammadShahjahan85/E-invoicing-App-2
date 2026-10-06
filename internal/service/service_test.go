@@ -311,7 +311,19 @@ func TestProductionRequiresToken(t *testing.T) {
 	f := setup(t)
 	c, _ := f.svc.Store.GetCompany(f.ctx, f.cid)
 	c.Environment = domain.EnvProduction
+	if _, err := f.svc.SaveCompany(f.ctx, f.admin, c); err == nil || !strings.Contains(err.Error(), "production security token") {
+		t.Fatalf("switching to production without a token must fail, got %v", err)
+	}
+	if _, err := f.svc.SetToken(f.ctx, f.admin, f.cid, TokenInput{Environment: domain.EnvProduction, Token: "production-token-123"}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = f.svc.Store.GetCompany(f.ctx, f.cid)
+	c.Environment = domain.EnvProduction
 	if _, err := f.svc.SaveCompany(f.ctx, f.admin, c); err != nil {
+		t.Fatal(err)
+	}
+	// A token cleared after go-live blocks submission until it is replaced.
+	if _, err := f.svc.SetToken(f.ctx, f.admin, f.cid, TokenInput{Environment: domain.EnvProduction, Clear: true}); err != nil {
 		t.Fatal(err)
 	}
 	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, &InvoiceInput{

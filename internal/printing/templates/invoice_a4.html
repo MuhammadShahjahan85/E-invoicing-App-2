@@ -50,12 +50,18 @@
                color: rgba(200, 0, 0, .14); pointer-events: none; z-index: 0; white-space: nowrap; }
   .notice { border: 1px solid #c00; color: #a00; padding: 4px 8px; margin: 6px 0; font-weight: 600; font-size: 9pt; }
   .copy { font-size: 8pt; border: 1px solid #555; padding: 1px 6px; border-radius: 3px; }
+  .copy-sheet + .copy-sheet { page-break-before: always; break-before: page; }
 </style>
 </head>
 <body>
 {{if .Watermark}}<div class="watermark">{{.Watermark}}</div>{{end}}
-<div class="sheet">
-  {{if .ShowToolbar}}<div class="toolbar"><button onclick="window.print()">Print</button></div>{{end}}
+{{if .ShowToolbar}}<div class="toolbar sheet"><button onclick="window.print()">Print</button></div>{{end}}
+{{range .Sheets}}{{template "a4sheet" .}}{{end}}
+{{if .AutoPrint}}<script>window.addEventListener('load', function(){ window.print(); });</script>{{end}}
+</body>
+</html>
+{{define "a4sheet"}}
+<div class="sheet copy-sheet">
   <header>
     <div class="seller">
       {{if .CompanyLogo}}<img class="logo" src="{{.CompanyLogo}}" alt="logo">{{end}}
@@ -183,6 +189,4 @@
     {{if .Settings.ShowSignature}}<div class="sign">Authorised signature</div>{{end}}
   </footer>
 </div>
-{{if .AutoPrint}}<script>window.addEventListener('load', function(){ window.print(); });</script>{{end}}
-</body>
-</html>
+{{end}}

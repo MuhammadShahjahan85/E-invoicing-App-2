@@ -183,6 +183,9 @@ func (s *Service) SaveCompany(ctx context.Context, a Actor, c *store.Company) (*
 			return nil, err
 		}
 		if c.Environment == domain.EnvProduction && prev.Environment != domain.EnvProduction {
+			if !prev.HasProductionToken {
+				return nil, Invalid("cannot switch to production: save the production security token issued on IRIS first")
+			}
 			if err := s.Opts.License.CheckProduction(c.NTNCNIC); err != nil {
 				return nil, Invalid("cannot switch to production: %v", err)
 			}

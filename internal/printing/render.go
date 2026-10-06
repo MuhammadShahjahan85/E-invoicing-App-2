@@ -62,7 +62,17 @@ type view struct {
 	T                                                                                                 totals
 	Cols                                                                                              cols
 	IsDebitNote, AutoPrint, ShowToolbar                                                               bool
+	Sheets                                                                                            []sheet
 }
+
+// sheet is one printed copy of the A4 invoice; CopyLabel shadows the view's.
+type sheet struct {
+	*view
+	CopyLabel string
+}
+
+// copyNames label the copies when more than one is printed per invoice.
+var copyNames = []string{"BUYER'S COPY", "SELLER'S COPY", "OFFICE COPY", "COPY 4", "COPY 5"}
 
 func dataURI(b []byte, mime string) template.URL {
 	if len(b) == 0 {
@@ -185,9 +195,28 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		v.Rates = append(v.Rates, rateRow{SaleType: a.st, Rate: a.rate, Value: amt(a.val), SalesTax: amt(a.stTax)})
 	}
 
+	copies := c.PrintSettings.Copies
+	if copies < 1 {
+		copies = 1
+	}
+	if copies > len(copyNames) {
+		copies = len(copyNames)
+	}
+	if copies == 1 {
+		v.Sheets = []sheet{{view: &v, CopyLabel: v.CopyLabel}}
+	} else {
+		for i := 0; i < copies; i++ {
+			label := copyNames[i]
+			if v.CopyLabel != "" {
+				label = v.CopyLabel + " · " + label
+			}
+			v.Sheets = append(v.Sheets, sheet{view: &v, CopyLabel: label})
+		}
+	}
+
 	name := "invoice_a4.html"
 	if o.Format == "thermal" || (o.Format == "" && c.PrintSettings.PaperSize == "thermal80") {
 		name = "invoice_thermal.html"
 	}
-	return templates.ExecuteTemplate(w, name, v)
+	return templates.ExecuteTemplate(w, name, &v)
 }

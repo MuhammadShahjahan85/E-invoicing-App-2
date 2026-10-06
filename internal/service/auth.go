@@ -214,6 +214,11 @@ func (s *Service) SaveUser(ctx context.Context, a Actor, id int64, in UserInput)
 	if err != nil {
 		return nil, err
 	}
+	if in.Password != "" {
+		if err := security.PasswordPolicy(in.Password); err != nil {
+			return nil, Invalid("%v", err)
+		}
+	}
 	if a.UserID != nil && *a.UserID == id && in.Role != store.RoleAdmin && u.Role == store.RoleAdmin {
 		return nil, Invalid("you cannot remove your own administrator role")
 	}
@@ -231,9 +236,6 @@ func (s *Service) SaveUser(ctx context.Context, a Actor, id int64, in UserInput)
 		_ = s.Store.DeleteUserSessions(ctx, id)
 	}
 	if in.Password != "" {
-		if err := security.PasswordPolicy(in.Password); err != nil {
-			return nil, Invalid("%v", err)
-		}
 		hash, err := security.HashPassword(in.Password)
 		if err != nil {
 			return nil, err

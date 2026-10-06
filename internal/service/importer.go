@@ -33,7 +33,7 @@ func ImportTemplateCSV() []byte {
 	var b bytes.Buffer
 	w := csv.NewWriter(&b)
 	_ = w.Write(ImportColumns)
-	_ = w.Write([]string{"ERP-1001", "2026-10-06", "Sale Invoice", "", "",
+	_ = w.Write([]string{"ERP-1001", time.Now().In(PKT).Format("2006-01-02"), "Sale Invoice", "", "",
 		"2046004", "ABC Traders", "Punjab", "Lahore", "Registered", "",
 		"", "0101.2100", "Example product", "Numbers, pieces, units", "10", "150", "0", "",
 		"Goods at standard rate (default)", "18%", "", "", "",
@@ -52,7 +52,7 @@ func ImportTemplateXLSX() ([]byte, error) {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		_ = f.SetCellValue(sh, cell, c)
 	}
-	example := []any{"ERP-1001", "2026-10-06", "Sale Invoice", "", "", "2046004", "ABC Traders", "Punjab", "Lahore", "Registered", "",
+	example := []any{"ERP-1001", time.Now().In(PKT).Format("2006-01-02"), "Sale Invoice", "", "", "2046004", "ABC Traders", "Punjab", "Lahore", "Registered", "",
 		"", "0101.2100", "Example product", "Numbers, pieces, units", 10, 150, 0, "", "Goods at standard rate (default)", "18%", "", "", "", "", "", "", "", ""}
 	for i, v := range example {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
