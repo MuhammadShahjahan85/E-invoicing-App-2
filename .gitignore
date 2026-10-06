@@ -1,0 +1,19 @@
+# Build output
+/dist/
+/bin/
+*.exe
+# Runtime data (never commit client data or keys)
+/data/
+*.db
+*.db-wal
+*.db-shm
+master.key
+license.lic
+vendor-private.key
+# Frontend
+/web/node_modules/
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
