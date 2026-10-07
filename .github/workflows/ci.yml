@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Cross-compile Windows and Linux binaries
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/einvoice.exe ./cmd/einvoice
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/einvoice ./cmd/einvoice
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Type-check web UI
+        working-directory: web
+        run: |
+          npm ci
+          npm run typecheck

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} {{.Invoice.InternalNo}}</title>
+<style>
+  @page { size: 80mm auto; margin: 3mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Courier New", Consolas, monospace; font-size: 9pt; color: #000; margin: 0; background: #fff; }
+  .r { width: 74mm; margin: 0 auto; position: relative; }
+  .c { text-align: center; }
+  .b { font-weight: 700; }
+  .hr { border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { vertical-align: top; padding: 1px 0; }
+  td.n { text-align: right; white-space: nowrap; }
+  .qr { display: flex; justify-content: center; padding: 4px; }
+  .qr svg { width: 1in; height: 1in; display: block; }
+  .di-logo img { max-width: 30mm; max-height: 16mm; display: block; margin: 0 auto; }
+  .di-badge { border: 1px solid #000; display: inline-block; padding: 2px 4px; font-size: 7.5pt; font-weight: 700; }
+  .wm { border: 1px solid #000; padding: 2px; text-align: center; font-weight: 700; margin: 4px 0; }
+  .toolbar { text-align: center; padding: 6px; } @media print { .toolbar { display: none; } }
+</style>
+</head>
+<body>
+<div class="r">
+  {{if .ShowToolbar}}<div class="toolbar"><button id="print-btn" type="button">Print</button></div>{{end}}
+  {{if .CompanyLogo}}<div class="c"><img src="{{.CompanyLogo}}" alt="" style="max-width:40mm;max-height:16mm"></div>{{end}}
+  <div class="c b">{{.Invoice.SellerName}}</div>
+  <div class="c">{{.Invoice.SellerAddress}}</div>
+  <div class="c">NTN/CNIC: {{.Invoice.SellerNTNCNIC}}{{if .Company.STRN}} STRN: {{.Company.STRN}}{{end}}</div>
+  <div class="hr"></div>
+  <div class="c b">{{.Title}}</div>
+  {{if .Watermark}}<div class="wm">{{.Watermark}}</div>{{end}}
+  <table>
+    <tr><td>Inv No:</td><td class="n">{{.Invoice.InternalNo}}</td></tr>
+    <tr><td>Date:</td><td class="n">{{.InvoiceDate}}</td></tr>
+    {{if .Invoice.FBRDated}}<tr><td>FBR time:</td><td class="n">{{.Invoice.FBRDated}}</td></tr>{{end}}
+    <tr><td>Buyer:</td><td class="n">{{.Invoice.BuyerName}}</td></tr>
+    {{if .Invoice.BuyerNTNCNIC}}<tr><td>NTN/CNIC:</td><td class="n">{{.Invoice.BuyerNTNCNIC}}</td></tr>{{end}}
+    {{if .Invoice.InvoiceRefNo}}<tr><td>Ref:</td><td class="n">{{.Invoice.InvoiceRefNo}}</td></tr>{{end}}
+  </table>
+  <div class="hr"></div>
+  {{range .Lines}}
+    <div>{{.No}}. {{.Description}}</div>
+    <table><tr><td>{{.Qty}} {{.UoM}}{{if $.Settings.ShowUnitPrice}} x {{.UnitPrice}}{{end}}</td><td class="n">{{.Value}}</td></tr>
+      <tr><td>ST {{.Rate}}</td><td class="n">{{.SalesTax}}</td></tr>
+      {{if $.Cols.Further}}<tr><td>Further tax</td><td class="n">{{.FurtherTax}}</td></tr>{{end}}
+    </table>
+  {{end}}
+  <div class="hr"></div>
+  <table>
+    <tr><td>Value excl. ST</td><td class="n">{{.T.Value}}</td></tr>
+    <tr><td>Sales tax</td><td class="n">{{.T.SalesTax}}</td></tr>
+    {{if .Cols.Further}}<tr><td>Further tax</td><td class="n">{{.T.FurtherTax}}</td></tr>{{end}}
+    {{if .Cols.Extra}}<tr><td>Extra tax</td><td class="n">{{.T.ExtraTax}}</td></tr>{{end}}
+    {{if .Cols.FED}}<tr><td>FED</td><td class="n">{{.T.FED}}</td></tr>{{end}}
+    <tr class="b"><td>TOTAL</td><td class="n">{{.T.Total}}</td></tr>
+    {{if .Cols.Withheld}}<tr><td>ST withheld</td><td class="n">({{.T.Withheld}})</td></tr><tr class="b"><td>PAYABLE</td><td class="n">{{.T.Payable}}</td></tr>{{end}}
+  </table>
+  {{if .FBRNumber}}
+  <div class="hr"></div>
+  <div class="c di-logo">{{if .FBRLogo}}<img src="{{.FBRLogo}}" alt="FBR Digital Invoicing System">{{else}}<span class="di-badge">FBR DIGITAL INVOICING SYSTEM</span>{{end}}</div>
+  <div class="c">FBR Invoice No.</div>
+  <div class="c b" style="word-break:break-all">{{.FBRNumber}}</div>
+  <div class="qr">{{.QR}}</div>
+  {{end}}
+  {{if .Notice}}<div class="c b">{{.Notice}}</div>{{end}}
+  <div class="hr"></div>
+  <div class="c">{{.Settings.FooterText}}</div>
+  <div class="c" style="font-size:7pt">{{.ProductName}} by {{.Developer}}</div>
+</div>
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+  if ({{.AutoPrint}}) window.addEventListener('load', function () { window.print(); });
+})();
+</script>
+</body>
+</html>

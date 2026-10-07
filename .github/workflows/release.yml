@@ -1,0 +1,123 @@
+name: Release
+
+# Builds client-ready binaries with your licence public key embedded, plus the Windows installer.
+#
+# One-time setup:
+#   1. Create your vendor key pair on your own PC:  licensegen keygen   (keep vendor-private.key secret!)
+#   2. GitHub → Settings → Secrets and variables → Actions → Variables → New repository variable
+#        Name: LICENSE_PUBKEY   Value: the public key printed by keygen
+# Then run this workflow from the Actions tab ("Run workflow"), or push a tag like v1.0.0.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number, e.g. 1.0.0"
+        required: true
+        default: "1.0.0"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v="${{ github.event.inputs.version }}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Check licence public key
+        env:
+          LICENSE_PUBKEY: ${{ vars.LICENSE_PUBKEY }}
+        run: |
+          if [ -z "$LICENSE_PUBKEY" ]; then
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              echo "::error::Repository variable LICENSE_PUBKEY is not set. Tagged releases must enforce licences."
+              exit 1
+            fi
+            echo "::warning::LICENSE_PUBKEY is not set: this is a DEVELOPER build without licence enforcement. Do not give it to clients."
+          fi
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build release binaries
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          LICENSE_PUBKEY: ${{ vars.LICENSE_PUBKEY }}
+        run: sh scripts/build-release.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
+          path: dist/windows-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: dist/einvoice-*-linux-amd64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vendor-tools-keep-private
+          path: dist/vendor-tools
+
+  installer:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-amd64
+          path: dist/windows-amd64
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ needs.build.outputs.version }}" packaging\windows\einvoice-suite.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/VeridianEInvoicingPK-Setup-*.exe
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [build, installer]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/windows-installer/*.exe
+            artifacts/linux-package/*.tar.gz

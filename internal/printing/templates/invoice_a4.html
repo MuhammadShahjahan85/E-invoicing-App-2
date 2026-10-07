@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} {{.Invoice.InternalNo}}</title>
+<style>
+  @page { size: A4; margin: 12mm 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #111; font-size: 10.5pt; margin: 0; background: #fff; }
+  .sheet { position: relative; max-width: 190mm; margin: 0 auto; padding: 4mm 0; }
+  .toolbar { text-align: right; padding: 8px 0; }
+  .toolbar button { font-size: 11pt; padding: 6px 14px; cursor: pointer; }
+  @media print { .toolbar { display: none; } }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+  .seller { display: flex; gap: 10px; align-items: flex-start; }
+  .seller img.logo { max-height: 22mm; max-width: 40mm; object-fit: contain; }
+  .seller h1 { font-size: 15pt; margin: 0 0 2px; }
+  .muted { color: #444; }
+  .small { font-size: 8.5pt; }
+  .fbr { display: flex; gap: 8px; align-items: center; text-align: center; }
+  .fbr .qr { width: calc(1in + 8px); height: calc(1in + 8px); padding: 4px; background: #fff; }
+  .fbr .qr svg { display: block; width: 1in; height: 1in; }
+  .fbr .di-logo img { max-width: 30mm; max-height: 20mm; object-fit: contain; display: block; margin: 0 auto 4px; }
+  .fbr .di-badge { border: 1.5px solid #0a6b3d; color: #0a6b3d; font-weight: 700; font-size: 8pt; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px; }
+  .fbr .fbrno { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; font-weight: 700; word-break: break-all; max-width: 45mm; }
+  .titlebar { display: flex; justify-content: space-between; align-items: flex-end; margin: 10px 0 6px; }
+  .titlebar h2 { margin: 0; font-size: 14pt; letter-spacing: .5px; }
+  .meta td { padding: 1px 6px 1px 0; vertical-align: top; }
+  .meta td.k { color: #444; white-space: nowrap; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 10px; }
+  .box { border: 1px solid #999; border-radius: 3px; padding: 6px 8px; }
+  .box h3 { margin: 0 0 4px; font-size: 9pt; text-transform: uppercase; color: #333; letter-spacing: .4px; }
+  table.lines { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  table.lines th, table.lines td { border: 1px solid #999; padding: 3px 4px; vertical-align: top; }
+  table.lines th { background: #eee; font-weight: 600; text-align: center; }
+  td.n { text-align: right; white-space: nowrap; }
+  td.c { text-align: center; }
+  .desc .sub { font-size: 8pt; color: #444; }
+  .totals { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
+  .totals table { border-collapse: collapse; min-width: 75mm; }
+  .totals td { padding: 2px 6px; border-bottom: 1px dotted #bbb; }
+  .totals tr.grand td { font-weight: 700; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 11pt; }
+  .words { margin-top: 6px; font-style: italic; }
+  .rates { font-size: 8.5pt; border-collapse: collapse; }
+  .rates th, .rates td { border: 1px solid #bbb; padding: 2px 5px; }
+  footer { margin-top: 14px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+  .sign { border-top: 1px solid #111; width: 60mm; text-align: center; padding-top: 3px; font-size: 9pt; }
+  .watermark { position: fixed; top: 40%; left: 0; right: 0; text-align: center; transform: rotate(-28deg); font-size: 44pt; font-weight: 800;
+               color: rgba(200, 0, 0, .14); pointer-events: none; z-index: 0; white-space: nowrap; }
+  /* Longer watermarks use a smaller size so they stay within the A4 page. */
+  .watermark.wm-m { font-size: 32pt; }
+  .watermark.wm-s { font-size: 25pt; }
+  .notice { border: 1px solid #c00; color: #a00; padding: 4px 8px; margin: 6px 0; font-weight: 600; font-size: 9pt; }
+  .copy { font-size: 8pt; border: 1px solid #555; padding: 1px 6px; border-radius: 3px; }
+  .copy-sheet + .copy-sheet { page-break-before: always; break-before: page; }
+</style>
+</head>
+<body>
+{{if .Watermark}}<div class="watermark {{.WatermarkSize}}">{{.Watermark}}</div>{{end}}
+{{if .ShowToolbar}}<div class="toolbar sheet"><button id="print-btn" type="button">Print</button></div>{{end}}
+{{range .Sheets}}{{template "a4sheet" .}}{{end}}
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+  if ({{.AutoPrint}}) window.addEventListener('load', function () { window.print(); });
+})();
+</script>
+</body>
+</html>
+{{define "a4sheet"}}
+<div class="sheet copy-sheet">
+  <header>
+    <div class="seller">
+      {{if .CompanyLogo}}<img class="logo" src="{{.CompanyLogo}}" alt="logo">{{end}}
+      <div>
+        <h1>{{.Invoice.SellerName}}</h1>
+        <div>{{.Invoice.SellerAddress}}{{if .Company.City}}, {{.Company.City}}{{end}}</div>
+        <div>{{.Invoice.SellerProvince}}</div>
+        <div><b>NTN/CNIC:</b> {{.Invoice.SellerNTNCNIC}}{{if .Company.STRN}} &nbsp; <b>STRN:</b> {{.Company.STRN}}{{end}}</div>
+        {{if or .Company.Phone .Company.Email}}<div class="muted small">{{.Company.Phone}} {{.Company.Email}}</div>{{end}}
+      </div>
+    </div>
+    {{if .FBRNumber}}
+    <div class="fbr">
+      <div>
+        <div class="di-logo">{{if .FBRLogo}}<img src="{{.FBRLogo}}" alt="FBR Digital Invoicing System">{{else}}<div class="di-badge">FBR DIGITAL<br>INVOICING SYSTEM</div>{{end}}</div>
+        <div class="small muted">FBR Invoice No.</div>
+        <div class="fbrno">{{.FBRNumber}}</div>
+      </div>
+      <div class="qr">{{.QR}}</div>
+    </div>
+    {{end}}
+  </header>
+
+  <div class="titlebar">
+    <h2>{{.Title}} {{if .CopyLabel}}<span class="copy">{{.CopyLabel}}</span>{{end}}</h2>
+    <table class="meta">
+      <tr><td class="k">Invoice No.</td><td><b>{{.Invoice.InternalNo}}</b></td></tr>
+      <tr><td class="k">Date</td><td>{{.InvoiceDate}}</td></tr>
+      {{if .Invoice.FBRDated}}<tr><td class="k">FBR Date/Time</td><td>{{.Invoice.FBRDated}}</td></tr>{{end}}
+      {{if .Invoice.InvoiceRefNo}}<tr><td class="k">{{if .IsDebitNote}}Against FBR Inv.{{else}}Reference{{end}}</td><td>{{.Invoice.InvoiceRefNo}}</td></tr>{{end}}
+      {{if .Invoice.ExternalRef}}<tr><td class="k">Your Ref.</td><td>{{.Invoice.ExternalRef}}</td></tr>{{end}}
+    </table>
+  </div>
+
+  {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+
+  <div class="parties">
+    <div class="box">
+      <h3>Buyer</h3>
+      <div><b>{{.Invoice.BuyerName}}</b></div>
+      <div>{{.Invoice.BuyerAddress}}</div>
+      <div>{{.Invoice.BuyerProvince}}</div>
+      <div><b>NTN/CNIC:</b> {{if .Invoice.BuyerNTNCNIC}}{{.Invoice.BuyerNTNCNIC}}{{else}}—{{end}}</div>
+      <div><b>Status:</b> {{.Invoice.BuyerRegistrationType}}</div>
+    </div>
+    <div class="box">
+      <h3>Supply details</h3>
+      <div><b>Origination of supply:</b> {{.Invoice.SellerProvince}}</div>
+      <div><b>Destination of supply:</b> {{.Invoice.BuyerProvince}}</div>
+      <div><b>Document type:</b> {{.Invoice.DocType}}</div>
+      {{if .Invoice.WithholdingMode}}<div><b>Buyer is a sales tax withholding agent</b></div>{{end}}
+      {{if .Invoice.ScenarioID}}<div class="small muted">Sandbox scenario {{.Invoice.ScenarioID}}</div>{{end}}
+    </div>
+  </div>
+
+  <table class="lines">
+    <thead>
+      <tr>
+        <th>#</th><th>Description / HS Code</th><th>Qty</th><th>UoM</th>
+        {{if .Settings.ShowUnitPrice}}<th>Unit Price</th>{{end}}
+        {{if .Cols.Discount}}<th>Discount</th>{{end}}
+        <th>Value excl. ST{{if .Cols.FEDInValue}} (incl. FED){{end}}</th>
+        {{if .Cols.Retail}}<th>Retail Price excl. ST</th>{{end}}
+        <th>Rate</th><th>Sales Tax</th>
+        {{if .Cols.Further}}<th>Further Tax</th>{{end}}
+        {{if .Cols.Extra}}<th>Extra Tax</th>{{end}}
+        {{if .Cols.FED}}<th>FED</th>{{end}}
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Lines}}
+      <tr>
+        <td class="c">{{.No}}</td>
+        <td class="desc">{{.Description}}
+          <div class="sub">{{if $.Settings.ShowHSCode}}HS {{.HSCode}} · {{end}}{{.SaleType}}{{if .SRO}} · {{.SRO}}{{end}}</div></td>
+        <td class="n">{{.Qty}}</td><td class="c">{{.UoM}}</td>
+        {{if $.Settings.ShowUnitPrice}}<td class="n">{{.UnitPrice}}</td>{{end}}
+        {{if $.Cols.Discount}}<td class="n">{{.Discount}}</td>{{end}}
+        <td class="n">{{.Value}}</td>
+        {{if $.Cols.Retail}}<td class="n">{{.Retail}}</td>{{end}}
+        <td class="c">{{.Rate}}</td><td class="n">{{.SalesTax}}</td>
+        {{if $.Cols.Further}}<td class="n">{{.FurtherTax}}</td>{{end}}
+        {{if $.Cols.Extra}}<td class="n">{{.ExtraTax}}</td>{{end}}
+        {{if $.Cols.FED}}<td class="n">{{.FED}}</td>{{end}}
+        <td class="n">{{.Total}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div>
+      {{if gt (len .Rates) 1}}
+      <table class="rates">
+        <tr><th>Sale type</th><th>Rate</th><th>Value</th><th>Sales Tax</th></tr>
+        {{range .Rates}}<tr><td>{{.SaleType}}</td><td>{{.Rate}}</td><td class="n">{{.Value}}</td><td class="n">{{.SalesTax}}</td></tr>{{end}}
+      </table>
+      {{end}}
+      {{if .Settings.ShowAmountWords}}<div class="words">{{.AmountWords}}</div>{{end}}
+      {{if .Invoice.Notes}}<div class="small" style="margin-top:6px"><b>Notes:</b> {{.Invoice.Notes}}</div>{{end}}
+    </div>
+    <table>
+      <tr><td>Value excluding sales tax</td><td class="n">{{.T.Value}}</td></tr>
+      {{if .Cols.Retail}}<tr><td>Retail price excl. sales tax (Third Schedule)</td><td class="n">{{.T.Retail}}</td></tr>{{end}}
+      <tr><td>Sales tax</td><td class="n">{{.T.SalesTax}}</td></tr>
+      {{if .Cols.Further}}<tr><td>Further tax</td><td class="n">{{.T.FurtherTax}}</td></tr>{{end}}
+      {{if .Cols.Extra}}<tr><td>Extra tax</td><td class="n">{{.T.ExtraTax}}</td></tr>{{end}}
+      {{if .Cols.FED}}<tr><td>Federal excise duty{{if .Cols.FEDInValue}} (included in the value above){{end}}</td><td class="n">{{.T.FED}}</td></tr>{{end}}
+      <tr class="grand"><td>Value inclusive of taxes</td><td class="n">{{.T.Total}}</td></tr>
+      {{if .Cols.Withheld}}
+      <tr><td>Less: sales tax withheld at source</td><td class="n">({{.T.Withheld}})</td></tr>
+      <tr class="grand"><td>Amount payable</td><td class="n">{{.T.Payable}}</td></tr>
+      {{end}}
+    </table>
+  </div>
+
+  {{if .Settings.TermsText}}<div class="small" style="margin-top:8px">{{.Settings.TermsText}}</div>{{end}}
+
+  <footer>
+    <div class="small muted">
+      {{.Settings.FooterText}}<br>
+      {{if .Invoice.SealHash}}Integrity seal: {{.ShortSeal}} · {{end}}Printed {{.PrintedAt}} · {{.ProductName}} by {{.Developer}}
+    </div>
+    {{if .Settings.ShowSignature}}<div class="sign">Authorised signature</div>{{end}}
+  </footer>
+</div>
+{{end}}
