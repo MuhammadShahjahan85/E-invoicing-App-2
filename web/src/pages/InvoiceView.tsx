@@ -529,18 +529,26 @@ function History({ companyId, id }: { companyId: number; id: number }) {
 
 function CancelModal({ inv, withinWindow, onClose, onDone }: { inv: Invoice; withinWindow: boolean; onClose: () => void; onDone: (i: Invoice) => void }) {
   const cp = useCompanyPath()
+  const s = useSession()
+  const apiAvailable = !!s.meta.cancelApi?.[inv.environment]
+  const [useApi, setUseApi] = useState(apiAvailable)
   const [reason, setReason] = useState('')
   const [reference, setReference] = useState('')
   const [approval, setApproval] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const submit = async () => {
     setError('')
+    setBusy(true)
     try {
-      onDone(await api.post<Invoice>(`${cp}/invoices/${inv.id}/cancel`, { reason, reference, commissionerApproval: approval }))
+      onDone(await api.post<Invoice>(`${cp}/invoices/${inv.id}/cancel`, { reason, reference, commissionerApproval: approval, useApi: apiAvailable && useApi }))
     } catch (e) {
       setError(errorMessage(e))
+    } finally {
+      setBusy(false)
     }
   }
+  const referenceOptional = inv.environment === 'simulator' || (apiAvailable && useApi)
   return (
     <Modal
       title={`Cancel ${inv.internalNo}`}
@@ -550,16 +558,22 @@ function CancelModal({ inv, withinWindow, onClose, onDone }: { inv: Invoice; wit
           <button className="btn" onClick={onClose}>
             Close
           </button>
-          <button className="btn btn-danger" onClick={submit} disabled={!reason}>
-            Record cancellation
+          <button className="btn btn-danger" onClick={submit} disabled={!reason || busy}>
+            {busy ? 'Cancelling…' : apiAvailable && useApi ? 'Cancel with FBR' : 'Record cancellation'}
           </button>
         </>
       }
     >
       <div className="alert alert-info">
         Under Sales Tax General Order 01 of 2026 an electronic invoice may be cancelled, deleted or edited only through FBR's system within 72 hours of issue;
-        afterwards prior approval of the Commissioner Inland Revenue is required. First cancel the invoice on <b>IRIS → Digital Invoicing</b>, then record the
-        cancellation here so your records match FBR.
+        afterwards prior approval of the Commissioner Inland Revenue is required.{' '}
+        {apiAvailable && useApi ? (
+          <>The cancellation is sent to FBR now and recorded here only if FBR confirms it.</>
+        ) : (
+          <>
+            First cancel the invoice on <b>IRIS → Digital Invoicing</b>, then record the cancellation here so your records match FBR.
+          </>
+        )}
       </div>
       {!withinWindow && <div className="alert alert-warn">This invoice was issued more than 72 hours ago — enter the Commissioner's approval reference.</div>}
       {error && <div className="alert alert-error">{error}</div>}
@@ -567,7 +581,13 @@ function CancelModal({ inv, withinWindow, onClose, onDone }: { inv: Invoice; wit
         <Field label="Reason for cancellation *">
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Invoice issued in error / duplicate" />
         </Field>
-        <Field label={'IRIS cancellation reference' + (inv.environment === 'simulator' ? ' (optional in training)' : ' *')}>
+        {apiAvailable && (
+          <label className="row small" style={{ gap: 8 }}>
+            <input type="checkbox" checked={useApi} onChange={(e) => setUseApi(e.target.checked)} style={{ width: 'auto' }} />
+            Cancel through FBR's cancellation service (configured on this server)
+          </label>
+        )}
+        <Field label={'IRIS cancellation reference' + (inv.environment === 'simulator' ? ' (optional in training)' : referenceOptional ? ' (optional)' : ' *')}>
           <input value={reference} onChange={(e) => setReference(e.target.value)} />
         </Field>
         {!withinWindow && (

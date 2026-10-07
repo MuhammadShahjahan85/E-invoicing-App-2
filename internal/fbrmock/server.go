@@ -61,6 +61,7 @@ type Server struct {
 	AcceptAnyToken bool
 	invoices       map[string]*fbr.InvoicePayload // by FBR invoice number
 	invoiceDates   map[string]time.Time
+	cancelled      map[string]bool
 	faults         []FaultKind
 	// Delay for FaultTimeout.
 	TimeoutDelay time.Duration
@@ -81,6 +82,7 @@ func New() *Server {
 		Tokens:       map[string]TokenInfo{},
 		invoices:     map[string]*fbr.InvoicePayload{},
 		invoiceDates: map[string]time.Time{},
+		cancelled:    map[string]bool{},
 		TimeoutDelay: 3 * time.Second,
 		Now:          time.Now,
 	}
@@ -135,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /di_data/v1/di/postinvoicedata_sb", s.invoice(true, true))
 	mux.HandleFunc("POST /di_data/v1/di/validateinvoicedata", s.invoice(false, false))
 	mux.HandleFunc("POST /di_data/v1/di/validateinvoicedata_sb", s.invoice(true, false))
+	mux.HandleFunc("POST /di_data/v1/di/cancelinvoicedata", s.auth(s.cancel))
+	mux.HandleFunc("POST /di_data/v1/di/cancelinvoicedata_sb", s.auth(s.cancel))
 	mux.HandleFunc("GET /pdi/v1/provinces", s.auth(s.provinces))
 	mux.HandleFunc("GET /pdi/v1/doctypecode", s.auth(s.docTypes))
 	mux.HandleFunc("GET /pdi/v1/itemdesccode", s.auth(s.itemDescCodes))
@@ -596,6 +600,47 @@ func (s *Server) sroItems(w http.ResponseWriter, r *http.Request) {
 		out = append(out, map[string]any{"srO_ITEM_ID": it.ID, "srO_ITEM_DESC": it.Desc})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// Cancelled reports whether an invoice was cancelled through the simulator.
+func (s *Server) Cancelled(fbrNo string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cancelled[fbrNo]
+}
+
+// cancel simulates invoice cancellation. PRAL has not published the request
+// and response format of its cancellation service (DI API v1.12 has none);
+// this follows the product's opt-in request {invoiceNumber, sellerNTNCNIC,
+// reason} and answers in the style of the other DI services. It enforces the
+// 72-hour window of Sales Tax General Order 01 of 2026.
+func (s *Server) cancel(w http.ResponseWriter, r *http.Request) {
+	var req fbr.CancelRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	ti, _ := s.tokenInfo(r)
+	now := s.Now()
+	dated := now.In(pkt).Format("2006-01-02 15:04:05")
+	fail := func(code, msg string) {
+		writeJSON(w, http.StatusOK, map[string]string{"invoiceNumber": req.InvoiceNumber, "dated": dated, "statusCode": "01", "status": "Invalid", "errorCode": code, "error": msg})
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	issued, ok := s.invoiceDates[req.InvoiceNumber]
+	switch {
+	case !ok:
+		fail("0301", "Invoice number not found")
+	case ti.SellerNTNCNIC != "" && ti.SellerNTNCNIC != req.SellerNTNCNIC, s.invoices[req.InvoiceNumber] != nil && s.invoices[req.InvoiceNumber].SellerNTNCNIC != req.SellerNTNCNIC:
+		fail("0401", "Unauthorized seller for this invoice")
+	case strings.TrimSpace(req.Reason) == "":
+		fail("0302", "Reason for cancellation is required")
+	case s.cancelled[req.InvoiceNumber]:
+		fail("0303", "Invoice already cancelled")
+	case now.Sub(issued) > 72*time.Hour:
+		fail("0304", "Cancellation period of 72 hours has expired; approval of the Commissioner Inland Revenue is required")
+	default:
+		s.cancelled[req.InvoiceNumber] = true
+		writeJSON(w, http.StatusOK, map[string]string{"invoiceNumber": req.InvoiceNumber, "dated": dated, "statusCode": "00", "status": "Cancelled"})
+	}
 }
 
 func (s *Server) statl(w http.ResponseWriter, r *http.Request) {

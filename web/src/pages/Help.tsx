@@ -85,11 +85,18 @@ export default function Help() {
                 <b>Rule 150R</b> — failures, disruptions or tampering must be reported to the Commissioner within 24 hours (see the incident register).
               </li>
               <li>
+                <b>Offline invoices</b> — invoices issued while FBR's system cannot be reached must be uploaded within 24 hours of the connection being restored.
+              </li>
+              <li>
+                <b>Section 23(1)(b)</b> — a manufacturer or importer supplying an unregistered person must state the buyer's CNIC or NTN on the invoice.
+              </li>
+              <li>
                 <b>Sales Tax General Order 01 of 2026</b> — an invoice may be cancelled or edited through FBR's system only within 72 hours of issue; afterwards
                 with prior approval of the Commissioner.
               </li>
               <li>
-                <b>Section 33</b> — penalties for failure to integrate or to issue electronic invoices, as enhanced by the Finance Act 2026.
+                <b>Section 33</b> — penalties for failure to integrate or to issue electronic invoices, as enhanced by the Finance Act 2026; registration
+                may be suspended under section 21(2), with no input tax adjustment or refund during the suspension.
               </li>
             </ul>
           </div>
@@ -98,7 +105,10 @@ export default function Help() {
             <ul className="small">
               <li>Invoices are reported to FBR's DI API the moment they are saved; the FBR invoice number and QR code (version 2, 25×25, 1 inch) are printed with the FBR Digital Invoicing logo.</li>
               <li>Accepted invoices are locked in the database — they cannot be edited or deleted. Corrections are made with debit notes or an approved cancellation.</li>
-              <li>If FBR is unreachable the invoice is queued and resent automatically; an outage incident is opened and a Rule 150R letter is prepared.</li>
+              <li>
+                If FBR is unreachable the invoice is queued and resent automatically, and every queued invoice is resent the moment the connection returns; the
+                dashboard shows invoices not yet reported, an outage incident is opened and a Rule 150R letter is prepared.
+              </li>
               <li>Ambiguous outcomes (timeouts after sending) are never resent blindly — they are reconciled against IRIS to avoid double reporting.</li>
               <li>An append-only, hash-chained audit trail records every action; invoices carry a tamper-evident seal.</li>
               <li>The database is backed up daily; copy backups off-site and keep records for six years as rule 150S requires.</li>
@@ -109,6 +119,7 @@ export default function Help() {
             <ul className="small">
               <li>Seller and buyer NTN/CNIC (7-digit NTN or 13-digit CNIC), names, provinces and addresses.</li>
               <li>Buyer registration type — further tax at 4% applies to taxable supplies to unregistered buyers.</li>
+              <li>CNIC/NTN of unregistered buyers when the seller is a manufacturer or importer (section 23(1)(b)), and above Rs 100,000 for other sellers.</li>
               <li>HS code (PCT, NNNN.NNNN), description, quantity and FBR unit of measure.</li>
               <li>Sale type and the rate allowed for it on the invoice date; SRO / schedule and serial number where required.</li>
               <li>Value excluding sales tax, sales tax, further tax, extra tax, FED and sales tax withheld at source.</li>

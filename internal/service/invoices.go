@@ -606,8 +606,15 @@ func (s *Service) CancelInvoice(ctx context.Context, a Actor, companyID, id int6
 		if err != nil {
 			return nil, Invalid("FBR cancellation failed: %v", err)
 		}
+		ok, known, msg := fbr.CancelOutcome(raw)
+		switch {
+		case !known:
+			return nil, Invalid("FBR's reply to the cancellation could not be interpreted (%s). Check the invoice on IRIS; if it shows as cancelled, record the cancellation with the IRIS reference.", truncate(msg, 300))
+		case !ok:
+			return nil, Invalid("FBR refused the cancellation: %s", msg)
+		}
 		if ref == "" {
-			ref = truncate(string(raw), 500)
+			ref = truncate("Cancelled through the FBR API: "+strings.TrimSpace(string(raw)), 500)
 		}
 	}
 	if ref == "" && inv.Environment != domain.EnvSimulator {

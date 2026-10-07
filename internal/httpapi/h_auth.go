@@ -129,5 +129,11 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request, rc *reqCtx) 
 		"developedBy":        brand.DevelopedBy,
 		"version":            brand.Version,
 		"cancelWindowHours":  int(service.CancelWindow.Hours()),
+		// The FBR cancellation API is opt-in (fbr.endpoints.cancelPath /
+		// cancelSandboxPath in config.json) until PRAL publishes its format.
+		"cancelApi": map[string]bool{
+			string(domain.EnvProduction): s.Svc.Opts.Endpoints.CancelPath != "",
+			string(domain.EnvSandbox):    s.Svc.Opts.Endpoints.CancelSandboxPath != "",
+		},
 	})
 }

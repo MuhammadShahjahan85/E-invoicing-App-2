@@ -90,7 +90,13 @@ export default function Dashboard() {
           <div className="value" style={{ color: conn.healthy ? 'var(--success)' : 'var(--danger)' }}>
             {conn.healthy ? 'OK' : 'Down'}
           </div>
-          <div className="sub">{conn.lastSuccess ? 'Last success ' + dateTimeFmt(conn.lastSuccess) : 'No calls yet'}</div>
+          <div className="sub">
+            {conn.lastSuccess
+              ? 'Last success ' + dateTimeFmt(conn.lastSuccess)
+              : conn.failingSince
+                ? 'Failing since ' + dateTimeFmt(conn.failingSince)
+                : 'No calls yet'}
+          </div>
         </div>
       </div>
 

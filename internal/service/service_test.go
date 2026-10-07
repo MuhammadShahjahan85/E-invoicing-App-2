@@ -390,3 +390,84 @@ func TestFiscalYear(t *testing.T) {
 		}
 	}
 }
+
+func TestCancelThroughFBRAPI(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	_, inv, err := f.svc.RunScenario(f.ctx, f.admin, f.cid, "SN001", "engine", domain.EnvSandbox)
+	if err != nil || inv.Status != domain.StatusAccepted {
+		t.Fatalf("scenario: %v", err)
+	}
+	if _, err := f.svc.CancelInvoice(f.ctx, f.admin, f.cid, inv.ID, CancelInput{Reason: "Issued in error", UseAPI: true}); err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("expected a not-configured error, got %v", err)
+	}
+	f.svc.Opts.Endpoints.CancelSandboxPath = "/di_data/v1/di/cancelinvoicedata_sb"
+
+	// FBR refuses (its clock says the 72 hours have passed): nothing is recorded.
+	f.sim.Now = func() time.Time { return time.Now().Add(80 * time.Hour) }
+	if _, err := f.svc.CancelInvoice(f.ctx, f.admin, f.cid, inv.ID, CancelInput{Reason: "Issued in error", UseAPI: true}); err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("expected FBR refusal, got %v", err)
+	}
+	if got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID); got.Status != domain.StatusAccepted {
+		t.Fatalf("refused cancellation must not change the invoice, status %s", got.Status)
+	}
+
+	f.sim.Now = time.Now
+	got, err := f.svc.CancelInvoice(f.ctx, f.admin, f.cid, inv.ID, CancelInput{Reason: "Issued in error", UseAPI: true})
+	if err != nil || got.Status != domain.StatusCancelled || !f.sim.Cancelled(inv.FBRInvoiceNumber) || !strings.Contains(got.CancelReference, "FBR API") {
+		t.Fatalf("cancel via API: %v %+v", err, got)
+	}
+}
+
+func TestCancelOutcome(t *testing.T) {
+	cases := []struct {
+		raw       string
+		ok, known bool
+	}{
+		{`{"statusCode":"00","status":"Cancelled"}`, true, true},
+		{`{"validationResponse":{"statusCode":"01","error":"not allowed"}}`, false, true},
+		{`{"status code":"00"}`, true, true},
+		{`{"message":"done"}`, false, false},
+		{`<html>gateway</html>`, false, false},
+	}
+	for _, c := range cases {
+		ok, known, _ := fbr.CancelOutcome([]byte(c.raw))
+		if ok != c.ok || known != c.known {
+			t.Errorf("%s: ok=%v known=%v", c.raw, ok, known)
+		}
+	}
+}
+
+// Invoices issued while FBR was unreachable are resubmitted as soon as a call
+// succeeds again, without waiting for their back-off (24-hour upload rule).
+func TestRecoveryResubmitsQueuedAtOnce(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	f.sim.InjectFault(fbrmock.FaultUnavailable, 2)
+	for _, sc := range []string{"SN001", "SN002"} {
+		_, inv, err := f.svc.RunScenario(f.ctx, f.admin, f.cid, sc, "engine", domain.EnvSandbox)
+		if err != nil || inv.Status != domain.StatusQueued {
+			t.Fatalf("%s: %v", sc, err)
+		}
+	}
+	day := time.Now().Format("2006-01-02")
+	d, err := f.svc.Store.GetDashboard(f.ctx, f.cid, domain.EnvSandbox, day, day[:8]+"01")
+	if err != nil || d.PendingUpload != 2 || d.OldestPending == "" {
+		t.Fatalf("dashboard pending %d %q %v", d.PendingUpload, d.OldestPending, err)
+	}
+	// Nothing is due yet.
+	f.svc.requeueRecovered(f.ctx)
+	f.svc.processQueue(f.ctx)
+	if d, _ := f.svc.Store.GetDashboard(f.ctx, f.cid, domain.EnvSandbox, day, day[:8]+"01"); d.PendingUpload != 2 {
+		t.Fatalf("queued invoices must wait for their back-off, pending %d", d.PendingUpload)
+	}
+	// The connection recovers (any successful call), so the queue is released at once.
+	if _, inv, err := f.svc.RunScenario(f.ctx, f.admin, f.cid, "SN001", "engine", domain.EnvSandbox); err != nil || inv.Status != domain.StatusAccepted {
+		t.Fatalf("recovery call: %v", err)
+	}
+	f.svc.requeueRecovered(f.ctx)
+	f.svc.processQueue(f.ctx)
+	if d, _ := f.svc.Store.GetDashboard(f.ctx, f.cid, domain.EnvSandbox, day, day[:8]+"01"); d.PendingUpload != 0 {
+		t.Fatalf("queued invoices should have been resubmitted after recovery, pending %d", d.PendingUpload)
+	}
+}

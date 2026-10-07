@@ -306,6 +306,7 @@ export interface Meta {
   developedBy: string
   version: string
   cancelWindowHours: number
+  cancelApi?: Partial<Record<Env, boolean>>
 }
 
 export interface LicenseStatus {

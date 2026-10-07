@@ -375,8 +375,50 @@ type CancelRequest struct {
 	Reason        string `json:"reason"`
 }
 
+// CancelOutcome interprets a cancellation response. The format is not part
+// of DI API v1.12, so the usual DI shapes are accepted: a top-level
+// statusCode/status/error, or the same inside validationResponse. ok is false
+// with known=true when FBR refused the cancellation, and known is false when
+// the response cannot be interpreted (the operator must then check IRIS).
+func CancelOutcome(raw []byte) (ok, known bool, message string) {
+	var top map[string]any
+	if json.Unmarshal(raw, &top) != nil {
+		return false, false, strings.TrimSpace(string(raw))
+	}
+	read := func(m map[string]any) (code, msg string) {
+		for k, v := range m {
+			switch strings.ToLower(strings.ReplaceAll(k, " ", "")) {
+			case "statuscode":
+				code = strings.TrimSpace(fmt.Sprint(v))
+			case "error", "message":
+				if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+					msg = s
+				}
+			case "status":
+				if msg == "" {
+					msg = strings.TrimSpace(fmt.Sprint(v))
+				}
+			}
+		}
+		return code, msg
+	}
+	code, msg := read(top)
+	if vr, isMap := top["validationResponse"].(map[string]any); isMap && code == "" {
+		code, msg = read(vr)
+	}
+	switch code {
+	case "00":
+		return true, true, msg
+	case "":
+		return false, false, strings.TrimSpace(string(raw))
+	default:
+		return false, true, msg
+	}
+}
+
 // CancelInvoice calls the configured cancellation endpoint. The response is
-// returned raw because its format is not part of DI API v1.12.
+// returned raw because its format is not part of DI API v1.12 (see
+// CancelOutcome).
 func (c *Client) CancelInvoice(ctx context.Context, req CancelRequest) ([]byte, error) {
 	if !c.CancelSupported() {
 		return nil, &CallError{Kind: ErrClient, Err: errors.New("cancellation endpoint not configured; cancel the invoice on IRIS and record it here")}

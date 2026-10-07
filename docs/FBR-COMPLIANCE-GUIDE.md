@@ -18,8 +18,16 @@ It is written for:
 - FBR returns a unique **FBR invoice number**. The printed invoice must carry this number, a **QR code** encoding it, and the **FBR Digital Invoicing logo**.
 - Before going live, each taxpayer passes **sandbox scenarios** assigned on IRIS according to business activity and sector. FBR then issues a **production security token**. Production calls are accepted only from a **whitelisted static IP**.
 - After issue, an invoice may be cancelled or edited through the system only within **72 hours** (STGO 01 of 2026). After that, the Commissioner's approval is required.
-- Failures, disruptions or tampering of the e-invoicing system must be reported to the Commissioner within **24 hours** (rule 150R). Electronic records are kept for **six years** (rule 150S).
-- Penalties for non-integration or for not issuing e-invoices are severe. Rs 1 million for a first default, escalating to Rs 5 million, plus possible suspension or blacklisting (Finance Act 2026 as reported — **Verify**).
+- Failures, disruptions or tampering of the e-invoicing system must be reported to the Commissioner within **24 hours** (rule 150R). Invoices issued while the connection is down must be **uploaded within 24 hours of connectivity being restored**. Electronic records are kept for **six years** (rule 150S).
+- A manufacturer or importer supplying an unregistered person (for example a distributor) must state the buyer's **CNIC or NTN** on the invoice (s.23(1)(b)).
+- All active sales-tax filers were required to be live on Digital Invoicing by **31 July 2026** (**Verify** the latest extension for the client's category).
+- Penalties for non-integration or for not issuing e-invoices are severe:
+  - Rs 1 million, rising to up to Rs 5 million for a continuing default;
+  - suspension of registration under s.21(2) for non-compliance with s.23(5)/(6) or s.40C, during which no input tax adjustment or refund is allowed;
+  - possible blacklisting.
+
+  These are from the Finance Act 2026 as reported (**Verify** against the enacted text).
+- Buyers' input tax depends on it: Annex-A of the buyer's sales-tax return is populated from the supplier's Annex-C, which is fed by DI invoices. An invoice that never reaches FBR is an invoice the customer cannot claim.
 
 Veridian E-invoicing PK is an on-premise system that implements the full lifecycle:
 
@@ -34,13 +42,17 @@ Veridian E-invoicing PK is an on-premise system that implements the full lifecyc
 
 | Instrument | Date | Key provisions | Effect on the business |
 |---|---|---|---|
-| Sales Tax Act 1990, s.23 | — | Particulars of a tax invoice: supplier and buyer identity and NTN/CNIC, date, description and quantity, value excluding tax, rate and amount of tax, value including tax. The Board may require electronic invoicing integrated with its system (electronic-invoicing sub-sections of s.23 — **Verify** numbering). | Every invoice must carry the prescribed particulars and be issued through the integrated system. |
+| Sales Tax Act 1990, s.23 | — | Particulars of a tax invoice: supplier and buyer identity and NTN/CNIC, date, description and quantity, value excluding tax, rate and amount of tax, value including tax. **s.23(1)(b):** for supplies by a manufacturer or importer to an unregistered person, the buyer's CNIC or NTN must be stated. Retail supplies to end consumers up to Rs 100,000 are outside the CNIC requirement, which is also waived for card or digital payments (**Verify**). **s.23(5)/(6)** and **s.40C**: the Board may require electronic invoicing integrated with its system. | Every invoice must carry the prescribed particulars and be issued through the integrated system. |
 | Sales Tax Act 1990, s.3(1) and s.3(1A) | — | Standard rate 18%. Further tax 4% on taxable supplies to persons not registered; not on exempt or zero-rated supplies; other exclusions apply (**Verify**). | Correct rate and further-tax logic per line. |
 | Third, Fifth, Sixth and Eighth Schedules | — | Third Schedule: tax on printed retail price. Fifth: zero-rated. Sixth: exempt. Eighth: reduced rates with SRO/serial references. | Sale type, rate and SRO references must match the schedule. |
 | SRO 69(I)/2025 — Chapter XIV, Sales Tax Rules 2006 (rules 150Q onwards) | 29 Jan 2025 | **150R**: install and integrate the e-invoicing system with the Board's system, directly through PRAL or through a licensed integrator; report any failure, disruption or tampering to the Commissioner within 24 hours. **150S**: real-time verifiable invoice for every supply, carrying the FBR invoice number and QR code; keep electronic records for 6 years. **150X**: contraventions punishable under s.33. | Core obligations implemented by this product. |
-| SRO 709(I)/2025 | 2025 | Phased compliance deadlines by category of registered person, later extended. Final phase 31 December 2025 for all remaining registered persons (**Verify** the exact phases). | All registered persons should now be live. |
+| SRO 709(I)/2025 and extensions | 2025–2026 | Phased compliance deadlines by category of registered person, extended several times. All active sales-tax filers were to be live by 31 July 2026 (**Verify** the exact phases). | All registered persons should now be live. |
+| Offline-invoice rule (Chapter XIV, Sales Tax Rules 2006) | 2025 | Invoices issued while the connection to the Board's system is unavailable must be uploaded within 24 hours of connectivity being restored (**Verify** the rule reference). | Unreported invoices must be cleared quickly after an outage. |
 | Sales Tax General Order 01 of 2026 | 31 Mar 2026 | Multiple licensed integrators allowed. An e-invoice may be cancelled or edited through the system within 72 hours of issue; afterwards only with the prior approval of the Commissioner Inland Revenue. | 72-hour control built into cancellation. |
-| Finance Act 2026 (as reported) | 2026 | Penalty for failing to integrate or issue e-invoices: Rs 1 million for the first default, up to Rs 5 million for subsequent defaults, plus possible suspension or blacklisting (**Verify**). | Strong business case for a reliable system. |
+| Finance Act 2026 (as reported) | 2026 | Penalty for failing to integrate or issue e-invoices: Rs 1 million, up to Rs 5 million for a continuing default. Suspension of registration under s.21(2) for non-compliance with s.23(5)/(6) or s.40C; no input tax adjustment or refund during suspension; possible blacklisting. Tier-1 retailers that are not integrated reported to be allowed only 60% of their input tax (**Verify** all). | Strong business case for a reliable system. |
+| PRAL DI user manual v1.6 | 16 Apr 2026 | Adds invoice-cancellation screens on IRIS. The DI API remains v1.12; a cancellation service (`cancelinvoicedata`) is reported but its request format has not been published (**Verify**). | Cancel on IRIS, or through the API once PRAL confirms the format (see §5). |
+| Sales-tax return Annex-A / Annex-C | — | The buyer's purchase annex (Annex-A) is populated from the supplier's sales annex (Annex-C), which is fed by Digital Invoicing. | Prompt, correct reporting protects customers' input tax. |
+| Draft SRO 288(I)/2026 (income tax) | 2026 (draft) | Proposed "Online Integration of Businesses" rules under the Income Tax Ordinance. This is a separate regime from sales-tax DI and is not yet in force (**Verify**). | Monitor; no product change needed now. |
 | Sales Tax Act 1990, s.33 | — | General penalties. | — |
 
 ## 3. Integration models
@@ -138,8 +150,10 @@ The product contains a catalogue of about 60 FBR error codes with plain-language
 | Obligation | Rule | How the product helps |
 |---|---|---|
 | Report each invoice in real time | 150S | "Save & submit" reports immediately. If FBR is unreachable the invoice is queued and retried automatically: backoff 30 s doubling to a 30-minute cap; 15 minutes after a token failure. |
+| Upload offline invoices within 24 hours of restoration | Chapter XIV | As soon as any call to FBR succeeds again, every queued invoice of that company is resubmitted at once rather than waiting for its back-off. The dashboard shows how many invoices are not yet reported and the oldest one. A queued invoice can be handed over as a **provisional copy** watermarked "PENDING FBR REPORTING"; the final copy with the FBR number and QR code is printed after acceptance. |
+| CNIC/NTN of unregistered buyers | s.23(1)(b) | Validation warns when a manufacturer or importer (business activity in Settings → Company) invoices an unregistered buyer without a CNIC/NTN, and for other sellers above Rs 100,000 (`fbr.cnicThreshold`). |
 | Do not report twice | Good practice / integrity | Timeouts after sending are marked **Needs reconciliation** and never resent blindly. The user checks IRIS and records the outcome. |
-| Cancel or edit only within 72 hours | STGO 01/2026 | Cancellation records the IRIS reference. After 72 hours it requires the Commissioner's approval reference. |
+| Cancel or edit only within 72 hours | STGO 01/2026 | Cancellation records the IRIS reference. After 72 hours it requires the Commissioner's approval reference. Once PRAL publishes its cancellation service, set `fbr.endpoints.cancelPath` and `cancelSandboxPath` in `config.json` (reported paths: `/di_data/v1/di/cancelinvoicedata` and `/di_data/v1/di/cancelinvoicedata_sb`) and confirm that the request format matches. The cancel dialog then offers **Cancel with FBR**. The cancellation is recorded only if FBR confirms it, and a refusal or unreadable reply leaves the invoice unchanged. |
 | Report failures within 24 hours | 150R | Outages and token failures automatically open incidents. A ready-to-print letter to the Commissioner lists the affected invoices. |
 | Keep records for 6 years | 150S | Accepted invoices cannot be edited or deleted (database triggers). Nightly backups are written to the backups folder; off-site copying is the client's responsibility. |
 
@@ -150,7 +164,7 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 | # | Requirement | Source | How the product meets it | Where | Evidence (tests) | Status |
 |---|---|---|---|---|---|---|
 | 1 | Supplier name, address, NTN/CNIC on invoice | s.23 | Company profile snapshotted on every invoice; printed | `internal/service/invoices.go` (Build); Settings → Company; `internal/printing/templates/invoice_a4.html` | TestRenderA4 | Implemented |
-| 2 | Buyer name, address, NTN/CNIC, registration type | s.23; DI spec | Customer master or ad-hoc buyer; validation of NTN/CNIC format; registered buyer must have NTN/CNIC | `internal/validate/validate.go`; Customers page | TestRegisteredBuyerNeedsNTN, TestNormalizeRegNo | Implemented |
+| 2 | Buyer name, address, NTN/CNIC, registration type; CNIC/NTN of unregistered buyers of manufacturers and importers | s.23, s.23(1)(b); DI spec | Customer master or ad-hoc buyer; validation of NTN/CNIC format; registered buyer must have NTN/CNIC; s.23(1)(b) warning by seller activity; warning above Rs 100,000 for others | `internal/validate/validate.go`; Customers page | TestRegisteredBuyerNeedsNTN, TestNormalizeRegNo | Implemented |
 | 3 | Date of issue | s.23; DI spec | Invoice date in Pakistan time; future dates rejected; sandbox scenario rules | `internal/validate/validate.go` | TestFutureDateAndSandboxScenario | Implemented |
 | 4 | Description, HS code, quantity, UoM | s.23; DI spec | Product master with HS search and UoM list; HS_UOM check | Products page; `internal/service/refdata.go` | TestValidPayload, TestHeaderErrors | Implemented |
 | 5 | Value excluding tax, rate, sales tax, value including tax | s.23 | Exact decimal tax engine, 2-decimal rounding, per-unit and mixed rates | `internal/tax/engine.go`, `rate.go` | TestParseRate, TestSumLines, TestScenarioArithmetic | Implemented |
@@ -165,6 +179,7 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 | 14 | Rejections shown with fixes | DI error codes | Per-line FBR errors with catalogue fixes; invoice stays editable | InvoiceView page; `internal/validate/catalog.go` | TestRejectionFromFBR, TestRejectionIsNotAnError, TestCatalogue | Implemented |
 | 15 | No duplicate reporting after network failures | Integrity | Failure classification: not sent → retry; ambiguous → Needs reconciliation | `internal/fbr/client.go`; `internal/service/submit.go` | TestTimeoutBecomesUncertainAndIsReconciled, TestTimeoutAfterRecordingIsUncertain, TestDroppedConnectionIsUncertain, TestConnectionRefusedIsNotSent | Implemented |
 | 16 | Continuity during FBR outages | 150R/150S | Queue with automatic retry; outage incident opened | `internal/service/worker.go`, `health.go` | TestOutageQueuesAndWorkerResubmits, TestServiceUnavailableIsRetryable | Implemented |
+| 16a | Offline invoices uploaded within 24 hours of restoration | Chapter XIV | Immediate resubmission on recovery; dashboard count and age of unreported invoices; provisional printout for queued invoices | `internal/service/health.go`, `worker.go`; Dashboard; `internal/printing/render.go` | TestRecoveryResubmitsQueuedAtOnce, TestRenderWatermarks | Implemented |
 | 17 | Sandbox scenarios before production | IRIS onboarding | 28 scenarios with FBR samples; sandbox and practice runs; progress tracking | Scenarios page; `internal/service/scenarios.go` | TestScenariosInSandbox | Implemented |
 | 18 | scenarioId only in sandbox | DI v1.12 | Stripped outside the sandbox | `internal/fbr/client.go` | TestScenarioIdStrippedInProduction | Implemented |
 | 19 | Production token and IP whitelisting | IRIS/PRAL | Encrypted token storage; production switch refused without a token; connection test | Settings → FBR integration; `internal/service/masters.go` | TestProductionRequiresToken, TestUnauthorized | Partial (IP whitelisting is arranged with PRAL) |
@@ -172,7 +187,7 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 | 21 | FBR DI logo on invoice | FBR printing rules | Upload official logo once; text badge fallback | Settings → System; templates | TestRenderA4 | Partial (client uploads official logo) |
 | 22 | Reported invoices cannot be altered | 150S integrity | Database triggers block updates and deletes of accepted invoices, items and audit log; tamper-evident seal | `internal/db/migrations/0001_init.sql`; `internal/service/invoices.go` (seal) | TestMigrateAndTriggers | Implemented |
 | 23 | Returns and reductions by debit note | s.9 Sales Tax Act / Chapter IV Sales Tax Rules (**Verify**); DI spec (errors 0006, 0035, 0036, 0067) | Debit note raised from an accepted invoice with `invoiceRefNo`; date not before the original; value and tax capped at the original; netted off output tax in reports | InvoiceView → Debit note; `internal/validate/validate.go` | TestDebitNote | Implemented |
-| 24 | Cancel/edit only within 72 hours; Commissioner approval later | STGO 01/2026 | Cancellation requires a reason and IRIS reference; after 72 h a Commissioner approval reference | `internal/service/invoices.go` (CancelInvoice) | — (UI flow) | Partial (the cancellation itself is done on IRIS) |
+| 24 | Cancel/edit only within 72 hours; Commissioner approval later | STGO 01/2026; PRAL manual v1.6 | Cancellation requires a reason and IRIS reference; after 72 h a Commissioner approval reference; optional cancellation through FBR's service, recorded only on FBR's confirmation | `internal/service/invoices.go` (CancelInvoice); `internal/fbr/client.go` (CancelOutcome) | TestCancelThroughFBRAPI, TestCancelOutcome | Partial (cancel on IRIS until PRAL publishes the API format) |
 | 25 | Report failures within 24 hours | 150R | Auto-detected incidents; incident register; printable letter | Incident register; `internal/httpapi/h_admin.go` | — | Partial (the client sends the letter) |
 | 26 | Records for 6 years | 150S | Nightly backups with retention; manual backup; download | Settings → System; `internal/service/worker.go` | — | Partial (off-site copies are the client's job) |
 | 27 | Audit trail | Good practice | Append-only, SHA-256 hash-chained log with verification | Audit trail page; `internal/store/audit.go` | TestMigrateAndTriggers | Implemented |
@@ -185,7 +200,8 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 - **IP whitelisting and tokens:** the client (or the practitioner on their behalf) requests these on IRIS / from PRAL.
 - **Official FBR DI logo:** obtain it from FBR/PRAL and upload it once under Settings → System.
 - **Off-site backups:** copy the `backups` folder and `master.key` to separate storage regularly, and keep records for six years.
-- **Cancellation on IRIS:** FBR's public DI API v1.12 does not expose a cancellation call. Cancel on IRIS within 72 hours, then record the cancellation in the product. The product supports a configurable cancellation endpoint should FBR publish one.
+- **Cancellation on IRIS:** FBR's public DI API v1.12 does not define a cancellation call, and PRAL has not published the format of the reported `cancelinvoicedata` service. Until it does, cancel on IRIS within 72 hours, then record the cancellation in the product. When the format is confirmed, enable the API option in `config.json` (§5).
+- **After an outage:** check the dashboard once the connection is back, and make sure the "not yet reported" count reaches zero within 24 hours. File the Rule 150R letter for the incident.
 - **Rule 150R letters:** the product prepares the letter; the client signs and sends it within 24 hours.
 - **Legal updates:** rates, SROs and scenario lists change. Keep the product updated under a support contract and re-check the items marked **Verify**.
 
@@ -194,7 +210,10 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 - SRO 69(I)/2025 (29 January 2025) — Chapter XIV, Sales Tax Rules 2006.
 - SRO 709(I)/2025 and subsequent extensions — compliance phases (**Verify**).
 - Sales Tax General Order 01 of 2026 (31 March 2026) — integrators; 72-hour rule.
-- Finance Act 2026 — penalty amounts (**Verify** against the enacted text).
+- Finance Act 2026 — penalty amounts, s.21(2) suspension, Tier-1 retailer input-tax restriction (**Verify** against the enacted text).
+- Sales Tax Act 1990, s.23(1)(b), s.23(5)/(6), s.40C — invoice particulars, CNIC requirement, electronic invoicing.
+- PRAL Digital Invoicing user manual v1.6 (16 April 2026) — IRIS cancellation screens.
+- Draft SRO 288(I)/2026 — income-tax online integration (draft).
 - PRAL Digital Invoicing technical documentation v1.12 — APIs, fields, scenarios, error codes, QR specification.
 - IRIS → Digital Invoicing — onboarding screens, scenario assignment, token issue.
 

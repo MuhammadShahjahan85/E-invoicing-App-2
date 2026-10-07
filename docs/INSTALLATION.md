@@ -123,8 +123,9 @@ The file is created in the data folder on first start. Restart the service after
 | `tls.certFile`, `tls.keyFile` | *(empty)* = issued by the installation's local CA in `<data>/tls` | Own certificate (PEM) |
 | `tls.hosts` | *(empty)* | Extra DNS names or IP addresses users reach the server by (VPN address, office DNS name); added to the local certificate |
 | `fbr.endpoints` | FBR v1.12 paths on `https://gw.fbr.gov.pk` | Override only if FBR announces new URLs |
+| `fbr.endpoints.cancelPath`, `fbr.endpoints.cancelSandboxPath` | *(empty: cancel on IRIS)* | FBR cancellation service, e.g. `/di_data/v1/di/cancelinvoicedata` and `/di_data/v1/di/cancelinvoicedata_sb`. Set these only after PRAL confirms the request format; the cancel dialog then offers **Cancel with FBR** |
 | `fbr.timeoutSeconds` | `30` | Timeout for each FBR call |
-| `fbr.cnicThreshold` | `100000` | Warn when an unregistered buyer without CNIC receives an invoice above this value (empty disables) |
+| `fbr.cnicThreshold` | `100000` | Warn when an unregistered buyer without CNIC receives an invoice above this value (empty disables). Manufacturers and importers are always warned, whatever the value (s.23(1)(b)) |
 | `worker.intervalSeconds` | `20` | How often the background worker processes the queue |
 | `worker.backupHour` | `23` | Hour (0–23, Pakistan time) for the automatic daily backup; `-1` disables it. The server must be running at that hour. |
 | `worker.backupRetention` | `30` | Number of automatic backups kept |

@@ -39,7 +39,7 @@ Shows:
 - items that need attention (rejected, queued, needing reconciliation);
 - FBR connection health and go-live readiness;
 - the most frequent FBR errors;
-- warnings: licence, token expiry, unreported incidents.
+- warnings: licence, token expiry, unreported incidents, and invoices **not yet reported to FBR** with the age of the oldest one.
 
 ## 2. Customers (buyers)
 
@@ -92,7 +92,7 @@ After submission:
 
 | Case | How |
 |---|---|
-| Unregistered buyer | Further tax at 4% is added automatically to taxable lines (not to exempt or zero-rated lines) |
+| Unregistered buyer | Further tax at 4% is added automatically to taxable lines (not to exempt or zero-rated lines). If your company is a **manufacturer or importer**, record the buyer's CNIC or NTN: section 23(1)(b) requires it and the system warns when it is missing. Other sellers are warned above Rs 100,000. |
 | Third Schedule goods | Enter the printed retail price per unit; sales tax is charged on the retail value |
 | Reduced rate / exempt / zero-rated | Choose the sale type and rate, and enter the SRO schedule and serial number |
 | Withholding agent buyer | Set on the customer; *Amount payable* is reduced by the withheld tax |
@@ -106,7 +106,7 @@ After submission:
 |---|---|---|
 | **Draft** | Saved, not reported | Edit or submit |
 | **Validated** | FBR validation passed, not yet reported | Submit |
-| **Queued** | FBR could not be reached; the system retries automatically | Nothing — it is sent when FBR is reachable (**Retry now** to try at once) |
+| **Queued** | FBR could not be reached; the system retries automatically and resends every queued invoice as soon as the connection is back | Nothing — it is sent when FBR is reachable (**Retry now** to try at once). FBR requires invoices issued offline to be uploaded within 24 hours of the connection being restored, so check the dashboard after an outage. **Print provisional copy** gives the customer a copy marked "PENDING FBR REPORTING"; print the final copy once it is accepted. |
 | **Submitting** | Being sent | Wait |
 | **Accepted by FBR** | Reported; FBR number issued; locked | Print, deliver |
 | **Rejected** | FBR refused it | Edit and resubmit |
@@ -150,6 +150,8 @@ FBR allows cancellation or editing through its system only **within 72 hours** o
 
 1. Cancel the invoice on **IRIS → Digital Invoicing**.
 2. In the product, open the invoice → **Cancel invoice**. Enter the reason and the IRIS reference. After 72 hours, also enter the Commissioner's approval reference.
+
+If your administrator has enabled FBR's cancellation service (Installation guide, `fbr.endpoints.cancelPath`), the dialog offers **Cancel with FBR** instead. The request goes straight to FBR, and the invoice is marked cancelled only when FBR confirms it.
 
 The invoice is then marked cancelled and prints with a CANCELLED watermark.
 
