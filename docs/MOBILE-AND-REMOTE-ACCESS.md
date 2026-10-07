@@ -14,6 +14,14 @@ Open `https://<server-address>:8443/` in Chrome, Edge, Firefox or Safari, for ex
 
 **Mobile app & access** in the menu shows a QR code for each of the server's network addresses. Scan it with a phone camera to open the system on that phone.
 
+<p>
+<img src="images/phone-dashboard.png" alt="Dashboard on a phone" width="240">
+<img src="images/phone-menu.png" alt="Menu on a phone" width="240">
+<img src="images/phone-invoice.png" alt="Accepted invoice with FBR number and QR code on a phone" width="240">
+</p>
+
+![Mobile app & access page](images/mobile-access.png)
+
 ## 2. Installing the app on a phone or tablet
 
 Browsers only install apps from a **trusted HTTPS** connection. Do the following once per phone.

@@ -223,7 +223,17 @@ Every action is logged with user, time and details: logins, invoices, changes, c
 
 Open **Mobile app & access** in the menu. It has a QR code to open the system on your phone, an **Install** button (or instructions for Android and iPhone) and the certificate the phone needs to trust the server. On a phone, the menu opens from the **☰** button. See [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md).
 
+![Mobile app & access](images/mobile-access.png)
+
+<p>
+<img src="images/phone-dashboard.png" alt="Dashboard on a phone" width="240">
+<img src="images/phone-menu.png" alt="Menu on a phone" width="240">
+<img src="images/phone-invoice.png" alt="Accepted invoice on a phone" width="240">
+</p>
+
 ## 16. Settings
+
+![FBR integration settings](images/fbr-settings.png)
 
 | Page | Purpose |
 |---|---|

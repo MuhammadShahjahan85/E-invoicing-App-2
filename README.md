@@ -24,6 +24,8 @@ It is a single program with a built-in web interface. It is installed on the cli
 | ![Invoice view](docs/images/invoice-view.png) | ![Printed invoice](docs/images/print-a4.png) |
 | **Sandbox scenarios (FBR certification)** | **Reports (Annexure-C reconciliation)** |
 | ![Scenarios](docs/images/scenarios.png) | ![Reports](docs/images/reports.png) |
+| **Mobile app & access (QR code, install, certificate)** | **On a phone: dashboard, menu and accepted invoice** |
+| ![Mobile app & access](docs/images/mobile-access.png) | <img src="docs/images/phone-dashboard.png" alt="Phone dashboard" width="31%"> <img src="docs/images/phone-menu.png" alt="Phone menu" width="31%"> <img src="docs/images/phone-invoice.png" alt="Phone invoice" width="31%"> |
 
 ## Features
 

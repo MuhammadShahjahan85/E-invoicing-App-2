@@ -59,8 +59,8 @@ Everything runs in one process with no external services. The database is a sing
                        REJECTED ◄────── SUBMITTING ──────► ACCEPTED ──► CANCELLED
                        (FBR errors)        │   │  FBR 00      (locked)    (after IRIS
                                            │   │                           cancellation)
-                         not sent / 502 /  │   │  timeout after send,
-                         503 / auth fail   ▼   ▼  5xx, bad response
+                         not sent / 503 /  │   │  timeout after send,
+                         429 / auth fail   ▼   ▼  502 or other 5xx, bad response
                                        QUEUED  UNCERTAIN ("Needs reconciliation")
                                   (auto retry)  → accepted (FBR no. entered) / retry / draft
 ```
@@ -69,31 +69,35 @@ Submit sequence (`internal/service/submit.go`):
 
 1. Lock the invoice (per-invoice mutex). Already ACCEPTED → return it (idempotent). SUBMITTING/UNCERTAIN → refuse.
 2. Run local validation; any error blocks submission.
-3. Check environment prerequisites: token; licence for production.
+3. Check environment prerequisites: token; licence for production (not for invoices already issued and queued).
 4. Build the payload, store it with its hash, and mark the invoice SUBMITTING **before** sending.
-5. Optionally call `validateinvoicedata`, then `postinvoicedata`.
-6. Classify the outcome (`internal/fbr/client.go`):
+5. Detach from the caller's context, so the exchange and the recording of its outcome complete even if the browser or ERP disconnects (the FBR client's timeout bounds the calls).
+6. Optionally call `validateinvoicedata`, then `postinvoicedata`.
+7. Classify the outcome (`internal/fbr/client.go`):
 
 | Outcome | Classification | Status |
 |---|---|---|
 | FBR status 00 | — | **ACCEPTED**: FBR numbers stored, seal computed, in one transaction |
 | FBR status 01 | — | **REJECTED** with per-line errors |
 | Connection refused / DNS failure (request never written) | `not_sent` | **QUEUED**, backoff 30 s × 2ⁿ up to 30 min |
-| HTTP 502/503/429 | `unavailable` | **QUEUED** |
+| HTTP 503/429 (and 502 on read-only calls) | `unavailable` | **QUEUED** |
 | HTTP 401/403 | `auth` | **QUEUED** for 15 min; auth-failure incident |
-| Timeout or broken connection after the request was written; other 5xx; undecodable response | `uncertain` / `decode` | **UNCERTAIN**: never retried automatically |
+| Timeout or broken connection after the request was written; 502 or other 5xx on posting; undecodable response | `uncertain` / `decode` | **UNCERTAIN**: never retried automatically |
 | Other 4xx | `client` | **REJECTED** |
 
-On startup, invoices left in SUBMITTING by a crash are moved to UNCERTAIN (`RecoverStuckSubmissions`). The worker:
+Invoices queued for connectivity or token reasons record `offline_since`; they stay on the dashboard's "not yet reported" count until FBR accepts them (24-hour upload rule).
 
-- re-submits due QUEUED invoices;
-- opens and closes incidents (FBR unreachable for 10+ minutes; auth failures);
+Invoices left in SUBMITTING are released by `RecoverStuckSubmissions`: never sent → QUEUED; possibly sent → UNCERTAIN. This runs at startup for all of them, and on every worker tick for those older than twice the FBR timeout plus a minute. The worker also:
+
+- re-submits due QUEUED invoices, and the whole queue at once when posting to FBR works again; a connection test after an outage probes with one queued invoice. Invoices refused before reaching FBR (e.g. token removed) are deferred for 15 minutes so they cannot block the queue;
+- opens and closes Rule 150R incidents for production only: FBR unreachable (3+ failed calls over 10+ minutes), auth failures, unexpected stops (heartbeat without an orderly-shutdown marker, `internal/service/integrity.go`) and tampering;
+- runs a daily integrity check of the audit chain and every accepted invoice's seal and chain link;
 - purges expired sessions;
 - writes the daily backup.
 
 ## 4. Data model
 
-The schema is in `internal/db/migrations/0001_init.sql`.
+The schema is in `internal/db/migrations/` (`0001_init.sql`; `0002_offline_since.sql` adds the offline marker). Migrations are applied in order at startup, each once.
 
 **Tables**
 
@@ -112,7 +116,7 @@ The schema is in `internal/db/migrations/0001_init.sql`.
   - reported invoices cannot be deleted;
   - `audit_log` rows can never be updated or deleted.
 - **Invoice seal:** each accepted invoice stores a SHA-256 hash of its canonical content chained to the company's previous seal. The invoice view shows "Seal verified" or "Seal mismatch".
-- **Audit chain:** every audit entry stores `hash = SHA-256(previous hash + entry)`. **Verify integrity** recomputes the chain.
+- **Audit chain:** every audit entry stores `hash = SHA-256(previous hash + entry)`. **Verify integrity** (and the worker, daily) recomputes the chain and every invoice seal; a problem opens a tampering incident. The hashes are not keyed, so they detect edits made without recomputing them; protecting the server and database file remains essential.
 
 ## 5. Security
 
