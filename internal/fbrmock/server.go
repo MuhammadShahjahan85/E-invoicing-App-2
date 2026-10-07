@@ -27,6 +27,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// pkt is Pakistan Standard Time (UTC+5, no daylight saving), used for FBR timestamps.
+var pkt = func() *time.Location {
+	if l, err := time.LoadLocation("Asia/Karachi"); err == nil {
+		return l
+	}
+	return time.FixedZone("PKT", 5*3600)
+}()
+
 // FaultKind selects an injected failure for the next post/validate call.
 type FaultKind string
 
@@ -263,7 +271,7 @@ func (s *Server) invoice(sandbox, post bool) http.HandlerFunc {
 		body, _ := io.ReadAll(r.Body)
 		var p fbr.InvoicePayload
 		now := s.Now()
-		dated := now.Format("2006-01-02 15:04:05")
+		dated := now.In(pkt).Format("2006-01-02 15:04:05") // FBR reports Pakistan time
 		if err := fbr.DecodeLenient(body, &p); err != nil {
 			writeJSON(w, http.StatusOK, invoiceResponse{Dated: dated, ValidationResponse: validationResponse{
 				StatusCode: "01", Status: "Invalid", ErrorCode: "0000", Error: "Invalid JSON payload: " + err.Error()}})

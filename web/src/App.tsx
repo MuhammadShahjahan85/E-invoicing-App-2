@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { api, ApiError, onUnauthorized, setCsrf } from './api'
 import { SessionProvider, useSession } from './state'
@@ -209,21 +209,38 @@ function Shell() {
             <Route path="/customers" element={<Customers />} />
             <Route path="/products" element={<Products />} />
             <Route path="/scenarios" element={<Scenarios />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports" element={<RequirePerm perm="reports"><Reports /></RequirePerm>} />
             <Route path="/incidents" element={<Incidents />} />
-            <Route path="/audit" element={<Audit />} />
+            <Route path="/audit" element={<RequirePerm perm="audit"><Audit /></RequirePerm>} />
             <Route path="/help" element={<Help />} />
             <Route path="/password" element={<ChangePassword onDone={() => navigate('/')} />} />
             <Route path="/settings/company" element={<CompanySettings />} />
             <Route path="/settings/fbr" element={<FBRSettings />} />
             <Route path="/settings/printing" element={<PrintSettingsPage />} />
-            <Route path="/settings/users" element={<Users />} />
-            <Route path="/settings/api-keys" element={<ApiKeys />} />
-            <Route path="/settings/system" element={<SystemPage />} />
+            <Route path="/settings/users" element={<RequirePerm perm="users"><Users /></RequirePerm>} />
+            <Route path="/settings/api-keys" element={<RequirePerm perm="apikeys"><ApiKeys /></RequirePerm>} />
+            <Route path="/settings/system" element={<RequirePerm perm="system"><SystemPage /></RequirePerm>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
+    </div>
+  )
+}
+
+/** RequirePerm hides pages the user's role cannot use (e.g. after another user's URL is reused). */
+function RequirePerm({ perm, children }: { perm: string; children: ReactElement }) {
+  const s = useSession()
+  if (s.can(perm)) return children
+  return (
+    <div className="card card-pad">
+      <h2>Not available for your role</h2>
+      <p className="muted">
+        Your role ({s.user.role}) does not have access to this page. Ask an administrator if you need it.
+      </p>
+      <NavLink to="/" className="btn">
+        Go to dashboard
+      </NavLink>
     </div>
   )
 }

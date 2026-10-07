@@ -232,7 +232,7 @@ export default function InvoiceEditor() {
     <>
       <div className="page-head">
         <div>
-          <h1>{editing ? 'Edit invoice' : docType === 'Debit Note' ? 'New debit note' : 'New sales tax invoice'}</h1>
+          <h1>{editing ? (docType === 'Debit Note' ? 'Edit debit note' : 'Edit invoice') : docType === 'Debit Note' ? 'New debit note' : 'New sales tax invoice'}</h1>
           <p>
             {company.name} · {env === 'production' ? 'FBR production' : env === 'sandbox' ? 'FBR sandbox (scenario testing)' : 'Training simulator'}
           </p>
