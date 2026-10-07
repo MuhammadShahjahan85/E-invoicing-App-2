@@ -98,7 +98,7 @@ From now on, every invoice saved with **Save & submit to FBR** is reported in re
 | FBR rejected the invoice | Open it. The FBR errors are listed with fixes. Edit, then submit again. The invoice is not reported until accepted. |
 | Internet/FBR outage | Invoices are **Queued** and sent automatically when FBR is reachable. An incident is opened automatically. |
 | **Needs reconciliation** | FBR may have recorded the invoice, but no definite answer was received. Search for it on IRIS, then use **Reconcile with IRIS**: record the FBR number if found, otherwise resubmit or return it to draft. Never re-enter it as a new invoice — that could report the sale twice. |
-| Price/quantity increase after supply | Raise a **Debit note** from the accepted invoice; it carries the original FBR number. |
+| Goods returned, or value reduced after supply (e.g. post-sale discount) | Raise a **Debit note** from the accepted invoice. It carries the original FBR number and cannot exceed the original invoice's value or sales tax (FBR errors 0036/0067). It reduces output tax in the period. For an upward price revision, issue a supplementary sale invoice for the difference. |
 | Invoice issued in error | Within **72 hours**: cancel it on IRIS, then **Cancel invoice** in the product with the reason and IRIS reference. After 72 hours: obtain the Commissioner's prior approval and enter its reference (STGO 01 of 2026). |
 | System failure, power failure, tampering, prolonged outage | Report to the Commissioner within **24 hours** (rule 150R). Open **Incident register**, print the letter (it lists invoices issued during the incident), send it, and record the date and reference. |
 | Token expiring | Generate a new production token on IRIS and save it before expiry. |

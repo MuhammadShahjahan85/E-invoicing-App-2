@@ -13,6 +13,16 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 > Built to FBR DI technical specification v1.12 and Chapter XIV of the Sales Tax Rules 2006 (SRO 69(I)/2025). Each installation is certified for production through FBR's sandbox scenarios on IRIS. See [docs/FBR-COMPLIANCE-GUIDE.md](docs/FBR-COMPLIANCE-GUIDE.md).
 
+## Screenshots
+
+| Dashboard | Invoice entry with live tax calculation |
+|---|---|
+| ![Dashboard](docs/images/dashboard.png) | ![Invoice editor](docs/images/invoice-editor.png) |
+| **Accepted invoice with FBR number and QR code** | **Printed A4 tax invoice** |
+| ![Invoice view](docs/images/invoice-view.png) | ![Printed invoice](docs/images/print-a4.png) |
+| **Sandbox scenarios (FBR certification)** | **Reports (Annexure-C reconciliation)** |
+| ![Scenarios](docs/images/scenarios.png) | ![Reports](docs/images/reports.png) |
+
 ## Features
 
 **Invoicing**

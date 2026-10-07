@@ -31,6 +31,8 @@ Open the address given by your administrator, e.g. `https://server:8443/`, and s
 
 ### Dashboard
 
+![Dashboard](images/dashboard.png)
+
 Shows:
 
 - invoices accepted today and this month (value and sales tax);
@@ -70,6 +72,8 @@ Shows:
 
 **+ New invoice**
 
+![Invoice editor](images/invoice-editor.png)
+
 1. **Document:** type (*Sale Invoice* or *Debit Note*) and invoice date (today; report at the time of supply). Optionally add your reference, such as an order or ERP number; it prevents duplicates.
 2. **Buyer:** search the customer master, or type the buyer's details for a one-off sale (e.g. *Walk-in customer*, Unregistered).
 3. **Lines:** type to search products, or enter a description, then set HS code, UoM, quantity, price, sale type and rate. Click **▸ SRO, retail price, further/extra tax, discount…** for the extra fields.
@@ -96,6 +100,8 @@ After submission:
 
 ## 5. Invoice statuses
 
+![Invoice list](images/invoices.png)
+
 | Status | Meaning | What to do |
 |---|---|---|
 | **Draft** | Saved, not reported | Edit or submit |
@@ -111,6 +117,8 @@ Accepted invoices **cannot be edited or deleted**. Corrections are made by debit
 
 ## 6. Printing
 
+![Accepted invoice](images/invoice-view.png)
+
 On an accepted invoice, click **Print A4** or **Print receipt (80 mm)**. The print shows:
 
 - seller and buyer particulars;
@@ -118,11 +126,23 @@ On an accepted invoice, click **Print A4** or **Print receipt (80 mm)**. The pri
 - amount in words;
 - the **FBR invoice number**, **QR code** and **FBR Digital Invoicing logo**.
 
-The first print is the original. Later prints are marked **DUPLICATE**. Copies per print (buyer / seller / office copy), logo, terms and footer are set under **Settings → Invoice printing**.
+![Printed invoice](images/print-a4.png)
+
+The first print is the original. Later prints are marked **DUPLICATE**.
+
+Copies per print (buyer / seller / office copy), logo, terms and footer are set under **Settings → Invoice printing**.
 
 ## 7. Debit notes
 
-Open the accepted sale invoice and click **Debit note**. A draft debit note opens with the original lines and the original FBR invoice number. Adjust the lines to the amount of the adjustment, then **Save & submit to FBR**. The original invoice shows the debit notes accepted against it.
+Use a debit note when goods are **returned** or the **value of a reported sale is reduced** after supply, for example a post-sale discount or short supply.
+
+1. Open the accepted sale invoice and click **Debit note**. A draft debit note opens with the original lines and the original FBR invoice number.
+2. Reduce the quantities and values to the returned or reduced amount. A note cannot exceed the original invoice's value or sales tax.
+3. Click **Save & submit to FBR**.
+
+The original invoice shows the debit notes accepted against it. Reports list debit notes separately and deduct them from output tax ("Net sales tax" in the monthly summary).
+
+For an upward price revision, issue a supplementary sale invoice for the difference instead.
 
 ## 8. Cancelling an invoice
 
@@ -157,6 +177,8 @@ Re-importing a file never duplicates invoices whose `invoice_ref` already exists
 
 ## 11. Reports
 
+![Reports](images/reports.png)
+
 **Reports** includes only documents accepted by FBR:
 
 - **Sales register (line level):** reconcile with Annexure-C of the sales tax return;
@@ -168,6 +190,8 @@ Re-importing a file never duplicates invoices whose `invoice_ref` already exists
 Choose the period and environment, then **Download CSV** or **Download Excel**.
 
 ## 12. Sandbox scenarios
+
+![Scenarios](images/scenarios.png)
 
 Used once per company before going live (see [FBR-ONBOARDING-GUIDE.md](FBR-ONBOARDING-GUIDE.md)):
 

@@ -99,7 +99,7 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `externalRef` | string | Strongly recommended | Your ERP invoice number. **Idempotency key**: sending the same value again returns the existing invoice instead of creating a duplicate. |
-| `docType` | string | No | `"Sale Invoice"` (default) or `"Debit Note"` |
+| `docType` | string | No | `"Sale Invoice"` (default) or `"Debit Note"`. A debit note records a return or reduction against an accepted invoice: positive amounts, capped at the original. |
 | `invoiceDate` | string | No | `YYYY-MM-DD`; defaults to today (Pakistan time) |
 | `customerId` | number | One of `customerId` / `buyer` | Use a customer from the master |
 | `buyer` | object | One of `customerId` / `buyer` | Ad-hoc buyer: `ntnCnic`, `name`, `province`, `address`, `registrationType` (`Registered` / `Unregistered`) |
