@@ -2,6 +2,7 @@
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, errorMessage, qs } from '../api'
 import { Empty, ErrorBox, Field, HSCodeInput, Modal, Pager, Spinner, useLoad } from '../components/ui'
 import { money, todayPK } from '../format'
@@ -34,8 +35,15 @@ const blank: Partial<Product> = {
 export default function Products() {
   const s = useSession()
   const cp = useCompanyPath()
-  const [q, setQ] = useState('')
-  const [search, setSearch] = useState('')
+  const [params] = useSearchParams()
+  const urlQ = params.get('q') ?? ''
+  const [q, setQ] = useState(urlQ)
+  const [search, setSearch] = useState(urlQ)
+  // Opening the page from the global search fills the search box.
+  useEffect(() => {
+    setQ(urlQ)
+    setSearch(urlQ)
+  }, [urlQ])
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState<Partial<Product> | null>(null)
   const limit = 50

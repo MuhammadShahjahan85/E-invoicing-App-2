@@ -33,6 +33,9 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("PUT /api/v1/companies/{cid}/logo", s.perm(PermCompanyWrite, s.handlePutLogo))
 	m.HandleFunc("DELETE /api/v1/companies/{cid}/logo", s.perm(PermCompanyWrite, s.handleDeleteLogo))
 	m.HandleFunc("GET /api/v1/companies/{cid}/dashboard", s.perm(PermRead, s.handleDashboard))
+	m.HandleFunc("GET /api/v1/companies/{cid}/alerts", s.perm(PermRead, s.handleAlerts))
+	m.HandleFunc("GET /api/v1/companies/{cid}/search", s.perm(PermRead, s.handleSearch))
+	m.HandleFunc("GET /api/v1/companies/{cid}/compliance", s.perm(PermReports, s.handleCompliance))
 
 	// Masters.
 	m.HandleFunc("GET /api/v1/companies/{cid}/customers", s.perm(PermRead, s.handleListCustomers))
@@ -63,6 +66,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("POST /api/v1/companies/{cid}/invoices/{id}/resolve", s.perm(PermInvoiceManage, s.handleResolveInvoice))
 	m.HandleFunc("POST /api/v1/companies/{cid}/invoices/{id}/cancel", s.perm(PermInvoiceManage, s.handleCancelInvoice))
 	m.HandleFunc("POST /api/v1/companies/{cid}/invoices/{id}/debit-note", s.perm(PermInvoiceManage, s.handleDebitNote))
+	m.HandleFunc("POST /api/v1/companies/{cid}/invoices/{id}/duplicate", s.perm(PermInvoiceWrite, s.handleDuplicateInvoice))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/payload", s.perm(PermRead, s.handleInvoicePayload))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/calls", s.perm(PermRead, s.handleInvoiceCalls))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/print", s.perm(PermRead, s.handlePrint))

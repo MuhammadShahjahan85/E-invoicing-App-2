@@ -8,7 +8,9 @@ import App from './App'
 import { ToastProvider } from './state'
 import './styles.css'
 import { registerPWA } from './pwa'
+import { applyTheme, getTheme } from './theme'
 
+applyTheme(getTheme())
 registerPWA()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

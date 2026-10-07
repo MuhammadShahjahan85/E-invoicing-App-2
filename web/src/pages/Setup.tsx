@@ -5,6 +5,8 @@ import { useState, type FormEvent } from 'react'
 import { api, errorMessage } from '../api'
 import { Field } from '../components/ui'
 import BrandFooter from '../components/BrandFooter'
+import { Lockup } from '../components/Brand'
+import { ArrowRight, CircleAlert } from 'lucide-react'
 
 const provinces = ['PUNJAB', 'SINDH', 'KHYBER PAKHTUNKHWA', 'BALOCHISTAN', 'CAPITAL TERRITORY', 'GILGIT BALTISTAN', 'AZAD JAMMU AND KASHMIR']
 const activities = ['Manufacturer', 'Importer', 'Distributor', 'Wholesaler', 'Exporter', 'Retailer', 'Service Provider', 'Other']
@@ -72,15 +74,29 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="center-page">
-      <form className="card card-pad auth-card wide" onSubmit={submit}>
-        <h1>Welcome — initial setup</h1>
-        <p className="muted">
-          Create the administrator account and register your business exactly as it appears on FBR's IRIS portal. You start in the offline training
-          simulator; connect to the FBR sandbox and production later under <b>FBR integration</b>.
-        </p>
-        {error && <div className="alert alert-error">{error}</div>}
-        <h3>Administrator</h3>
+    <div className="setup-wrap">
+      <div className="setup-hero">
+        <div className="setup-hero-inner">
+          <Lockup size={44} />
+          <h1>Welcome — let's set up your system</h1>
+          <p>
+            Create the administrator account and register your business exactly as it appears on FBR's IRIS portal. You start in the offline training
+            simulator; connect to the FBR sandbox and production later under <b>FBR integration</b>.
+          </p>
+        </div>
+      </div>
+      <div className="setup-card">
+      <form className="card" onSubmit={submit}>
+        {error && (
+          <div className="alert alert-error">
+            <CircleAlert size={18} />
+            <div className="alert-body">{error}</div>
+          </div>
+        )}
+        <div className="form-section">
+          <span className="num">1</span>
+          <h3>Administrator account</h3>
+        </div>
         <div className="form-grid">
           <Field label="Username">
             <input value={f.adminUsername} onChange={(e) => set('adminUsername', e.target.value)} />
@@ -95,8 +111,10 @@ export default function Setup({ onDone }: { onDone: () => void }) {
             <input type="password" value={f.confirm} onChange={(e) => set('confirm', e.target.value)} />
           </Field>
         </div>
-        <hr />
-        <h3>Business (seller)</h3>
+        <div className="form-section">
+          <span className="num">2</span>
+          <h3>Your business (the seller on every invoice)</h3>
+        </div>
         <div className="form-grid">
           <Field label="Business name (as on IRIS)" span={2}>
             <input value={f.name} onChange={(e) => set('name', e.target.value)} required />
@@ -127,7 +145,11 @@ export default function Setup({ onDone }: { onDone: () => void }) {
             <input type="email" value={f.email} onChange={(e) => set('email', e.target.value)} />
           </Field>
         </div>
-        <div className="field mt">
+        <div className="form-section">
+          <span className="num">3</span>
+          <h3>Digital Invoicing profile</h3>
+        </div>
+        <div className="field">
           <label>Business activity (as selected on IRIS Digital Invoicing)</label>
           <div className="pill-list">
             {activities.map((a) => (
@@ -149,12 +171,13 @@ export default function Setup({ onDone }: { onDone: () => void }) {
           <span className="hint">These determine which FBR sandbox scenarios you must pass before production.</span>
         </div>
         <div className="form-actions">
-          <button className="btn btn-primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Complete setup'}
+          <button className="btn btn-primary btn-lg" disabled={busy}>
+            {busy ? 'Saving…' : 'Complete setup'} {!busy && <ArrowRight size={17} />}
           </button>
         </div>
-        <BrandFooter />
       </form>
+      <BrandFooter />
+      </div>
     </div>
   )
 }

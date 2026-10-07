@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, errorMessage } from '../api'
-import { ErrorBox, Modal, Spinner, useLoad } from '../components/ui'
+import { ErrorBox, Modal, useLoad, PageSpinner } from '../components/ui'
 import { dateTimeFmt, money, qty } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
 import type { Invoice, ScenarioOverview, ScenarioRun, ScenarioStatus } from '../types'
@@ -23,7 +23,7 @@ export default function Scenarios() {
   const company = s.company!
   const canRun = s.can('scenarios')
 
-  if (loading && !data) return <Spinner />
+  if (loading && !data) return <PageSpinner />
   if (error) return <ErrorBox error={error} />
   if (!data) return null
 

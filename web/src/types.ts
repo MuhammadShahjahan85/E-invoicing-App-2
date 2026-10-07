@@ -60,6 +60,8 @@ export interface Company {
   withholdingFraction: number
   sendInternalRef: boolean
   validateBeforePost: boolean
+  returnPaymentDay: number
+  returnFilingDay: number
   hasLogo: boolean
   printSettings: PrintSettings
   active: boolean
@@ -356,6 +358,133 @@ export interface DashboardData {
   unreportedIncidents: number
   tokenWarning: string
   license: LicenseStatus
+  deadlines: ReturnDeadline[]
+  recent?: Invoice[]
+  trend?: PeriodRow[]
+  topBuyers?: CustomerRow[]
+  topItems?: ItemRow[]
+  reference?: { lastSync: string; hsSource: string; hsCodes: number }
+}
+
+export interface ReturnDeadline {
+  period: string
+  periodLabel: string
+  kind: 'payment' | 'filing'
+  due: string
+  daysLeft: number
+}
+
+export interface PeriodRow {
+  period: string
+  saleInvoices: number
+  debitNotes: number
+  valueExclST: number
+  salesTax: number
+  furtherTax: number
+  debitNoteValue: number
+  debitNoteSalesTax: number
+  stWithheld: number
+}
+
+export interface CustomerRow {
+  buyerNtnCnic: string
+  buyerName: string
+  buyerRegistrationType: string
+  invoices: number
+  valueExclST: number
+  salesTax: number
+  furtherTax: number
+  stWithheld: number
+  totalValue: number
+}
+
+export interface ItemRow {
+  hsCode: string
+  description: string
+  lines: number
+  valueExclST: number
+  salesTax: number
+}
+
+export interface TaxSummaryRow {
+  docType: string
+  saleType: string
+  rate: string
+  invoices: number
+  lines: number
+  valueExclST: number
+  retailValue: number
+  salesTax: number
+  furtherTax: number
+  extraTax: number
+  fed: number
+  stWithheld: number
+}
+
+export interface PeriodCheck {
+  id: string
+  ok: boolean
+  title: string
+  detail: string
+  link?: string
+}
+
+export interface PeriodReview {
+  period: string
+  periodLabel: string
+  from: string
+  to: string
+  environment: Env
+  deadlines: ReturnDeadline[]
+  summary: PeriodRow
+  bySaleType: TaxSummaryRow[] | null
+  statuses: { status: string; docType: string; count: number }[] | null
+  incidents: Incident[] | null
+  checks: PeriodCheck[]
+  counts: Record<string, number>
+  topItems: ItemRow[] | null
+  topBuyers: CustomerRow[] | null
+}
+
+export interface Alert {
+  id: string
+  severity: 'error' | 'warning' | 'info'
+  title: string
+  detail: string
+  link?: string
+}
+
+export interface SearchResults {
+  q: string
+  invoices: Invoice[]
+  customers: Customer[]
+  products: Product[]
+  hsCodes: HSCode[]
+}
+
+export interface RefStatus {
+  entries: { key: string; kind: string; source: string; fetchedAt: string }[] | null
+  hsCodes: number
+  hsSource: string
+  lastSync: string
+  environment: Env
+}
+
+export interface SaleTypeRef {
+  id: number
+  description: string
+  known: boolean
+  info: SaleType
+}
+
+export interface BuyerStatus {
+  regNo: string
+  statlActive: boolean
+  statlStatus: string
+  registrationType: string
+  registered: boolean
+  checkedAt: string
+  error?: string
 }
 
 export interface Incident {

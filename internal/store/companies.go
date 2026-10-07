@@ -73,14 +73,14 @@ type Company struct {
 	ValidateBeforePost    bool               `json:"validateBeforePost"`
 	// ReturnPaymentDay and ReturnFilingDay are the days of the month after a
 	// tax period by which sales tax is paid and the return is filed.
-	ReturnPaymentDay int `json:"returnPaymentDay"`
-	ReturnFilingDay  int `json:"returnFilingDay"`
-	HasLogo               bool               `json:"hasLogo"`
-	LogoMime              string             `json:"-"`
-	PrintSettings         PrintSettings      `json:"printSettings"`
-	Active                bool               `json:"active"`
-	CreatedAt             string             `json:"createdAt"`
-	UpdatedAt             string             `json:"updatedAt"`
+	ReturnPaymentDay int           `json:"returnPaymentDay"`
+	ReturnFilingDay  int           `json:"returnFilingDay"`
+	HasLogo          bool          `json:"hasLogo"`
+	LogoMime         string        `json:"-"`
+	PrintSettings    PrintSettings `json:"printSettings"`
+	Active           bool          `json:"active"`
+	CreatedAt        string        `json:"createdAt"`
+	UpdatedAt        string        `json:"updatedAt"`
 }
 
 const companyCols = `id, name, ntn_cnic, strn, province, province_code, address, city, phone, email,

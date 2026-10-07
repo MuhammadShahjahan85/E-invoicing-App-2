@@ -4,7 +4,7 @@
 import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, qs } from '../api'
-import { Empty, ErrorBox, Pager, Spinner, useLoad } from '../components/ui'
+import { Empty, ErrorBox, Pager, useLoad, PageSpinner } from '../components/ui'
 import { dateFmt, dateTimeFmt, envLabels, money, monthStartPK, qty, todayPK } from '../format'
 import { useCompanyPath, useSession } from '../state'
 import type { FBRCall, Paged } from '../types'
@@ -78,7 +78,7 @@ export default function Reports() {
 function ReportTable({ kind, params }: { kind: Exclude<Kind, 'calls'>; params: string }) {
   const cp = useCompanyPath()
   const { data, error, loading } = useLoad(() => api.get<Row[]>(`${cp}/reports/${kind}${params}`), [cp, kind, params])
-  if (loading && !data) return <Spinner />
+  if (loading && !data) return <PageSpinner />
   if (error) return <ErrorBox error={error} />
   if (!data || data.length === 0) return <Empty>No accepted documents in this period.</Empty>
   const sum = (k: string) => data.reduce((a, r) => a + Number(r[k] ?? 0), 0)
@@ -296,7 +296,7 @@ function Calls() {
   const [open, setOpen] = useState<number | null>(null)
   const limit = 100
   const { data, error, loading } = useLoad(() => api.get<Paged<FBRCall>>(`${cp}/calls${qs({ limit, offset })}`), [cp, offset])
-  if (loading && !data) return <Spinner />
+  if (loading && !data) return <PageSpinner />
   if (error) return <ErrorBox error={error} />
   if (!data || data.items.length === 0) return <Empty>No calls to FBR yet.</Empty>
   return (
