@@ -16,7 +16,9 @@ export default function Audit() {
   const [verify, setVerify] = useState<{ intact: boolean; brokenAt: number; checked: number } | null>(null)
   const [verifyError, setVerifyError] = useState('')
   const limit = 100
-  const companyId = onlyCompany ? s.company?.id : undefined
+  // Users limited to some companies can only read their companies' entries.
+  const restricted = !s.user.allCompanies && s.user.role !== 'admin'
+  const companyId = onlyCompany || restricted ? s.company?.id : undefined
   const { data, error, loading } = useLoad(
     () => api.get<Paged<AuditEntry>>(`/audit${qs({ entity, action, from, to, companyId, limit, offset })}`),
     [entity, action, from, to, companyId, offset],
@@ -76,9 +78,11 @@ export default function Audit() {
           <input placeholder="Action starts with… (e.g. invoice.)" value={action} onChange={(e) => reset(() => setAction(e.target.value))} style={{ maxWidth: 220 }} />
           <input type="date" value={from} onChange={(e) => reset(() => setFrom(e.target.value))} style={{ width: 'auto' }} aria-label="From" />
           <input type="date" value={to} onChange={(e) => reset(() => setTo(e.target.value))} style={{ width: 'auto' }} aria-label="To" />
-          <label className="check">
-            <input type="checkbox" checked={onlyCompany} onChange={(e) => reset(() => setOnlyCompany(e.target.checked))} /> Only {s.company?.name}
-          </label>
+          {!restricted && (
+            <label className="check">
+              <input type="checkbox" checked={onlyCompany} onChange={(e) => reset(() => setOnlyCompany(e.target.checked))} /> Only {s.company?.name}
+            </label>
+          )}
         </div>
         <ErrorBox error={error} />
         {loading && !data ? (

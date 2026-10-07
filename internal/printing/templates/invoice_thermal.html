@@ -25,7 +25,7 @@
 </head>
 <body>
 <div class="r">
-  {{if .ShowToolbar}}<div class="toolbar"><button onclick="window.print()">Print</button></div>{{end}}
+  {{if .ShowToolbar}}<div class="toolbar"><button id="print-btn" type="button">Print</button></div>{{end}}
   {{if .CompanyLogo}}<div class="c"><img src="{{.CompanyLogo}}" alt="" style="max-width:40mm;max-height:16mm"></div>{{end}}
   <div class="c b">{{.Invoice.SellerName}}</div>
   <div class="c">{{.Invoice.SellerAddress}}</div>
@@ -70,6 +70,12 @@
   <div class="hr"></div>
   <div class="c">{{.Settings.FooterText}}</div>
 </div>
-{{if .AutoPrint}}<script>window.addEventListener('load', function(){ window.print(); });</script>{{end}}
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+  if ({{.AutoPrint}}) window.addEventListener('load', function () { window.print(); });
+})();
+</script>
 </body>
 </html>

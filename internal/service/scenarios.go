@@ -21,11 +21,11 @@ type ScenarioStatus struct {
 
 // ScenarioOverview lists scenarios and readiness for production.
 type ScenarioOverview struct {
-	Scenarios       []ScenarioStatus `json:"scenarios"`
-	AssignedCount   int              `json:"assignedCount"`
-	PassedCount     int              `json:"passedCount"`
-	ReadyForProduction bool          `json:"readyForProduction"`
-	Suggested       []string         `json:"suggested"`
+	Scenarios          []ScenarioStatus `json:"scenarios"`
+	AssignedCount      int              `json:"assignedCount"`
+	PassedCount        int              `json:"passedCount"`
+	ReadyForProduction bool             `json:"readyForProduction"`
+	Suggested          []string         `json:"suggested"`
 }
 
 // Scenarios returns the scenario overview for a company.

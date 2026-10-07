@@ -106,7 +106,8 @@ func ReadRows(filename string, r io.Reader) ([]map[string]string, error) {
 	}
 	var table [][]string
 	if strings.HasSuffix(strings.ToLower(filename), ".xlsx") {
-		f, err := excelize.OpenReader(bytes.NewReader(data))
+		// Bound decompression so that a crafted workbook cannot exhaust memory or disk.
+		f, err := excelize.OpenReader(bytes.NewReader(data), excelize.Options{UnzipSizeLimit: 128 << 20, UnzipXMLSizeLimit: 32 << 20})
 		if err != nil {
 			return nil, fmt.Errorf("cannot read Excel file: %w", err)
 		}

@@ -12,7 +12,7 @@ import (
 type mem map[string]string
 
 func (m mem) GetSetting(_ context.Context, k string) (string, error) { return m[k], nil }
-func (m mem) SetSetting(_ context.Context, k, v string) error          { m[k] = v; return nil }
+func (m mem) SetSetting(_ context.Context, k, v string) error        { m[k] = v; return nil }
 
 func TestLicenceLifecycle(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)

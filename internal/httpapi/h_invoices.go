@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
 	"einvoicing/internal/printing"
+	"einvoicing/internal/security"
 	"einvoicing/internal/service"
 	"einvoicing/internal/store"
 
@@ -57,6 +59,14 @@ func (s *Server) readInvoiceInput(r *http.Request, rc *reqCtx) (*service.Invoice
 		conv := inputFromFBR(req.FBRPayload)
 		conv.ExternalRef, conv.Submit, conv.Environment, conv.CustomerID = in.ExternalRef, in.Submit, in.Environment, in.CustomerID
 		in = conv
+	}
+	// The environment is chosen by the company setting (Settings → FBR integration),
+	// which requires company.write and the go-live checks. A request may name it
+	// only to confirm it, never to post to another environment.
+	if in.Environment != "" {
+		if env := s.companyEnv(r); in.Environment != env {
+			return nil, service.Invalid("environment %q does not match the company's working environment (%s); change it under Settings → FBR integration", in.Environment, env)
+		}
 	}
 	in.Source = "ui"
 	if rc.APIKey != nil {
@@ -220,7 +230,9 @@ func (s *Server) invoiceAction(w http.ResponseWriter, r *http.Request, fn func(i
 }
 
 func (s *Server) handleValidateInvoice(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
-	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) { return s.Svc.ValidateWithFBR(r.Context(), rc.Actor, cid(r), id) })
+	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) {
+		return s.Svc.ValidateWithFBR(r.Context(), rc.Actor, cid(r), id)
+	})
 }
 
 func (s *Server) handleSubmitInvoice(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -239,7 +251,9 @@ func (s *Server) handleResolveInvoice(w http.ResponseWriter, r *http.Request, rc
 		s.fail(w, err)
 		return
 	}
-	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) { return s.Svc.ResolveUncertain(r.Context(), rc.Actor, cid(r), id, in) })
+	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) {
+		return s.Svc.ResolveUncertain(r.Context(), rc.Actor, cid(r), id, in)
+	})
 }
 
 func (s *Server) handleCancelInvoice(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -248,11 +262,15 @@ func (s *Server) handleCancelInvoice(w http.ResponseWriter, r *http.Request, rc 
 		s.fail(w, err)
 		return
 	}
-	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) { return s.Svc.CancelInvoice(r.Context(), rc.Actor, cid(r), id, in) })
+	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) {
+		return s.Svc.CancelInvoice(r.Context(), rc.Actor, cid(r), id, in)
+	})
 }
 
 func (s *Server) handleDebitNote(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
-	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) { return s.Svc.NewDebitNoteDraft(r.Context(), rc.Actor, cid(r), id) })
+	s.invoiceAction(w, r, func(id int64) (*store.Invoice, error) {
+		return s.Svc.NewDebitNoteDraft(r.Context(), rc.Actor, cid(r), id)
+	})
 }
 
 func (s *Server) handleInvoicePayload(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -325,9 +343,10 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	logo, mime, _ := s.Svc.Store.GetCompanyLogo(ctx, c.ID)
 	fbrLogo, fbrMime := s.fbrLogo(r)
 	q := r.URL.Query()
+	nonce := security.RandomToken(18)
 	var buf bytes.Buffer
 	err = printing.Render(&buf, c, inv, printing.Options{Format: q.Get("format"), AutoPrint: q.Get("autoprint") == "1", ShowToolbar: q.Get("toolbar") != "0",
-		CompanyLogo: logo, CompanyMime: mime, FBRLogo: fbrLogo, FBRLogoMime: fbrMime})
+		CompanyLogo: logo, CompanyMime: mime, FBRLogo: fbrLogo, FBRLogoMime: fbrMime, Nonce: nonce})
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -337,7 +356,7 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 		s.Svc.Audit(ctx, rc.Actor, c.ID, "invoice.print", "invoice", fmt.Sprint(inv.ID), map[string]any{"no": inv.InternalNo, "copy": inv.PrintCount + 1})
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-"+nonce+"'")
 	_, _ = w.Write(buf.Bytes())
 }
 
@@ -377,7 +396,7 @@ func (s *Server) handleQRPNG(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 		s.fail(w, err)
 		return
 	}
-	png, err := printing.QRPNG(content, qInt(r, "scale", 12))
+	png, err := printing.QRPNG(content, qInt(r, "scale", 12)) // scale is clamped to 1..40 px per module
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -402,7 +421,13 @@ func (s *Server) handleTemplateXLSX(w http.ResponseWriter, r *http.Request, rc *
 }
 
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	r.Body = http.MaxBytesReader(w, r.Body, 21<<20)
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			writeErr(w, http.StatusRequestEntityTooLarge, "the file is larger than 20 MB; split it into smaller files")
+			return
+		}
 		writeErr(w, 400, "upload a CSV or XLSX file (multipart field 'file')")
 		return
 	}

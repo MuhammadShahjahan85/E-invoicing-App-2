@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"einvoicing/internal/brand"
+	"einvoicing/internal/security"
 	"einvoicing/internal/service"
 	"einvoicing/internal/store"
 )
@@ -108,12 +109,20 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	q := r.URL.Query()
 	f := store.AuditFilter{Entity: q.Get("entity"), EntityID: q.Get("entityId"), Action: q.Get("action"), From: q.Get("from"), To: q.Get("to"),
 		Limit: qInt(r, "limit", 100), Offset: qInt(r, "offset", 0)}
-	if c := qInt(r, "companyId", 0); c > 0 {
-		if rc.User != nil && !rc.User.CanAccessCompany(int64(c)) {
+	c := int64(qInt(r, "companyId", 0))
+	// Users limited to some companies may only read those companies' entries;
+	// the installation-wide trail (all companies and system events) is for
+	// administrators and users with access to all companies.
+	if c <= 0 && rc.User != nil && !rc.User.AllCompanies && rc.User.Role != store.RoleAdmin {
+		writeErr(w, 403, "choose a company: your account can only view the audit trail of the companies assigned to it")
+		return
+	}
+	if c > 0 {
+		if rc.User != nil && !rc.User.CanAccessCompany(c) {
 			writeErr(w, 403, "no access to this company")
 			return
 		}
-		f.CompanyID = int64(c)
+		f.CompanyID = c
 	}
 	list, total, err := s.Svc.Store.ListAudit(r.Context(), f)
 	if err != nil {
@@ -202,8 +211,7 @@ func (s *Server) handleGetFBRLogo(w http.ResponseWriter, r *http.Request, rc *re
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", mime)
-	_, _ = w.Write(b)
+	serveImage(w, b, mime)
 }
 
 func (s *Server) handlePutFBRLogo(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -292,7 +300,8 @@ var letterTpl = template.Must(template.New("letter").Parse(`<!doctype html><html
 <style>body{font-family:Georgia,"Times New Roman",serif;max-width:180mm;margin:20mm auto;font-size:12pt;line-height:1.5;color:#111}
 td{padding:2px 8px 2px 0;vertical-align:top} .blank{display:inline-block;min-width:60mm;border-bottom:1px solid #000}
 @media print{button{display:none}}</style></head><body>
-<button onclick="window.print()">Print</button>
+<button id="print-btn" type="button">Print</button>
+<script nonce="{{.Nonce}}">document.getElementById('print-btn').addEventListener('click', function () { window.print(); });</script>
 <p>Date: {{.Today}}</p>
 <p>To,<br>The Commissioner Inland Revenue,<br><span class="blank"></span> (Zone / RTO / LTO / CTO)<br>Federal Board of Revenue</p>
 <p>Copy to: Chief (IR Operations), FBR, Islamabad; Digital Invoicing Help Desk, PRAL.</p>
@@ -356,12 +365,13 @@ func (s *Server) handleIncidentLetter(w http.ResponseWriter, r *http.Request, rc
 	if kind == "" {
 		kind = inc.Kind
 	}
-	data := map[string]any{"Company": c, "Incident": inc, "Kind": kind, "Started": fmtPKT(inc.StartedAt), "Ended": "",
+	nonce := security.RandomToken(18)
+	data := map[string]any{"Company": c, "Incident": inc, "Kind": kind, "Started": fmtPKT(inc.StartedAt), "Ended": "", "Nonce": nonce,
 		"Today": time.Now().In(service.PKT).Format("02-Jan-2006"), "Invoices": invs}
 	if inc.EndedAt != "" {
 		data["Ended"] = fmtPKT(inc.EndedAt)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-"+nonce+"'")
 	_ = letterTpl.Execute(w, data)
 }

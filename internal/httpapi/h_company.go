@@ -3,6 +3,7 @@ package httpapi
 import (
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -139,7 +140,16 @@ func (s *Server) handleGetLogo(w http.ResponseWriter, r *http.Request, rc *reqCt
 		http.NotFound(w, r)
 		return
 	}
+	serveImage(w, b, mime)
+}
+
+// reActiveSVG matches SVG content that could run code or embed other documents.
+var reActiveSVG = regexp.MustCompile(`(?i)<script|javascript:|\son[a-z]+\s*=|<foreignobject|<iframe|<embed|<object|<use[^>]+href\s*=\s*["']?(https?:|data:)`)
+
+// serveImage writes an uploaded image so that it can never act as an active document.
+func serveImage(w http.ResponseWriter, b []byte, mime string) {
 	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
 	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(b)
 }
@@ -158,8 +168,8 @@ func readImage(r *http.Request) ([]byte, string, error) {
 	if len(b) > 2<<20 {
 		return nil, "", service.Invalid("image is larger than 2 MB")
 	}
-	if mime == "image/svg+xml" && strings.Contains(strings.ToLower(string(b)), "<script") {
-		return nil, "", service.Invalid("SVG images must not contain scripts")
+	if mime == "image/svg+xml" && reActiveSVG.Match(b) {
+		return nil, "", service.Invalid("SVG images must not contain scripts, event handlers or embedded content; upload a PNG instead")
 	}
 	return b, mime, nil
 }

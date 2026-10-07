@@ -55,9 +55,15 @@
 </head>
 <body>
 {{if .Watermark}}<div class="watermark">{{.Watermark}}</div>{{end}}
-{{if .ShowToolbar}}<div class="toolbar sheet"><button onclick="window.print()">Print</button></div>{{end}}
+{{if .ShowToolbar}}<div class="toolbar sheet"><button id="print-btn" type="button">Print</button></div>{{end}}
 {{range .Sheets}}{{template "a4sheet" .}}{{end}}
-{{if .AutoPrint}}<script>window.addEventListener('load', function(){ window.print(); });</script>{{end}}
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+  if ({{.AutoPrint}}) window.addEventListener('load', function () { window.print(); });
+})();
+</script>
 </body>
 </html>
 {{define "a4sheet"}}

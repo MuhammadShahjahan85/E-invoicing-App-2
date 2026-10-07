@@ -49,7 +49,7 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | POST | `/invoices/{id}/retry` | Retry a queued invoice now |
 | GET | `/invoices/{id}/payload` | The exact JSON sent (or to be sent) to FBR |
 | GET | `/invoices/{id}/print` | Printable HTML. Query: `format=a4\|thermal`, `autoprint=1`, `preview=1` (does not count as a print), `toolbar=0` |
-| GET | `/invoices/{id}/qr.png` | QR code PNG (`?scale=12`), encoding the FBR invoice number |
+| GET | `/invoices/{id}/qr.png` | QR code PNG (`?scale=12`, pixels per module, maximum 40), encoding the FBR invoice number |
 | GET | `/invoices/{id}/qr.svg` | QR code SVG, 1 × 1 inch, version 2 |
 | GET / POST | `/customers` | List (`q`, `limit`, `offset`, `active=1`) / create customer |
 | GET / PUT | `/customers/{id}` | Read / update customer |
@@ -109,6 +109,7 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | `scenarioId` | string | Sandbox only | `SN001`–`SN028`; ignored outside the sandbox |
 | `notes` | string | No | Printed on the invoice |
 | `submit` | boolean | No | `true` = report to FBR immediately after saving |
+| `environment` | string | No | Normally omitted. Invoices always use the company's working environment (Settings → FBR integration). If sent, it must equal that environment, otherwise 422. |
 | `items` | array | Yes | At least one line |
 
 ### 3.2 Line fields

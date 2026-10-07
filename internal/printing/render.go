@@ -27,6 +27,7 @@ type Options struct {
 	AutoPrint   bool
 	ShowToolbar bool
 	Duplicate   bool   // print "DUPLICATE" copy label
+	Nonce       string // CSP nonce for the page's only script
 	CompanyLogo []byte // raw image
 	CompanyMime string
 	FBRLogo     []byte // official FBR DI logo uploaded by the user
@@ -35,10 +36,10 @@ type Options struct {
 }
 
 type line struct {
-	No                                                   int
-	Description, HSCode, SaleType, SRO, UoM, Rate        string
-	Qty, UnitPrice, Discount, Value, Retail              string
-	SalesTax, FurtherTax, ExtraTax, FED, Total           string
+	No                                            int
+	Description, HSCode, SaleType, SRO, UoM, Rate string
+	Qty, UnitPrice, Discount, Value, Retail       string
+	SalesTax, FurtherTax, ExtraTax, FED, Total    string
 }
 
 type totals struct {
@@ -51,18 +52,18 @@ type cols struct{ Discount, Retail, Further, Extra, FED, Withheld bool }
 
 type view struct {
 	Title, InvoiceDate, Watermark, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, ShortSeal string
-	FBRNumber                                                                                         string
-	Company                                                                                           *store.Company
-	Invoice                                                                                           *store.Invoice
-	Settings                                                                                          store.PrintSettings
-	CompanyLogo, FBRLogo                                                                              template.URL
-	QR                                                                                                template.HTML
-	Lines                                                                                             []line
-	Rates                                                                                             []rateRow
-	T                                                                                                 totals
-	Cols                                                                                              cols
-	IsDebitNote, AutoPrint, ShowToolbar                                                               bool
-	Sheets                                                                                            []sheet
+	FBRNumber, Nonce                                                                                 string
+	Company                                                                                          *store.Company
+	Invoice                                                                                          *store.Invoice
+	Settings                                                                                         store.PrintSettings
+	CompanyLogo, FBRLogo                                                                             template.URL
+	QR                                                                                               template.HTML
+	Lines                                                                                            []line
+	Rates                                                                                            []rateRow
+	T                                                                                                totals
+	Cols                                                                                             cols
+	IsDebitNote, AutoPrint, ShowToolbar                                                              bool
+	Sheets                                                                                           []sheet
 }
 
 // sheet is one printed copy of the A4 invoice; CopyLabel shadows the view's.
@@ -95,7 +96,7 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 	if o.Now.IsZero() {
 		o.Now = time.Now()
 	}
-	v := view{Company: c, Invoice: inv, Settings: c.PrintSettings, AutoPrint: o.AutoPrint, ShowToolbar: o.ShowToolbar,
+	v := view{Company: c, Invoice: inv, Settings: c.PrintSettings, AutoPrint: o.AutoPrint, ShowToolbar: o.ShowToolbar, Nonce: o.Nonce,
 		ProductName: brand.ProductName, IsDebitNote: inv.DocType == domain.DocDebitNote}
 	v.Title = "SALES TAX INVOICE"
 	if v.IsDebitNote {

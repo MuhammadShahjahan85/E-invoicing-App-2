@@ -14,9 +14,9 @@ import (
 
 // WorkerOptions configures background processing.
 type WorkerOptions struct {
-	Interval         time.Duration // queue poll interval
-	BackupHour       int           // local hour for the daily backup (-1 disables)
-	BackupRetention  int           // number of automatic backups kept
+	Interval        time.Duration // queue poll interval
+	BackupHour      int           // local hour for the daily backup (-1 disables)
+	BackupRetention int           // number of automatic backups kept
 }
 
 // RunWorker processes the submission queue, reconciles interrupted

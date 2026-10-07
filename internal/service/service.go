@@ -101,7 +101,9 @@ type ErrValidation struct{ Msg string }
 func (e *ErrValidation) Error() string { return e.Msg }
 
 // Invalid builds an ErrValidation.
-func Invalid(format string, args ...any) error { return &ErrValidation{Msg: fmt.Sprintf(format, args...)} }
+func Invalid(format string, args ...any) error {
+	return &ErrValidation{Msg: fmt.Sprintf(format, args...)}
+}
 
 // IsValidation reports whether err is a user-facing validation error.
 func IsValidation(err error) bool {

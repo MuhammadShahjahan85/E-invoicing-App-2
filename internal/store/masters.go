@@ -59,9 +59,9 @@ func scanCustomer(row interface{ Scan(...any) error }) (*Customer, error) {
 
 // ListParams filters list queries.
 type ListParams struct {
-	Q        string
-	Limit    int
-	Offset   int
+	Q          string
+	Limit      int
+	Offset     int
 	OnlyActive bool
 }
 

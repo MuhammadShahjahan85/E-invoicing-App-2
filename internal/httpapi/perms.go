@@ -6,20 +6,20 @@ import "einvoicing/internal/store"
 type Perm string
 
 const (
-	PermSelf           Perm = "self"            // any logged-in user (profile, password)
-	PermRead           Perm = "read"            // view masters, invoices
-	PermCompanyWrite   Perm = "company.write"   // company settings, tokens, reference sync
-	PermCompanyCreate  Perm = "company.create"  // add companies
-	PermMastersWrite   Perm = "masters.write"   // customers, products
-	PermInvoiceWrite   Perm = "invoice.write"   // create/edit/submit invoices
-	PermInvoiceManage  Perm = "invoice.manage"  // cancel, reconcile, debit notes
-	PermReports        Perm = "reports"         // reports and exports
-	PermScenarios      Perm = "scenarios"       // sandbox scenario runs
-	PermUsers          Perm = "users"           // user administration
-	PermAPIKeys        Perm = "apikeys"         // ERP API keys
-	PermAudit          Perm = "audit"           // audit log
-	PermSystem         Perm = "system"          // backups, licence, FBR logo
-	PermIncidents      Perm = "incidents"       // incident register
+	PermSelf          Perm = "self"           // any logged-in user (profile, password)
+	PermRead          Perm = "read"           // view masters, invoices
+	PermCompanyWrite  Perm = "company.write"  // company settings, tokens, reference sync
+	PermCompanyCreate Perm = "company.create" // add companies
+	PermMastersWrite  Perm = "masters.write"  // customers, products
+	PermInvoiceWrite  Perm = "invoice.write"  // create/edit/submit invoices
+	PermInvoiceManage Perm = "invoice.manage" // cancel, reconcile, debit notes
+	PermReports       Perm = "reports"        // reports and exports
+	PermScenarios     Perm = "scenarios"      // sandbox scenario runs
+	PermUsers         Perm = "users"          // user administration
+	PermAPIKeys       Perm = "apikeys"        // ERP API keys
+	PermAudit         Perm = "audit"          // audit log
+	PermSystem        Perm = "system"         // backups, licence, FBR logo
+	PermIncidents     Perm = "incidents"      // incident register
 )
 
 var rolePerms = map[string]map[Perm]bool{

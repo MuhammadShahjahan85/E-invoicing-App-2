@@ -28,10 +28,12 @@ func dummyHash() string {
 }
 
 // ErrAuth is returned for invalid credentials.
-var ErrAuth = errors.New("invalid username or password")
+var ErrAuth = errors.New("invalid username or password (after 5 failed attempts an account is locked for 15 minutes)")
 
 // ErrLocked is returned for locked accounts.
-var ErrLocked = errors.New("account temporarily locked after repeated failed logins; try again in 15 minutes")
+// It carries the same message as ErrAuth so that responses do not reveal
+// which usernames exist or are locked.
+var ErrLocked = errors.New("invalid username or password (after 5 failed attempts an account is locked for 15 minutes)")
 
 // SetupInput is the first-run wizard payload.
 type SetupInput struct {
@@ -101,6 +103,8 @@ func (s *Service) Login(ctx context.Context, username, password, ip, ua string) 
 		return nil, err
 	}
 	if u.LockedUntil != "" && store.ParseTime(u.LockedUntil).After(time.Now()) {
+		security.CheckPassword(u.PasswordHash, password) // same timing as other failures
+		s.Audit(ctx, Actor{UserID: &u.ID, Username: u.Username, IP: ip}, 0, "auth.login_failed", "user", fmt.Sprint(u.ID), "account locked")
 		return nil, ErrLocked
 	}
 	if !u.Active || !security.CheckPassword(u.PasswordHash, password) {
@@ -147,7 +151,9 @@ func (s *Service) Logout(ctx context.Context, a Actor, token string) error {
 }
 
 // ChangePassword changes the current user's password.
-func (s *Service) ChangePassword(ctx context.Context, a Actor, userID int64, oldPw, newPw string) error {
+// keepToken is the caller's own session token, which stays valid; every other
+// session of the user is revoked.
+func (s *Service) ChangePassword(ctx context.Context, a Actor, userID int64, oldPw, newPw, keepToken string) error {
 	u, err := s.Store.GetUser(ctx, userID)
 	if err != nil {
 		return err
@@ -163,6 +169,9 @@ func (s *Service) ChangePassword(ctx context.Context, a Actor, userID int64, old
 		return err
 	}
 	if err := s.Store.SetPassword(ctx, userID, hash, false); err != nil {
+		return err
+	}
+	if err := s.Store.DeleteOtherSessions(ctx, userID, security.SHA256Hex(keepToken)); err != nil {
 		return err
 	}
 	s.Audit(ctx, a, 0, "user.password_changed", "user", fmt.Sprint(userID), nil)

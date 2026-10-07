@@ -13,16 +13,16 @@ import (
 
 // PrintSettings controls the printed invoice layout for a company.
 type PrintSettings struct {
-	PaperSize        string `json:"paperSize"`        // "A4" or "thermal80"
-	WordsStyle       string `json:"wordsStyle"`       // "south_asian" or "international"
-	ShowAmountWords  bool   `json:"showAmountWords"`
-	ShowSignature    bool   `json:"showSignature"`
-	FooterText       string `json:"footerText"`
-	TermsText        string `json:"termsText"`
-	ShowUnitPrice    bool   `json:"showUnitPrice"`
-	ShowHSCode       bool   `json:"showHsCode"`
-	ShowDiscount     bool   `json:"showDiscount"`
-	Copies           int    `json:"copies"`
+	PaperSize       string `json:"paperSize"`  // "A4" or "thermal80"
+	WordsStyle      string `json:"wordsStyle"` // "south_asian" or "international"
+	ShowAmountWords bool   `json:"showAmountWords"`
+	ShowSignature   bool   `json:"showSignature"`
+	FooterText      string `json:"footerText"`
+	TermsText       string `json:"termsText"`
+	ShowUnitPrice   bool   `json:"showUnitPrice"`
+	ShowHSCode      bool   `json:"showHsCode"`
+	ShowDiscount    bool   `json:"showDiscount"`
+	Copies          int    `json:"copies"`
 }
 
 // DefaultPrintSettings returns sensible defaults.

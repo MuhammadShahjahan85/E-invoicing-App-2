@@ -118,12 +118,12 @@ The schema is in `internal/db/migrations/0001_init.sql`.
 
 | Area | Design |
 |---|---|
-| Passwords | bcrypt (cost 12); policy of 8+ characters with letters and digits; lockout for 15 minutes after 5 failures |
+| Passwords | bcrypt (cost 12); policy of 8+ characters with letters and digits; lockout for 15 minutes after 5 failures. Login failures (unknown user, wrong password, locked account) return the same message and timing, so usernames cannot be probed. Changing a password signs out the user's other sessions. |
 | Sessions | Random tokens in an HttpOnly, SameSite cookie with sliding 12-hour expiry; CSRF token required on every state-changing request |
 | API keys | `eik_` prefix; only a SHA-256 hash stored; scoped to one company; limited permissions |
-| Authorisation | Role → permission map (`internal/httpapi/perms.go`); every company-scoped route checks the user's company access |
+| Authorisation | Role → permission map (`internal/httpapi/perms.go`); every company-scoped route checks the user's company access; users limited to some companies see only those companies' audit entries. The FBR environment of an invoice always follows the company setting, so only users allowed to change company settings can move a company to production. |
 | FBR tokens | AES-256-GCM with `master.key` (generated on first start); never returned by the API; never written to logs or the FBR call log |
-| Web | Strict security headers and Content Security Policy; uploaded images restricted to image types, SVG without scripts, max 2 MB |
+| Web | Strict security headers and Content Security Policy (`script-src 'self'`); print and letter pages allow only a per-request nonce'd script. Uploaded images are restricted to image types, max 2 MB; SVGs with scripts, event handlers or embedded content are rejected, and images are served with a sandboxing CSP. Import uploads are capped at 20 MB with bounded XLSX decompression; QR PNG size is capped. |
 | Transport | HTTPS by default (self-signed or own certificate) |
 | Licence | Ed25519 signature verified offline against the embedded public key |
 

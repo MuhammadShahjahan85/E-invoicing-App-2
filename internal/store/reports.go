@@ -141,15 +141,15 @@ func (s *Store) TaxSummary(ctx context.Context, f ReportFilter) ([]TaxSummaryRow
 
 // PeriodRow aggregates by month.
 type PeriodRow struct {
-	Period          string          `json:"period"` // YYYY-MM
-	SaleInvoices    int             `json:"saleInvoices"`
-	DebitNotes      int             `json:"debitNotes"`
-	ValueExclST     decimal.Decimal `json:"valueExclST"`
-	SalesTax        decimal.Decimal `json:"salesTax"`
-	FurtherTax      decimal.Decimal `json:"furtherTax"`
-	DebitValue      decimal.Decimal `json:"debitNoteValue"`
-	DebitSalesTax   decimal.Decimal `json:"debitNoteSalesTax"`
-	STWithheld      decimal.Decimal `json:"stWithheld"`
+	Period        string          `json:"period"` // YYYY-MM
+	SaleInvoices  int             `json:"saleInvoices"`
+	DebitNotes    int             `json:"debitNotes"`
+	ValueExclST   decimal.Decimal `json:"valueExclST"`
+	SalesTax      decimal.Decimal `json:"salesTax"`
+	FurtherTax    decimal.Decimal `json:"furtherTax"`
+	DebitValue    decimal.Decimal `json:"debitNoteValue"`
+	DebitSalesTax decimal.Decimal `json:"debitNoteSalesTax"`
+	STWithheld    decimal.Decimal `json:"stWithheld"`
 }
 
 // MonthlySummary aggregates accepted documents per calendar month (tax period).

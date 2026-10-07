@@ -93,7 +93,7 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request, rc *reqC
 		s.fail(w, err)
 		return
 	}
-	if err := s.Svc.ChangePassword(r.Context(), rc.Actor, rc.User.ID, in.Current, in.New); err != nil {
+	if err := s.Svc.ChangePassword(r.Context(), rc.Actor, rc.User.ID, in.Current, in.New, rc.Token); err != nil {
 		s.fail(w, err)
 		return
 	}

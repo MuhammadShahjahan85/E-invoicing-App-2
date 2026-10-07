@@ -39,11 +39,11 @@ var pkt = func() *time.Location {
 type FaultKind string
 
 const (
-	FaultNone        FaultKind = ""
-	FaultTimeout     FaultKind = "timeout"     // sleep longer than the client timeout (after recording!)
-	FaultDrop        FaultKind = "drop"        // record the invoice, then drop the connection
-	FaultServerError FaultKind = "server_error" // HTTP 500
-	FaultUnavailable FaultKind = "unavailable" // HTTP 503 (not processed)
+	FaultNone         FaultKind = ""
+	FaultTimeout      FaultKind = "timeout"      // sleep longer than the client timeout (after recording!)
+	FaultDrop         FaultKind = "drop"         // record the invoice, then drop the connection
+	FaultServerError  FaultKind = "server_error" // HTTP 500
+	FaultUnavailable  FaultKind = "unavailable"  // HTTP 503 (not processed)
 	FaultUnauthorized FaultKind = "unauthorized"
 )
 

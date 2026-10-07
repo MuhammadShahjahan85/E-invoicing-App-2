@@ -61,6 +61,9 @@ func QRSVG(content string) (string, error) {
 
 // QRPNG returns a PNG of the QR code; pixelsPerModule controls the size
 // (e.g. 8 → 200 px for the 25-module symbol, about 1 inch at 200 dpi).
+// MaxPNGScale caps the pixels per QR module for PNG output.
+const MaxPNGScale = 40
+
 func QRPNG(content string, pixelsPerModule int) ([]byte, error) {
 	q, err := newQR(content)
 	if err != nil {
@@ -68,6 +71,9 @@ func QRPNG(content string, pixelsPerModule int) ([]byte, error) {
 	}
 	if pixelsPerModule <= 0 {
 		pixelsPerModule = 12
+	}
+	if pixelsPerModule > MaxPNGScale {
+		pixelsPerModule = MaxPNGScale // 25 modules x 40 px = 1000 px, ample for print; bounds memory use
 	}
 	size := len(q.Bitmap()) * pixelsPerModule
 	img := q.Image(size)
