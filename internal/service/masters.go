@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package service
 
@@ -163,6 +163,15 @@ func (s *Service) SaveCompany(ctx context.Context, a Actor, c *store.Company) (*
 	}
 	if c.WithholdingFraction.IsNegative() || c.WithholdingFraction.GreaterThan(tax.MustD("1")) {
 		return nil, Invalid("withholding fraction must be between 0 and 1")
+	}
+	if c.ReturnPaymentDay == 0 {
+		c.ReturnPaymentDay = store.DefaultReturnPaymentDay
+	}
+	if c.ReturnFilingDay == 0 {
+		c.ReturnFilingDay = store.DefaultReturnFilingDay
+	}
+	if c.ReturnPaymentDay < 1 || c.ReturnPaymentDay > 31 || c.ReturnFilingDay < 1 || c.ReturnFilingDay > 31 {
+		return nil, Invalid("the sales tax return due days must be between 1 and 31")
 	}
 	// Sale invoices and debit notes are numbered in separate series; the
 	// same prefix would make their numbers collide.

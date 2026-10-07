@@ -1,6 +1,6 @@
 # User Manual
 
-This manual is for accountants, billing staff and managers who issue sales-tax invoices with Veridian E-invoicing PK.
+This manual is for accountants, billing staff and managers who issue sales-tax invoices with Veridian E-invoicing Pakistan.
 
 ---
 
@@ -247,4 +247,4 @@ Open **Mobile app & access** in the menu. It has a QR code to open the system on
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

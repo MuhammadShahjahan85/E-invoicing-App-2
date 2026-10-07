@@ -1,6 +1,6 @@
 # Mobile App and Remote Access
 
-Veridian E-invoicing PK works in any modern browser on computers, tablets and phones. On phones and tablets it can also be **installed as an app** (a Progressive Web App). This gives it its own icon, a full-screen window and automatic updates, with no app store needed. The same server provides both the website and the app, so users see the same data everywhere.
+Veridian E-invoicing Pakistan works in any modern browser on computers, tablets and phones. On phones and tablets it can also be **installed as an app** (a Progressive Web App). This gives it its own icon, a full-screen window and automatic updates, with no app store needed. The same server provides both the website and the app, so users see the same data everywhere.
 
 ---
 
@@ -76,4 +76,4 @@ The static public IP whitelisted by PRAL is for the server's **outgoing** calls 
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

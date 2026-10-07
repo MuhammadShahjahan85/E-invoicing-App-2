@@ -1,6 +1,6 @@
 # FBR Onboarding Guide — Taking a Client Live
 
-This is the step-by-step procedure a tax practitioner follows for **each client** to start issuing FBR Digital Invoices with Veridian E-invoicing PK. Section 4 explains the approval and certification paths for you as the **software vendor**.
+This is the step-by-step procedure a tax practitioner follows for **each client** to start issuing FBR Digital Invoices with Veridian E-invoicing Pakistan. Section 4 explains the approval and certification paths for you as the **software vendor**.
 
 > Screens on IRIS change from time to time. Items marked **Verify** should be checked against the current IRIS / FBR notices.
 
@@ -13,7 +13,7 @@ This is the step-by-step procedure a tax practitioner follows for **each client*
 | Active sales-tax registration | The client's NTN (7 digits) or CNIC (13 digits for individuals) must be active on IRIS. |
 | IRIS credentials | Needed for Digital Invoicing registration, tokens and cancellations. |
 | Static public IP | Ask the client's ISP for a static IP. FBR accepts production calls only from a whitelisted IP. |
-| Server | Veridian E-invoicing PK installed ([INSTALLATION.md](INSTALLATION.md)). The setup wizard is completed with the business details exactly as on IRIS. |
+| Server | Veridian E-invoicing Pakistan installed ([INSTALLATION.md](INSTALLATION.md)). The setup wizard is completed with the business details exactly as on IRIS. |
 | Licence | A licence covering the client's NTN is installed (Settings → System) before switching to production. Sandbox and simulator work during the 30-day evaluation. |
 
 ## 2. Go-live procedure
@@ -23,7 +23,7 @@ This is the step-by-step procedure a tax practitioner follows for **each client*
 On IRIS, open **Digital Invoicing** and submit the integration request:
 
 1. Choose **PRAL** as the integrator. PRAL integration is free.
-2. Veridian E-invoicing PK is the client's own e-invoicing system. It calls FBR's DI API directly with the client's security token, so no third party sees the data.
+2. Veridian E-invoicing Pakistan is the client's own e-invoicing system. It calls FBR's DI API directly with the client's security token, so no third party sees the data.
 3. If the client prefers a licensed integrator, that integrator issues the credentials instead (**Verify** the current list on fbr.gov.pk).
 
 Provide the technical details IRIS asks for, including the static public IP to be whitelisted.
@@ -114,7 +114,7 @@ FBR does not publish a general "approved software" list for taxpayer-side system
 2. the taxpayer's system successfully submits **all assigned sandbox scenarios**;
 3. FBR issues the **production token**, and production traffic comes from the **whitelisted IP**.
 
-Veridian E-invoicing PK supports this path completely (Scenarios page, sandbox runs, token management). Each client you install is certified individually through it. Do not describe the product as "FBR approved". Describe it as "built to FBR DI technical specification v1.12; each installation is certified through FBR's sandbox scenarios".
+Veridian E-invoicing Pakistan supports this path completely (Scenarios page, sandbox runs, token management). Each client you install is certified individually through it. Do not describe the product as "FBR approved". Describe it as "built to FBR DI technical specification v1.12; each installation is certified through FBR's sandbox scenarios".
 
 ### 4.2 Becoming an FBR licensed integrator (optional)
 
@@ -152,4 +152,4 @@ The complete list with fixes is under **Help & error codes** in the product.
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

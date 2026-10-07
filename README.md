@@ -1,4 +1,4 @@
-# Veridian E-invoicing PK
+# Veridian E-invoicing Pakistan
 
 **Developed by Veridian Partners Consultancy Private Limited** · © 2026 All rights reserved.
 
@@ -151,6 +151,6 @@ Dockerfile, Makefile
 
 Copyright © 2026 **Veridian Partners Consultancy Private Limited**. All rights reserved.
 
-Veridian E-invoicing PK is proprietary software, developed by Veridian Partners Consultancy Private Limited. It is licensed, not sold; see [LICENSE](LICENSE). Open-source components included in the software are listed with their licences in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) (regenerate with `sh scripts/third-party-notices.sh` after changing dependencies).
+Veridian E-invoicing Pakistan is proprietary software, developed by Veridian Partners Consultancy Private Limited. It is licensed, not sold; see [LICENSE](LICENSE). Open-source components included in the software are listed with their licences in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) (regenerate with `sh scripts/third-party-notices.sh` after changing dependencies).
 
 Support: muhammadshahjahan.audit@gmail.com

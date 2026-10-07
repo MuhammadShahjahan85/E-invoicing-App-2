@@ -1,6 +1,6 @@
 # Installation and Operations Guide
 
-Veridian E-invoicing PK is a single program (`einvoice.exe` on Windows, `einvoice` on Linux). It contains:
+Veridian E-invoicing Pakistan is a single program (`einvoice.exe` on Windows, `einvoice` on Linux). It contains:
 
 - the web application;
 - an embedded SQLite database;
@@ -28,34 +28,34 @@ Users work in a web browser on any computer in the office network.
 
 ### 2.1 Using the installer (recommended)
 
-1. Run `VeridianEInvoicingPK-Setup-<version>.exe` as Administrator.
+1. Run `VeridianEInvoicingPakistan-Setup-<version>.exe` as Administrator.
 2. Keep **"Allow other computers on the office network…"** ticked if other PCs will use the system. This adds a Windows Firewall rule for TCP 8443.
 3. Finish. The installer:
-   - registers and starts the Windows service **VeridianEInvoicingPK** (automatic start, restarts on failure);
+   - registers and starts the Windows service **VeridianEInvoicingPakistan** (automatic start, restarts on failure);
    - opens `https://localhost:8443/`.
 4. The browser warns about the certificate once (see §5). Continue, then complete the **setup wizard**:
    - administrator account;
    - business name, NTN/CNIC, province and address exactly as on IRIS;
    - business activity and sector.
 
-Data is stored in `C:\ProgramData\VeridianEInvoicingPK`.
+Data is stored in `C:\ProgramData\VeridianEInvoicingPakistan`.
 
 ### 2.2 Manual installation
 
 Open Command Prompt **as Administrator**:
 
 ```bat
-mkdir "C:\Program Files\Veridian E-invoicing PK"
-copy einvoice.exe "C:\Program Files\Veridian E-invoicing PK\"
-cd "C:\Program Files\Veridian E-invoicing PK"
+mkdir "C:\Program Files\Veridian E-invoicing Pakistan"
+copy einvoice.exe "C:\Program Files\Veridian E-invoicing Pakistan\"
+cd "C:\Program Files\Veridian E-invoicing Pakistan"
 einvoice.exe service install
 einvoice.exe service start
-netsh advfirewall firewall add rule name="Veridian E-invoicing PK" dir=in action=allow protocol=TCP localport=8443
+netsh advfirewall firewall add rule name="Veridian E-invoicing Pakistan" dir=in action=allow protocol=TCP localport=8443
 ```
 
-`service install` accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\VeridianEInvoicingPK`.
+`service install` accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\VeridianEInvoicingPakistan`.
 
-To try the program without installing a service, run `einvoice.exe serve` in a console. Its data folder is `%ProgramData%\VeridianEInvoicingPK`, or the folder given with `--data`.
+To try the program without installing a service, run `einvoice.exe serve` in a console. Its data folder is `%ProgramData%\VeridianEInvoicingPakistan`, or the folder given with `--data`.
 
 ### 2.3 Service management
 
@@ -65,7 +65,7 @@ einvoice.exe service start
 einvoice.exe service uninstall
 ```
 
-The service can also be managed from `services.msc` ("Veridian E-invoicing PK (FBR Digital Invoicing)").
+The service can also be managed from `services.msc` ("Veridian E-invoicing Pakistan (FBR Digital Invoicing)").
 
 ## 3. Linux installation (systemd)
 
@@ -177,7 +177,7 @@ The file is created in the data folder on first start. Restart the service after
 
 ## 10. Uninstall
 
-- Windows: Apps & Features → Veridian E-invoicing PK → Uninstall. The service and firewall rule are removed. **The data folder is kept on purpose.**
+- Windows: Apps & Features → Veridian E-invoicing Pakistan → Uninstall. The service and firewall rule are removed. **The data folder is kept on purpose.**
 - Linux: `sudo systemctl disable --now einvoice && sudo rm /etc/systemd/system/einvoice.service /opt/einvoice -r`. Keep `/var/lib/einvoice` until records are archived.
 
 ## 11. Troubleshooting
@@ -205,4 +205,4 @@ The file is created in the data folder on first start. Restart the service after
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

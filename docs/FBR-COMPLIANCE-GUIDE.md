@@ -1,6 +1,6 @@
 # FBR Digital Invoicing — Research Summary and Compliance Matrix
 
-This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **Veridian E-invoicing PK** that satisfies it.
+This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **Veridian E-invoicing Pakistan** that satisfies it.
 
 It is written for:
 
@@ -29,7 +29,7 @@ It is written for:
   These are from the Finance Act 2026 as reported (**Verify** against the enacted text).
 - Buyers' input tax depends on it: Annex-A of the buyer's sales-tax return is populated from the supplier's Annex-C, which is fed by DI invoices. An invoice that never reaches FBR is an invoice the customer cannot claim.
 
-Veridian E-invoicing PK is an on-premise system that implements the full lifecycle:
+Veridian E-invoicing Pakistan is an on-premise system that implements the full lifecycle:
 
 - invoice preparation with Pakistani sales-tax rules;
 - validation against FBR's rules before submission;
@@ -64,7 +64,7 @@ Veridian E-invoicing PK is an on-premise system that implements the full lifecyc
 | **Licensed integrator** | A licensed firm (reported: Haball, EY Ford Rhodes, WebDNAworks — **Verify** the current list) operates the integration for the taxpayer. | Licence granted by the Board. Licensing committee decides within 7 days; licence valid 5 years (**Verify** eligibility criteria). |
 | **IRIS web portal** | Manual entry on FBR's portal. | Practical only for very low volumes. |
 
-Veridian E-invoicing PK is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
+Veridian E-invoicing Pakistan is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
 
 ## 4. Technical specification summary (DI API v1.12)
 
@@ -221,4 +221,4 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

@@ -1,4 +1,4 @@
-# Veridian E-invoicing PK — container image.
+# Veridian E-invoicing Pakistan — container image.
 #
 #   docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t veridian-einvoicing .
 #   docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data veridian-einvoicing

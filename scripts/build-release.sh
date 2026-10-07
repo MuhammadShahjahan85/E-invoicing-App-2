@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds release binaries of Veridian E-invoicing PK for Windows and Linux (x86-64).
+# Builds release binaries of Veridian E-invoicing Pakistan for Windows and Linux (x86-64).
 #
 # Environment:
 #   VERSION         product version (default 1.0.0)
