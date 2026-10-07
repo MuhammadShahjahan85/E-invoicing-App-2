@@ -31,12 +31,27 @@ A licence without an expiry date is **perpetual**. The optional **support** date
 On your own (offline, secure) computer:
 
 ```sh
-go run ./cmd/licensegen keygen -out vendor-private.key
+licensegen keygen -out vendor-private.key        # or: go run ./cmd/licensegen keygen -out vendor-private.key
 ```
 
 It prints the **public key** (base64). Keep `vendor-private.key` secret and backed up (e.g. an encrypted USB plus a safe copy). Anyone with this file can create licences. If it is lost, you cannot issue licences that existing builds accept.
 
 ## 3. Building client releases
+
+### Easiest: let GitHub build them (no Go or Node.js needed on your PC)
+
+1. On GitHub, open your repository → **Settings → Secrets and variables → Actions → Variables → New repository variable**.
+   - Name: `LICENSE_PUBKEY`
+   - Value: the public key printed by `licensegen keygen`.
+2. Open the **Actions** tab → **Release** → **Run workflow**, and enter the version (e.g. `1.0.0`). Alternatively, push a tag such as `v1.0.0`; tags also create a GitHub Release.
+3. When the run finishes, download the artifacts:
+   - **windows-installer** (`EInvoicingSuitePK-Setup-<version>.exe`);
+   - **linux-package**;
+   - **vendor-tools-keep-private** (licensegen).
+
+Tagged releases fail on purpose if `LICENSE_PUBKEY` is not set, so a developer build is never published by mistake. The `licensegen.exe` from the vendor-tools artifact runs on Windows without Go: `licensegen.exe keygen`, `licensegen.exe issue …`.
+
+### Building on your own computer
 
 Embed the public key when building:
 
