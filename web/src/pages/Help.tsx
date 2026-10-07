@@ -123,7 +123,8 @@ export default function Help() {
               <li>HS code (PCT, NNNN.NNNN), description, quantity and FBR unit of measure.</li>
               <li>Sale type and the rate allowed for it on the invoice date; SRO / schedule and serial number where required.</li>
               <li>Value excluding sales tax, sales tax, further tax, extra tax, FED and sales tax withheld at source.</li>
-              <li>Third Schedule goods: tax is charged on the printed retail price.</li>
+              <li>Third Schedule goods: tax is charged on the retail price; the price printed on the pack includes sales tax, so the tax is printed price × rate ÷ (100 + rate).</li>
+              <li>Federal excise duty charged separately is part of the value of supply (section 2(46)), so sales tax and further tax are charged on value + FED.</li>
             </ul>
           </div>
           <div className="card card-pad">

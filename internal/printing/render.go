@@ -10,6 +10,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"einvoicing/internal/brand"
 	"einvoicing/internal/domain"
@@ -51,22 +52,27 @@ type totals struct {
 
 type rateRow struct{ SaleType, Rate, Value, SalesTax string }
 
-type cols struct{ Discount, Retail, Further, Extra, FED, Withheld bool }
+type cols struct {
+	Discount, Retail, Further, Extra, FED, Withheld bool
+	// FEDInValue: FED is part of the value of supply (section 2(46)), so it
+	// is shown for information and not added to the total again.
+	FEDInValue bool
+}
 
 type view struct {
-	Title, InvoiceDate, Watermark, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, Developer, ShortSeal string
-	FBRNumber, Nonce                                                                                            string
-	Company                                                                                                     *store.Company
-	Invoice                                                                                                     *store.Invoice
-	Settings                                                                                                    store.PrintSettings
-	CompanyLogo, FBRLogo                                                                                        template.URL
-	QR                                                                                                          template.HTML
-	Lines                                                                                                       []line
-	Rates                                                                                                       []rateRow
-	T                                                                                                           totals
-	Cols                                                                                                        cols
-	IsDebitNote, AutoPrint, ShowToolbar                                                                         bool
-	Sheets                                                                                                      []sheet
+	Title, InvoiceDate, Watermark, WatermarkSize, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, Developer, ShortSeal string
+	FBRNumber, Nonce                                                                                                           string
+	Company                                                                                                                    *store.Company
+	Invoice                                                                                                                    *store.Invoice
+	Settings                                                                                                                   store.PrintSettings
+	CompanyLogo, FBRLogo                                                                                                       template.URL
+	QR                                                                                                                         template.HTML
+	Lines                                                                                                                      []line
+	Rates                                                                                                                      []rateRow
+	T                                                                                                                          totals
+	Cols                                                                                                                       cols
+	IsDebitNote, AutoPrint, ShowToolbar                                                                                        bool
+	Sheets                                                                                                                     []sheet
 }
 
 // sheet is one printed copy of the A4 invoice; CopyLabel shadows the view's.
@@ -138,6 +144,11 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		// connection being restored, after which the reported copy is printed.
 		v.Watermark = "PENDING FBR REPORTING"
 		v.Notice = "Provisional copy issued while FBR Digital Invoicing was unreachable. It is reported to FBR automatically, within 24 hours of the connection being restored; the reported copy carries the FBR invoice number and QR code."
+	case !reported && inv.OfflineSince != "":
+		// Issued offline, but its upload has not been accepted yet (for
+		// example FBR rejected it after the connection came back).
+		v.Watermark = "PENDING FBR REPORTING"
+		v.Notice = "Provisional copy issued while FBR Digital Invoicing was unreachable. It has not yet been accepted by FBR (status " + string(inv.Status) + ") and must be reported within 24 hours of the connection being restored; the reported copy carries the FBR invoice number and QR code."
 	case !reported:
 		v.Watermark = "DRAFT — NOT REPORTED TO FBR"
 		v.Notice = "Not a valid sales tax invoice: it has not been reported to FBR Digital Invoicing (status " + string(inv.Status) + ")."
@@ -145,6 +156,13 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		v.Watermark = "FBR SANDBOX — NOT A VALID TAX INVOICE"
 	case inv.Environment == domain.EnvSimulator:
 		v.Watermark = "TRAINING — NOT A VALID TAX INVOICE"
+	}
+
+	switch n := utf8.RuneCountInString(v.Watermark); {
+	case n > 30:
+		v.WatermarkSize = "wm-s"
+	case n > 22:
+		v.WatermarkSize = "wm-m"
 	}
 
 	style := tax.WordsSouthAsian
@@ -180,6 +198,7 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		v.Cols.Withheld = v.Cols.Withheld || it.STWithheld.IsPositive()
 	}
 	t := inv.Totals
+	v.Cols.FEDInValue = t.FED.IsPositive() && t.TotalValue.Sub(tax.Sum(t.ValueExclST, t.SalesTax, t.FurtherTax, t.ExtraTax)).Abs().LessThan(decimal.NewFromFloat(0.01))
 	v.T = totals{Value: amt(t.ValueExclST), Retail: amt(t.RetailValue), SalesTax: amt(t.SalesTax), FurtherTax: amt(t.FurtherTax),
 		ExtraTax: amt(t.ExtraTax), FED: amt(t.FED), Total: amt(t.TotalValue), Withheld: amt(t.STWithheld), Payable: amt(t.AmountPayable)}
 

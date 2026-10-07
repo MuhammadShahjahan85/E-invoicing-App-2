@@ -281,7 +281,11 @@ func (s *Store) GetDashboard(ctx context.Context, companyID int64, env domain.En
 		return nil, err
 	}
 	d.TodayValue, d.TodaySalesTax, d.MonthValue, d.MonthSalesTax = Rupees(tv), Rupees(tst), Rupees(mv), Rupees(mst)
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MIN(created_at),'') FROM invoices WHERE company_id=? AND environment=? AND status='QUEUED'`,
+	// Not yet reported: queued invoices, and invoices first issued while FBR
+	// was unreachable that FBR has not accepted since (e.g. the upload after
+	// recovery was rejected and is being corrected).
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MIN(CASE WHEN offline_since<>'' THEN offline_since ELSE created_at END),'')
+		FROM invoices WHERE company_id=? AND environment=? AND (status='QUEUED' OR (offline_since<>'' AND status NOT IN ('ACCEPTED','CANCELLED')))`,
 		companyID, string(env)).Scan(&d.PendingUpload, &d.OldestPending); err != nil {
 		return nil, err
 	}

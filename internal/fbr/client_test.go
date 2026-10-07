@@ -272,3 +272,20 @@ func asCallError(err error, target **fbr.CallError) bool {
 	}
 	return ok
 }
+
+// A 502 from the gateway may hide an invoice the backend recorded, so a post
+// answered with 502 is uncertain (reconcile on IRIS), never retried blindly;
+// a read-only call answered with 502 is simply retried later.
+func TestBadGatewayOnPostIsUncertain(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream prematurely closed connection", http.StatusBadGateway)
+	}))
+	defer ts.Close()
+	c := fbr.New(domain.EnvSandbox, "sb-token", fbr.Endpoints{BaseURL: ts.URL}, fbr.NewHTTPClient(5*time.Second))
+	if _, err := c.PostInvoice(context.Background(), samplePayload()); fbr.KindOf(err) != fbr.ErrUncertain {
+		t.Fatalf("post answered 502 must be uncertain, got %v (%s)", err, fbr.KindOf(err))
+	}
+	if _, err := c.ValidateInvoice(context.Background(), samplePayload()); fbr.KindOf(err) != fbr.ErrUnavailable {
+		t.Fatalf("validate answered 502 must be retryable, got %v (%s)", err, fbr.KindOf(err))
+	}
+}

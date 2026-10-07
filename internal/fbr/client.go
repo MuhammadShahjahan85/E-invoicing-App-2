@@ -88,8 +88,11 @@ const (
 	// ErrUncertain: the request was sent but no usable answer came back
 	// (timeout, connection reset, gateway timeout, 500). Reconcile before retrying.
 	ErrUncertain ErrKind = "uncertain"
-	// ErrUnavailable: FBR answered 502/503 (gateway/service unavailable),
-	// which means the request was not processed. Safe to retry later.
+	// ErrUnavailable: FBR answered 503 or 429 (service unavailable, rate
+	// limited), which means the request was not processed. Safe to retry
+	// later. A 502 is treated the same for read-only calls; for posting an
+	// invoice it is uncertain, because the gateway may have lost the answer
+	// of a backend that did record the invoice.
 	ErrUnavailable ErrKind = "unavailable"
 	// ErrAuth: 401/403 — token missing, wrong, expired, or IP not whitelisted.
 	ErrAuth ErrKind = "auth"
@@ -280,6 +283,8 @@ func (c *Client) do(ctx context.Context, op, method, rawURL string, body any) ([
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		kind = ErrAuth
+	case resp.StatusCode == http.StatusBadGateway && (op == "postinvoicedata" || op == "cancelinvoice"):
+		kind = ErrUncertain
 	case resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable:
 		kind = ErrUnavailable
 	case resp.StatusCode == http.StatusTooManyRequests:

@@ -12,6 +12,7 @@ import type { AuditEntry, FBRCall, Invoice, Paged } from '../types'
 interface Detail {
   invoice: Invoice
   sealValid: boolean
+  issuedAt?: string
   original?: { id: number; internalNo: string; fbrInvoiceNumber: string }
   debitNotes?: { value: number; salesTax: number }
 }
@@ -37,7 +38,9 @@ export default function InvoiceView() {
   const inv = data.invoice
   const errorCatalogue = Object.fromEntries(s.meta.errorCatalogue.map((e) => [e.code, e]))
   const editable = ['DRAFT', 'VALIDATED', 'REJECTED'].includes(inv.status)
-  const hours = inv.acceptedAt ? hoursSince(inv.acceptedAt) : Infinity
+  // The 72-hour window runs from FBR's issue time (falls back to acceptance).
+  const issuedAt = data.issuedAt || inv.acceptedAt
+  const hours = issuedAt ? hoursSince(issuedAt) : Infinity
   const withinCancel = hours <= s.meta.cancelWindowHours
 
   const act = async (name: string, fn: () => Promise<Invoice>, okMsg?: (i: Invoice) => string) => {
@@ -142,12 +145,12 @@ export default function InvoiceView() {
           )}
           {!editable && inv.status !== 'ACCEPTED' && inv.status !== 'CANCELLED' && (
             <a className="btn" href={`/api/v1${cp}/invoices/${inv.id}/print?preview=1`} target="_blank" rel="noopener">
-              {inv.status === 'QUEUED' ? 'Print provisional copy' : 'Preview'}
+              {inv.status === 'QUEUED' || inv.offlineSince ? 'Print provisional copy' : 'Preview'}
             </a>
           )}
           {editable && (
             <a className="btn" href={`/api/v1${cp}/invoices/${inv.id}/print?preview=1`} target="_blank" rel="noopener">
-              Preview
+              {inv.offlineSince ? 'Print provisional copy' : 'Preview'}
             </a>
           )}
           {inv.status === 'ACCEPTED' && inv.docType === 'Sale Invoice' && s.can('invoice.manage') && (
@@ -178,6 +181,12 @@ export default function InvoiceView() {
           <b>No definitive answer was received from FBR.</b> The invoice may already be recorded. Log in to IRIS → Digital Invoicing and search for this invoice
           (date {dateFmt(inv.invoiceDate)}, buyer {inv.buyerName}, value {money(inv.totals.valueExclST)}). Then use <b>Reconcile with IRIS</b>. Do not
           resubmit blindly — that could report the sale twice. <div className="small">{inv.lastError}</div>
+        </div>
+      )}
+      {inv.offlineSince && inv.status !== 'QUEUED' && inv.status !== 'ACCEPTED' && inv.status !== 'CANCELLED' && (
+        <div className="alert alert-warn">
+          Issued while FBR was unreachable ({dateTimeFmt(inv.offlineSince)}) and not yet accepted by FBR. It must be reported within 24 hours of the connection being
+          restored — correct it if needed and submit it again.
         </div>
       )}
       {inv.status === 'REJECTED' && inv.lastError && <div className="alert alert-error">{inv.lastError}</div>}
@@ -640,7 +649,7 @@ function ResolveModal({ inv, onClose, onDone }: { inv: Invoice; onClose: () => v
             <Field label="FBR invoice number" span={2}>
               <input className="mono" value={fbrNo} onChange={(e) => setFbrNo(e.target.value.trim())} placeholder={inv.sellerNtnCnic + 'DI…'} />
             </Field>
-            <Field label="FBR date/time (optional)">
+            <Field label="FBR date/time shown on IRIS *">
               <input value={dated} onChange={(e) => setDated(e.target.value)} placeholder="YYYY-MM-DD HH:MM:SS" />
             </Field>
           </div>

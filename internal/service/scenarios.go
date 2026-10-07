@@ -82,6 +82,12 @@ func ScenarioInvoiceInput(sc domain.Scenario, c *store.Company, env domain.Envir
 	if mode == "sample" {
 		st, ft, et, fed, wh, disc := tax.F(it.SalesTaxApplicable), tax.F(it.FurtherTax), tax.F(it.ExtraTax), tax.F(it.FEDPayable), tax.F(it.SalesTaxWithheldAtSource), tax.F(it.Discount)
 		item.SalesTax, item.FurtherTax, item.ExtraTax, item.FED, item.STWithheld = &st, &ft, &et, &fed, &wh
+		// The engine adds FED to the value of supply; FBR's sample value is
+		// reproduced by passing it net of the sample's FED.
+		if fed.IsPositive() {
+			net := value.Sub(fed)
+			item.Value = &net
+		}
 		item.DiscountAmount = disc
 		item.FurtherTaxMode = "no"
 	}

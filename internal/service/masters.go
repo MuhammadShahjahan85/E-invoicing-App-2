@@ -164,6 +164,18 @@ func (s *Service) SaveCompany(ctx context.Context, a Actor, c *store.Company) (*
 	if c.WithholdingFraction.IsNegative() || c.WithholdingFraction.GreaterThan(tax.MustD("1")) {
 		return nil, Invalid("withholding fraction must be between 0 and 1")
 	}
+	// Sale invoices and debit notes are numbered in separate series; the
+	// same prefix would make their numbers collide.
+	invPfx, dnPfx := strings.TrimSpace(c.InvoicePrefix), strings.TrimSpace(c.DebitNotePrefix)
+	if invPfx == "" {
+		invPfx = "INV"
+	}
+	if dnPfx == "" {
+		dnPfx = "DN"
+	}
+	if strings.EqualFold(invPfx, dnPfx) {
+		return nil, Invalid("the invoice and debit note number prefixes must be different")
+	}
 	for _, p := range s.Provinces(ctx, c.Environment) {
 		if strings.EqualFold(p.Name, c.Province) {
 			c.ProvinceCode = p.Code

@@ -96,6 +96,13 @@ func TestRegisteredBuyerNeedsNTN(t *testing.T) {
 	if r.HasErrors() || !strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {
 		t.Errorf("expected a section 23(1)(b) warning, got %s", codes(r, SevWarning))
 	}
+	for _, dummy := range []string{"0000000000000", "1000000000000", "1111111"} {
+		p.BuyerNTNCNIC = dummy
+		r = Payload(p, Context{Env: domain.EnvProduction, Today: today, SellerActivities: []string{"Manufacturer"}})
+		if !strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {
+			t.Errorf("placeholder %s must not satisfy section 23(1)(b)", dummy)
+		}
+	}
 	p.BuyerNTNCNIC = "4210112345671"
 	r = Payload(p, Context{Env: domain.EnvProduction, Today: today, SellerActivities: []string{"Manufacturer"}})
 	if strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {

@@ -109,6 +109,22 @@ type Context struct {
 	SellerActivities []string
 }
 
+// placeholderRegNos are dummy registration numbers seen in FBR's samples and
+// commonly keyed in to get past a mandatory field.
+var placeholderRegNos = map[string]bool{"1000000000000": true, "1234567890123": true, "1000000000078": true}
+
+// PlaceholderRegNo reports whether an NTN/CNIC is a dummy value (all digits
+// the same, or a well-known sample) rather than the buyer's real number.
+func PlaceholderRegNo(s string) bool {
+	if s == "" {
+		return false
+	}
+	if placeholderRegNos[s] {
+		return true
+	}
+	return strings.Count(s, s[:1]) == len(s)
+}
+
 // manufacturerOrImporter reports whether the seller is registered as a
 // manufacturer or importer.
 func (c Context) manufacturerOrImporter() bool {
@@ -291,8 +307,11 @@ func Payload(p *fbr.InvoicePayload, ctx Context) Result {
 		}
 	}
 
+	missingID := p.BuyerNTNCNIC == "" || PlaceholderRegNo(p.BuyerNTNCNIC)
 	switch {
-	case regType != domain.Unregistered || p.BuyerNTNCNIC != "":
+	case regType != domain.Unregistered || !missingID:
+	case p.BuyerNTNCNIC != "" && (ctx.manufacturerOrImporter() || (ctx.CNICThreshold.IsPositive() && totalValue.GreaterThan(ctx.CNICThreshold))):
+		r.add(0, "buyerNTNCNIC", "", SevWarning, "Buyer CNIC/NTN %s looks like a placeholder. Section 23(1)(b) of the Sales Tax Act requires the buyer's actual CNIC or NTN.", p.BuyerNTNCNIC)
 	case ctx.manufacturerOrImporter():
 		// Section 23(1)(b) of the Sales Tax Act, 1990: a manufacturer or
 		// importer supplying an unregistered person (distributor, dealer,

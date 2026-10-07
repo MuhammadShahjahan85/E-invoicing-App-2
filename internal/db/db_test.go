@@ -5,6 +5,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,8 +69,14 @@ func TestMigrateAndTriggers(t *testing.T) {
 	}
 	defer d2.Close()
 	var n int
-	if err := d2.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != 1 {
-		t.Fatalf("migrations count %d %v", n, err)
+	files, _ := fs.ReadDir(migrationsFS, "migrations")
+	if err := d2.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != len(files) || n < 2 {
+		t.Fatalf("migrations count %d of %d %v", n, len(files), err)
+	}
+	// Upgrades add columns without touching the immutability guarantees.
+	var offline string
+	if err := d2.QueryRow(`SELECT offline_since FROM invoices LIMIT 1`).Scan(&offline); err != nil && err != sql.ErrNoRows {
+		t.Fatalf("offline_since column: %v", err)
 	}
 	if err := Backup(ctx, d2, filepath.Join(t.TempDir(), "b.db")); err != nil {
 		t.Fatalf("backup: %v", err)

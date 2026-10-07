@@ -140,9 +140,25 @@ func (s *Service) Build(ctx context.Context, c *store.Company, in *InvoiceInput)
 		}
 		if inv.CustomerID == nil && inv.BuyerNTNCNIC != "" {
 			if cu, err := s.Store.FindCustomerByRegNo(ctx, c.ID, inv.BuyerNTNCNIC); err == nil {
+				// A buyer known by NTN/CNIC takes the particulars recorded in
+				// the customer master for anything the input leaves blank, in
+				// particular the registration type (it decides further tax and
+				// how FBR attributes the buyer's input tax).
 				inv.CustomerID = &cu.ID
 				if inv.WithholdingMode == "" {
 					inv.WithholdingMode = cu.WithholdingMode
+				}
+				if inv.BuyerRegistrationType == "" {
+					inv.BuyerRegistrationType = cu.RegistrationType
+				}
+				if inv.BuyerName == "" {
+					inv.BuyerName = cu.Name
+				}
+				if inv.BuyerProvince == "" {
+					inv.BuyerProvince = cu.Province
+				}
+				if inv.BuyerAddress == "" {
+					inv.BuyerAddress = cu.Address
 				}
 			}
 		}
@@ -562,6 +578,31 @@ func VerifySeal(inv *store.Invoice) bool {
 // Commissioner's approval (Sales Tax General Order 01 of 2026).
 var CancelWindow = 72 * time.Hour
 
+// fbrDatedLayouts are the date-time formats accepted for FBR's "dated"
+// value (FBR returns the first; the others are tolerated from operators).
+var fbrDatedLayouts = []string{"2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02T15:04"}
+
+// ParseFBRDated parses FBR's issue date-time, which is Pakistan time.
+func ParseFBRDated(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	for _, l := range fbrDatedLayouts {
+		if t, err := time.ParseInLocation(l, s, PKT); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// IssuedAt is when FBR issued the invoice: FBR's "dated" when known,
+// otherwise the time the acceptance was recorded. The 72-hour cancellation
+// window runs from it.
+func IssuedAt(inv *store.Invoice) time.Time {
+	if t, ok := ParseFBRDated(inv.FBRDated); ok {
+		return t
+	}
+	return store.ParseTime(inv.AcceptedAt)
+}
+
 // CancelInput describes a cancellation.
 type CancelInput struct {
 	Reason string `json:"reason"`
@@ -591,7 +632,7 @@ func (s *Service) CancelInvoice(ctx context.Context, a Actor, companyID, id int6
 	if strings.TrimSpace(in.Reason) == "" {
 		return nil, Invalid("a reason for cancellation is required")
 	}
-	issued := store.ParseTime(inv.AcceptedAt)
+	issued := IssuedAt(inv)
 	within := !issued.IsZero() && s.Now().Sub(issued) <= CancelWindow
 	if !within && strings.TrimSpace(in.CommissionerApproval) == "" {
 		return nil, Invalid("the invoice was issued more than 72 hours ago; under STGO 01 of 2026 cancellation requires the prior approval of the Commissioner Inland Revenue — enter the approval reference")

@@ -50,8 +50,8 @@ export default function Dashboard() {
       {st.pendingUpload > 0 && (
         <div className="alert alert-warn">
           <b>{st.pendingUpload} invoice(s) not yet reported to FBR</b> (oldest issued {dateTimeFmt(st.oldestPending)}). Invoices issued while FBR was unreachable must be uploaded
-          within 24 hours of the connection being restored; the system sends them automatically as soon as FBR responds.{' '}
-          <Link to="/invoices?status=QUEUED">View queued invoices</Link>.
+          within 24 hours of the connection being restored. Queued invoices are sent automatically as soon as FBR responds; any that FBR rejects must be corrected
+          and resubmitted. <Link to="/invoices?status=REJECTED,UNCERTAIN,QUEUED">View them</Link>.
         </div>
       )}
       {data.unreportedIncidents > 0 && (
@@ -91,11 +91,13 @@ export default function Dashboard() {
             {conn.healthy ? 'OK' : 'Down'}
           </div>
           <div className="sub">
-            {conn.lastSuccess
-              ? 'Last success ' + dateTimeFmt(conn.lastSuccess)
-              : conn.failingSince
-                ? 'Failing since ' + dateTimeFmt(conn.failingSince)
-                : 'No calls yet'}
+            {data.environment === 'simulator'
+              ? 'Built-in simulator — nothing is sent to FBR'
+              : conn.lastSuccess
+                ? 'Last success ' + dateTimeFmt(conn.lastSuccess)
+                : conn.failingSince
+                  ? 'Failing since ' + dateTimeFmt(conn.failingSince)
+                  : 'No calls yet'}
           </div>
         </div>
       </div>

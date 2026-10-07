@@ -15,7 +15,7 @@ Licences are JSON files signed with an **Ed25519** private key that only you hol
 | **Trial expired** | After 30 days without a licence | Production stays blocked; install a licence |
 | **Licensed** | Valid licence installed | Production allowed for the **seller NTN/CNICs listed in the licence** (or `*` for any) |
 | **Grace** | Licence expiry date passed, within **15 days** | Production continues; a renewal warning is shown |
-| **Expired** | More than 15 days after expiry | Production reporting disabled until renewal. Existing data stays accessible. |
+| **Expired** | More than 15 days after expiry | New production invoices cannot be submitted until renewal. Invoices already issued and queued (for example during an FBR outage) are still reported, because the law requires it. Existing data stays accessible. |
 | **Invalid** | Signature check fails | Treated as unlicensed |
 
 Limits in the licence:

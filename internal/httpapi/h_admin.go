@@ -143,12 +143,20 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 }
 
 func (s *Server) handleAuditVerify(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
-	broken, n, err := s.Svc.Store.VerifyAuditChain(r.Context())
+	// The full integrity check (audit chain plus invoice seals) opens a
+	// tampering incident when it finds a problem (Rule 150R).
+	rep, err := s.Svc.CheckIntegrity(r.Context())
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"intact": broken == 0, "brokenAt": broken, "checked": n})
+	resp := map[string]any{"intact": rep.AuditBrokenAt == 0, "brokenAt": rep.AuditBrokenAt, "checked": rep.AuditChecked}
+	// Invoice details span every company, so only installation-wide users see them.
+	if rc.User != nil && (rc.User.AllCompanies || rc.User.Role == store.RoleAdmin) {
+		resp["invoicesChecked"] = rep.InvoicesChecked
+		resp["problems"] = rep.Problems
+	}
+	writeJSON(w, 200, resp)
 }
 
 // --- backups ---

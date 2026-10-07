@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"einvoicing/internal/db"
+	"einvoicing/internal/domain"
 )
 
 // WorkerOptions configures background processing.
@@ -28,19 +29,31 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 	if o.Interval <= 0 {
 		o.Interval = 20 * time.Second
 	}
-	if n, err := s.Store.RecoverStuckSubmissions(ctx, s.Now().UTC().Add(-2*time.Minute).Format(time.RFC3339)); err == nil && n > 0 {
-		s.Log.Warn("interrupted submissions found at startup; marked for reconciliation", "count", n)
-		s.Audit(ctx, System, 0, "worker.recovered", "invoice", "", fmt.Sprintf("%d interrupted submissions", n))
-	}
+	// At startup nothing of this process is in flight, so every submission
+	// still marked SUBMITTING was interrupted by the previous run.
+	s.recoverStuck(ctx, s.Now().UTC().Add(time.Second))
+	s.detectUnexpectedStop(ctx)
+	defer s.MarkCleanShutdown()
 	t := time.NewTicker(o.Interval)
 	defer t.Stop()
 	lastBackupDay := ""
+	var lastIntegrity time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
+		s.heartbeat(ctx)
+		if time.Since(lastIntegrity) >= 24*time.Hour {
+			lastIntegrity = time.Now()
+			if rep, err := s.CheckIntegrity(ctx); err != nil {
+				s.Log.Error("integrity check failed", "err", err)
+			} else if !rep.OK() {
+				s.Log.Error("integrity check found problems", "auditBrokenAt", rep.AuditBrokenAt, "problems", len(rep.Problems))
+			}
+		}
+		s.recoverStuck(ctx, s.Now().UTC().Add(-s.stuckAfter()))
 		s.requeueRecovered(ctx)
 		s.processQueue(ctx)
 		s.checkIncidents(ctx)
@@ -60,6 +73,27 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 	}
 }
 
+// stuckAfter is how long a submission may stay SUBMITTING before it is
+// considered interrupted: validation and posting each take at most the FBR
+// timeout, plus a margin.
+func (s *Service) stuckAfter() time.Duration {
+	t := s.Opts.HTTPTimeout
+	if t <= 0 {
+		t = 30 * time.Second
+	}
+	return 2*t + time.Minute
+}
+
+// recoverStuck releases submissions interrupted before their outcome was
+// recorded: never sent -> queued again; possibly sent -> needs
+// reconciliation against IRIS (never re-posted blindly).
+func (s *Service) recoverStuck(ctx context.Context, before time.Time) {
+	if n, err := s.Store.RecoverStuckSubmissions(ctx, before.Format(time.RFC3339)); err == nil && n > 0 {
+		s.Log.Warn("interrupted submissions released", "count", n)
+		s.Audit(ctx, System, 0, "worker.recovered", "invoice", "", fmt.Sprintf("%d interrupted submissions", n))
+	}
+}
+
 func (s *Service) processQueue(ctx context.Context) {
 	ids, err := s.Store.DueForSubmission(ctx, s.Now().UTC().Format(time.RFC3339), 25)
 	if err != nil {
@@ -76,6 +110,13 @@ func (s *Service) processQueue(ctx context.Context) {
 		}
 		if _, err := s.Submit(ctx, System, inv.CompanyID, id, SubmitOptions{Background: true}); err != nil {
 			s.Log.Warn("queued submission failed", "invoice", id, "err", err)
+			// Refused before reaching FBR (e.g. the token was removed): try
+			// again later instead of retrying on every tick, so this invoice
+			// cannot hold up the rest of the queue.
+			if cur, gerr := s.Store.GetInvoiceAnyCompany(ctx, id); gerr == nil && cur.Status == domain.StatusQueued {
+				next := s.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339)
+				_ = s.Store.SetStatus(ctx, id, domain.StatusQueued, "Not submitted: "+err.Error(), next)
+			}
 		}
 	}
 }

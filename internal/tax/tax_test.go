@@ -102,9 +102,10 @@ func TestFurtherTaxNotOnExemptOrThirdSchedule(t *testing.T) {
 	ex := ComputeLine(LineInput{Quantity: MustD("1"), UnitPrice: MustD("1000"), SaleType: domain.STExempt, Rate: "Exempt"})
 	eq(t, "exempt tax", ex.SalesTax, "0")
 	eq(t, "exempt further", ex.FurtherTax, "0")
+	// Printed price 120 includes sales tax: retail value 240 x 100/118.
 	third := ComputeLine(LineInput{Quantity: MustD("2"), UnitPrice: MustD("80"), RetailPrice: MustD("120"), SaleType: domain.STThirdSchedule, Rate: "18%"})
-	eq(t, "retail value", third.RetailValue, "240")
-	eq(t, "3rd schedule tax", third.SalesTax, "43.20")
+	eq(t, "retail value", third.RetailValue, "203.39")
+	eq(t, "3rd schedule tax", third.SalesTax, "36.61")
 	eq(t, "3rd schedule further", third.FurtherTax, "0")
 	eq(t, "3rd schedule value", third.ValueExclST, "160")
 }
@@ -178,4 +179,44 @@ func TestFormatAmount(t *testing.T) {
 	if got := FormatAmount(MustD("-999")); got != "-999.00" {
 		t.Errorf("got %s", got)
 	}
+}
+
+// Third Schedule: the price printed on the pack includes sales tax (section
+// 3(2)(a)); the tax is charged on the retail price excluding it (section
+// 2(27)), i.e. printed price x rate / (100 + rate).
+func TestThirdScheduleTaxInclusivePrintedPrice(t *testing.T) {
+	res := ComputeLine(LineInput{Quantity: MustD("10"), UnitPrice: MustD("80"), RetailPrice: MustD("118"), SaleType: domain.STThirdSchedule, Rate: "18%"})
+	eq(t, "printed retail value", res.PrintedRetailValue, "1180")
+	eq(t, "retail value (FBR fixedNotifiedValueOrRetailPrice)", res.RetailValue, "1000")
+	eq(t, "sales tax", res.SalesTax, "180")
+	eq(t, "value", res.ValueExclST, "800")
+	eq(t, "total", res.TotalValue, "980")
+	// FBR's own retail value (ex sales tax) is used as given.
+	given := ComputeLine(LineInput{Quantity: MustD("10"), UnitPrice: MustD("80"), RetailValue: Ptr(MustD("1000")), SaleType: domain.STThirdSchedule, Rate: "18%"})
+	eq(t, "given retail value", given.RetailValue, "1000")
+	eq(t, "given sales tax", given.SalesTax, "180")
+}
+
+// FED charged separately is part of the value of supply (section 2(46)(a)),
+// so sales tax and further tax are charged on value + FED and FED is not
+// added to the total a second time.
+func TestFEDIncludedInValueOfSupply(t *testing.T) {
+	res := ComputeLine(LineInput{Quantity: MustD("1"), UnitPrice: MustD("1000"), FEDRate: MustD("20"), SaleType: domain.STStandard, Rate: "18%"})
+	eq(t, "fed", res.FED, "200")
+	eq(t, "value of supply", res.ValueExclST, "1200")
+	eq(t, "sales tax", res.SalesTax, "216")
+	eq(t, "further tax", res.FurtherTax, "48")
+	eq(t, "total", res.TotalValue, "1464")
+
+	// Specific FED (e.g. Rs per kg) given as an amount.
+	kg := ComputeLine(LineInput{Quantity: MustD("100"), UnitPrice: MustD("10"), FEDAmount: Ptr(MustD("150")), SaleType: domain.STStandard, Rate: "18%", BuyerRegistered: true})
+	eq(t, "kg value of supply", kg.ValueExclST, "1150")
+	eq(t, "kg sales tax", kg.SalesTax, "207")
+	eq(t, "kg total", kg.TotalValue, "1357")
+
+	// FED in sales tax mode is itself the tax: it stays outside the value.
+	st := ComputeLine(LineInput{Quantity: MustD("1"), UnitPrice: MustD("1000"), FEDRate: MustD("10"), SaleType: domain.STGoodsFED, Rate: "8%", BuyerRegistered: true})
+	eq(t, "ST-mode value", st.ValueExclST, "1000")
+	eq(t, "ST-mode tax", st.SalesTax, "80")
+	eq(t, "ST-mode total", st.TotalValue, "1180")
 }

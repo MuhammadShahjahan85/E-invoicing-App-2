@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -32,9 +33,16 @@ type connState struct {
 	Failures     int
 	LastError    string
 	AuthFailure  bool
-	// Recovered is set when a call succeeds after failures; the worker then
-	// resubmits the queued invoices at once.
+	// Recovered is set when FBR is usable again after failures; the worker
+	// then resubmits the queued invoices at once.
 	Recovered bool
+	// PostFailing is set while posting invoices fails: only a successful
+	// post (not a reference lookup or validation) clears it.
+	PostFailing bool
+	// Probe is set when FBR answered another call (e.g. a connection test)
+	// while posting was failing: one queued invoice is then retried at once
+	// to find out whether posting works again.
+	Probe bool
 }
 
 // ConnectionStatus is reported in the dashboard.
@@ -66,50 +74,63 @@ func (h *healthTracker) observe(companyID int64, env domain.Environment, l fbr.C
 	if env == domain.EnvSimulator {
 		return
 	}
+	// A call abandoned by this side (request cancelled) says nothing about FBR.
+	if l.Err != nil && errors.Is(l.Err, context.Canceled) {
+		return
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	st := h.get(companyID, env)
+	posting := l.Operation == "postinvoicedata"
+	fail := func(auth bool) {
+		if st.Failures == 0 {
+			st.FirstFailure = time.Now()
+		}
+		st.Failures++
+		st.AuthFailure = auth
+		if posting {
+			st.PostFailing = true
+		}
+		if l.Err != nil {
+			st.LastError = l.Err.Error()
+		}
+	}
 	switch l.ErrKind {
 	case fbr.ErrNotSent, fbr.ErrUncertain, fbr.ErrUnavailable:
-		if st.Failures == 0 {
-			st.FirstFailure = time.Now()
-		}
-		st.Failures++
-		st.AuthFailure = false
-		if l.Err != nil {
-			st.LastError = l.Err.Error()
-		}
+		fail(false)
 	case fbr.ErrAuth:
-		if st.Failures == 0 {
-			st.FirstFailure = time.Now()
-		}
-		st.Failures++
-		st.AuthFailure = true
-		if l.Err != nil {
-			st.LastError = l.Err.Error()
-		}
+		fail(true)
 	default:
+		st.LastSuccess = time.Now()
+		// While posting fails, a successful lookup or validation does not
+		// mean invoices can be reported again; a lookup triggers one probe.
+		if st.PostFailing && !posting {
+			if l.Operation != "validateinvoicedata" {
+				st.Probe = true
+			}
+			return
+		}
 		if st.Failures > 0 {
 			st.Recovered = true
 		}
-		st.LastSuccess = time.Now()
 		st.Failures = 0
 		st.FirstFailure = time.Time{}
 		st.AuthFailure = false
+		st.PostFailing = false
 		st.LastError = ""
 	}
 }
 
-// takeRecovered returns the connections that recovered since the last call
-// and clears their flag.
+// takeRecovered returns the connections that recovered (or should be
+// probed) since the last call and clears their flags.
 func (h *healthTracker) takeRecovered() []connState {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	var out []connState
 	for _, st := range h.state {
-		if st.Recovered {
-			st.Recovered = false
+		if st.Recovered || st.Probe {
 			out = append(out, *st)
+			st.Recovered, st.Probe = false, false
 		}
 	}
 	return out
@@ -129,7 +150,10 @@ func (h *healthTracker) snapshot() []connState {
 func (s *Service) Connection(companyID int64, env domain.Environment) ConnectionStatus {
 	s.health.mu.Lock()
 	defer s.health.mu.Unlock()
-	st := s.health.get(companyID, env)
+	st, ok := s.health.state[key(companyID, env)]
+	if !ok {
+		st = &connState{CompanyID: companyID, Env: env} // nothing observed yet; not stored
+	}
 	cs := ConnectionStatus{Environment: env, Healthy: st.Failures == 0, Failures: st.Failures, LastError: st.LastError, AuthFailure: st.AuthFailure}
 	if !st.LastSuccess.IsZero() {
 		cs.LastSuccess = st.LastSuccess.UTC().Format(time.RFC3339)
@@ -140,14 +164,23 @@ func (s *Service) Connection(companyID int64, env domain.Environment) Connection
 	return cs
 }
 
-// OutageThreshold is how long FBR must be unreachable before an incident is opened.
-var OutageThreshold = 10 * time.Minute
+// OutageThreshold is how long FBR must be unreachable before an incident is
+// opened; at least OutageMinFailures failed calls are also required, so one
+// isolated failure does not create an incident.
+var (
+	OutageThreshold   = 10 * time.Minute
+	OutageMinFailures = 3
+)
 
 // requeueRecovered makes the queued invoices of every connection that has just
 // recovered due at once, so invoices issued during an outage reach FBR well
 // within the 24 hours allowed after connectivity is restored.
 func (s *Service) requeueRecovered(ctx context.Context) {
 	for _, st := range s.health.takeRecovered() {
+		if !st.Recovered {
+			_, _ = s.Store.RequeueOldest(ctx, st.CompanyID, st.Env)
+			continue
+		}
 		if n, err := s.Store.RequeueNow(ctx, st.CompanyID, st.Env); err == nil && n > 0 {
 			s.Log.Info("FBR connection restored; resubmitting queued invoices", "company", st.CompanyID, "env", st.Env, "count", n)
 			s.Audit(ctx, System, st.CompanyID, "worker.requeued", "invoice", "", fmt.Sprintf("%d invoices queued during the outage resubmitted after the connection was restored", n))
@@ -155,15 +188,20 @@ func (s *Service) requeueRecovered(ctx context.Context) {
 	}
 }
 
-// checkIncidents opens or closes auto-detected incidents from the health state.
+// checkIncidents opens or closes auto-detected incidents from the health
+// state. Only production matters for Rule 150R: sandbox and simulator states
+// neither open nor close the taxpayer's incidents.
 func (s *Service) checkIncidents(ctx context.Context) {
 	for _, st := range s.health.snapshot() {
+		if st.Env != domain.EnvProduction {
+			continue
+		}
 		kind := "fbr_unreachable"
 		if st.AuthFailure {
 			kind = "auth_failure"
 		}
 		open, _ := s.Store.OpenAutoIncident(ctx, st.CompanyID, kind)
-		failing := st.Failures > 0 && !st.FirstFailure.IsZero() && time.Since(st.FirstFailure) >= OutageThreshold
+		failing := st.Failures >= OutageMinFailures && !st.FirstFailure.IsZero() && time.Since(st.FirstFailure) >= OutageThreshold
 		if st.AuthFailure && st.Failures > 0 {
 			failing = true
 		}

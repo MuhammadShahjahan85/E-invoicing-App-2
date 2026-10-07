@@ -251,9 +251,18 @@ func TestTimeoutBecomesUncertainAndIsReconciled(t *testing.T) {
 	if _, err := f.svc.ResolveUncertain(f.ctx, f.admin, f.cid, inv.ID, ResolveInput{Action: "accepted", FBRInvoiceNumber: "1234567DI1700000000000"}); err == nil {
 		t.Fatal("number of another seller must be rejected")
 	}
-	got, err := f.svc.ResolveUncertain(f.ctx, f.admin, f.cid, inv.ID, ResolveInput{Action: "accepted", FBRInvoiceNumber: ntn + "DI1747119701593", Note: "found on IRIS"})
+	if _, err := f.svc.ResolveUncertain(f.ctx, f.admin, f.cid, inv.ID, ResolveInput{Action: "accepted", FBRInvoiceNumber: ntn + "DI1747119701593"}); err == nil {
+		t.Fatal("the FBR date/time from IRIS must be required")
+	}
+	got, err := f.svc.ResolveUncertain(f.ctx, f.admin, f.cid, inv.ID, ResolveInput{Action: "accepted", FBRInvoiceNumber: ntn + "DI1747119701593",
+		FBRDated: time.Now().In(PKT).Add(-96 * time.Hour).Format("2006-01-02 15:04:05"), Note: "found on IRIS"})
 	if err != nil || got.Status != domain.StatusAccepted || !VerifySeal(got) {
 		t.Fatalf("resolve: %v %+v", err, got)
+	}
+	// FBR issued it 96 hours ago: the 72-hour window has closed even though
+	// the acceptance was only recorded now.
+	if _, err := f.svc.CancelInvoice(f.ctx, f.admin, f.cid, inv.ID, CancelInput{Reason: "error", Reference: "IRIS-1"}); err == nil || !strings.Contains(err.Error(), "Commissioner") {
+		t.Fatalf("cancellation after 72 hours from FBR's issue time must need approval, got %v", err)
 	}
 }
 
@@ -469,5 +478,207 @@ func TestRecoveryResubmitsQueuedAtOnce(t *testing.T) {
 	f.svc.processQueue(f.ctx)
 	if d, _ := f.svc.Store.GetDashboard(f.ctx, f.cid, domain.EnvSandbox, day, day[:8]+"01"); d.PendingUpload != 0 {
 		t.Fatalf("queued invoices should have been resubmitted after recovery, pending %d", d.PendingUpload)
+	}
+}
+
+// A buyer identified only by NTN takes its registration type from the
+// customer master, so a registered customer is not charged further tax.
+func TestBuyerMatchedByNTNUsesCustomerMaster(t *testing.T) {
+	f := setup(t)
+	f.customer(t) // 2046004, Registered, Punjab
+	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, &InvoiceInput{
+		Buyer: &BuyerInput{NTNCNIC: "2046004"},
+		Items: []ItemInput{{HSCode: "3104.2000", Description: "Fertilizer", UoM: "KG", Quantity: tax.MustD("100"), UnitPrice: tax.MustD("100"),
+			SaleType: domain.STStandard, Rate: "18%"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.CustomerID == nil || inv.BuyerRegistrationType != domain.Registered || inv.BuyerName != "FERTILIZER MANUFAC IRS NEW" || inv.BuyerProvince == "" {
+		t.Fatalf("buyer particulars not taken from the master: %+v", inv)
+	}
+	if !inv.Totals.FurtherTax.IsZero() || inv.Totals.SalesTax.String() != "1800" {
+		t.Fatalf("further tax %s sales tax %s", inv.Totals.FurtherTax, inv.Totals.SalesTax)
+	}
+}
+
+// A queued invoice that cannot be sent for a reason other than the network
+// (here the token was removed) is deferred rather than retried on every
+// worker tick, so it cannot hold up the queue.
+func TestRefusedQueuedInvoiceIsDeferred(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	f.sim.InjectFault(fbrmock.FaultUnavailable, 1)
+	_, inv, err := f.svc.RunScenario(f.ctx, f.admin, f.cid, "SN001", "engine", domain.EnvSandbox)
+	if err != nil || inv.Status != domain.StatusQueued {
+		t.Fatalf("queue: %v", err)
+	}
+	if _, err := f.svc.SetToken(f.ctx, f.admin, f.cid, TokenInput{Environment: domain.EnvSandbox, Clear: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Store.RequeueNow(f.ctx, f.cid, domain.EnvSandbox); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.processQueue(f.ctx)
+	got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID)
+	next := store.ParseTime(got.NextAttemptAt)
+	if got.Status != domain.StatusQueued || time.Until(next) < 10*time.Minute || !strings.Contains(got.LastError, "token") {
+		t.Fatalf("status %s next %q error %q", got.Status, got.NextAttemptAt, got.LastError)
+	}
+}
+
+// An invoice issued while FBR was unreachable stays in the "not yet reported"
+// count (24-hour upload rule) when its upload is rejected after recovery,
+// until FBR accepts it.
+func TestOfflineInvoiceTrackedUntilAccepted(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, &InvoiceInput{ScenarioID: "SN001",
+		Buyer: &BuyerInput{NTNCNIC: "2046004", Name: "Buyer", Province: "Punjab", Address: "Lahore", RegistrationType: "Registered"},
+		Items: []ItemInput{{HSCode: "0101.2100", Description: "x", UoM: "Numbers, pieces, units", Quantity: tax.MustD("1"), UnitPrice: tax.MustD("100"),
+			SaleType: domain.STStandard, Rate: "17%"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.sim.InjectFault(fbrmock.FaultUnavailable, 1)
+	if inv, err = f.svc.Submit(f.ctx, f.admin, f.cid, inv.ID, SubmitOptions{}); err != nil || inv.Status != domain.StatusQueued || inv.OfflineSince == "" {
+		t.Fatalf("queue: %v %s %q", err, inv.Status, inv.OfflineSince)
+	}
+	_, _ = f.svc.Store.RequeueNow(f.ctx, f.cid, domain.EnvSandbox)
+	f.svc.processQueue(f.ctx) // FBR is back but rejects the rate (0046)
+	got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID)
+	if got.Status != domain.StatusRejected {
+		t.Fatalf("expected rejection after recovery, got %s", got.Status)
+	}
+	day := time.Now().Format("2006-01-02")
+	d, _ := f.svc.Store.GetDashboard(f.ctx, f.cid, domain.EnvSandbox, day, day[:8]+"01")
+	if d.PendingUpload != 1 || d.OldestPending != got.OfflineSince {
+		t.Fatalf("rejected offline invoice must stay pending: %d %q", d.PendingUpload, d.OldestPending)
+	}
+}
+
+// Sample mode reproduces FBR's published sample amounts, including a sample
+// with FED (SN005), although the engine adds FED to the value of supply.
+func TestScenarioSampleModeKeepsFBRValues(t *testing.T) {
+	f := setup(t)
+	sc, ok := domain.LookupScenario("SN005")
+	if !ok {
+		t.Fatal("SN005 missing")
+	}
+	c, _ := f.svc.Store.GetCompany(f.ctx, f.cid)
+	in := ScenarioInvoiceInput(sc, c, domain.EnvSimulator, "sample", time.Now().In(PKT).Format("2006-01-02"))
+	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := f.svc.BuildPayload(c, inv)
+	it := p.Items[0]
+	if !it.ValueSalesExcludingST.Value.Equal(tax.F(sc.Item.ValueSalesExcludingST)) || !it.FEDPayable.Value.Equal(tax.F(sc.Item.FEDPayable)) ||
+		!it.SalesTaxApplicable.Value.Equal(tax.F(sc.Item.SalesTaxApplicable)) {
+		t.Fatalf("sample not reproduced: value %s fed %s tax %s", it.ValueSalesExcludingST.Value, it.FEDPayable.Value, it.SalesTaxApplicable.Value)
+	}
+}
+
+func TestEqualNumberPrefixesRefused(t *testing.T) {
+	f := setup(t)
+	c, _ := f.svc.Store.GetCompany(f.ctx, f.cid)
+	c.InvoicePrefix, c.DebitNotePrefix = "INV", "inv"
+	if _, err := f.svc.SaveCompany(f.ctx, f.admin, c); err == nil || !strings.Contains(err.Error(), "prefixes must be different") {
+		t.Fatalf("equal prefixes accepted: %v", err)
+	}
+}
+
+// The caller going away (browser closed, ERP timeout) during the exchange
+// with FBR must not leave the invoice stuck in SUBMITTING with FBR's answer
+// lost: the outcome is still recorded.
+func TestCancelledCallerStillRecordsOutcome(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	c, _ := f.svc.Store.GetCompany(f.ctx, f.cid)
+	c.ValidateBeforePost = false
+	if _, err := f.svc.SaveCompany(f.ctx, f.admin, c); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, ScenarioInvoiceInput(mustScenario(t, "SN001"), c, domain.EnvSandbox, "engine", time.Now().In(PKT).Format("2006-01-02")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.sim.InjectFault(fbrmock.FaultTimeout, 1) // FBR records it, then answers too late
+	ctx, cancel := context.WithCancel(f.ctx)
+	go func() { time.Sleep(100 * time.Millisecond); cancel() }()
+	_, _ = f.svc.Submit(ctx, f.admin, f.cid, inv.ID, SubmitOptions{})
+	got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID)
+	if got.Status == domain.StatusSubmitting || got.Status != domain.StatusUncertain {
+		t.Fatalf("status %s after the caller went away (want UNCERTAIN, FBR recorded it)", got.Status)
+	}
+}
+
+func mustScenario(t *testing.T, id string) domain.Scenario {
+	t.Helper()
+	sc, ok := domain.LookupScenario(id)
+	if !ok {
+		t.Fatalf("scenario %s missing", id)
+	}
+	return sc
+}
+
+// Interrupted submissions are released by the worker while it runs, not
+// only at startup, and at startup regardless of age.
+func TestStuckSubmissionsReleased(t *testing.T) {
+	f := setup(t)
+	inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, &InvoiceInput{
+		Buyer: &BuyerInput{NTNCNIC: "2046004", Name: "Buyer", Province: "Punjab", Address: "Lahore", RegistrationType: "Registered"},
+		Items: []ItemInput{{HSCode: "3104.2000", Description: "x", UoM: "KG", Quantity: tax.MustD("1"), UnitPrice: tax.MustD("100"), SaleType: domain.STStandard, Rate: "18%"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := func(age time.Duration, payload string) {
+		_, err := f.svc.Store.DB.ExecContext(f.ctx, `UPDATE invoices SET status='SUBMITTING', payload_json=?, updated_at=? WHERE id=?`,
+			payload, time.Now().UTC().Add(-age).Format(time.RFC3339), inv.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	status := func() domain.InvoiceStatus {
+		got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID)
+		return got.Status
+	}
+	// Still within a possible in-flight exchange: left alone.
+	set(30*time.Second, "{}")
+	f.svc.recoverStuck(f.ctx, f.svc.Now().UTC().Add(-f.svc.stuckAfter()))
+	if status() != domain.StatusSubmitting {
+		t.Fatalf("in-flight submission released too early: %s", status())
+	}
+	// Older than any exchange can take: released for reconciliation.
+	set(f.svc.stuckAfter()+time.Minute, "{}")
+	f.svc.recoverStuck(f.ctx, f.svc.Now().UTC().Add(-f.svc.stuckAfter()))
+	if status() != domain.StatusUncertain {
+		t.Fatalf("stuck submission not released: %s", status())
+	}
+	// At startup even a fresh one is released; never sent -> queued again.
+	set(5*time.Second, "")
+	f.svc.recoverStuck(f.ctx, f.svc.Now().UTC().Add(time.Second))
+	if status() != domain.StatusQueued {
+		t.Fatalf("startup recovery: %s", status())
+	}
+}
+
+// A queued invoice that fails local validation when retried keeps the
+// validation issues so the operator knows what to correct.
+func TestQueuedInvoiceRejectedLocallyKeepsIssues(t *testing.T) {
+	f := setup(t)
+	sandboxCompany(t, f)
+	f.sim.InjectFault(fbrmock.FaultUnavailable, 1)
+	_, inv, err := f.svc.RunScenario(f.ctx, f.admin, f.cid, "SN001", "engine", domain.EnvSandbox)
+	if err != nil || inv.Status != domain.StatusQueued {
+		t.Fatalf("queue: %v", err)
+	}
+	if _, err := f.svc.Store.DB.ExecContext(f.ctx, `UPDATE invoice_items SET hs_code='' WHERE invoice_id=?`, inv.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.svc.Store.RequeueNow(f.ctx, f.cid, domain.EnvSandbox)
+	f.svc.processQueue(f.ctx)
+	got, _ := f.svc.Store.GetInvoice(f.ctx, f.cid, inv.ID)
+	if got.Status != domain.StatusRejected || len(got.Validation) == 0 {
+		t.Fatalf("status %s issues %v", got.Status, got.Validation)
 	}
 }

@@ -126,11 +126,22 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 	wctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go a.Svc.RunWorker(wctx, service.WorkerOptions{
-		Interval:        time.Duration(a.Cfg.Worker.IntervalSeconds) * time.Second,
-		BackupHour:      a.Cfg.Worker.BackupHour,
-		BackupRetention: a.Cfg.Worker.BackupRetention,
-	})
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		a.Svc.RunWorker(wctx, service.WorkerOptions{
+			Interval:        time.Duration(a.Cfg.Worker.IntervalSeconds) * time.Second,
+			BackupHour:      a.Cfg.Worker.BackupHour,
+			BackupRetention: a.Cfg.Worker.BackupRetention,
+		})
+	}()
+	stopWorker := func() {
+		cancel()
+		select {
+		case <-workerDone:
+		case <-time.After(10 * time.Second):
+		}
+	}
 
 	errc := make(chan error, 1)
 	scheme := "http"
@@ -157,12 +168,19 @@ func (a *App) Serve(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		// Record the orderly stop first (Windows gives a service only a few
+		// seconds at system shutdown); an unrecorded stop is later reported
+		// as a system failure under Rule 150R.
+		a.Svc.MarkCleanShutdown()
+		stopWorker()
 		sctx, c2 := context.WithTimeout(context.Background(), 20*time.Second)
 		defer c2()
 		_ = srv.Shutdown(sctx)
 		a.Log.Info("stopped")
 		return nil
 	case err := <-errc:
+		a.Svc.MarkCleanShutdown()
+		stopWorker()
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}

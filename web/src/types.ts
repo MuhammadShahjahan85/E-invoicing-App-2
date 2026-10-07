@@ -214,6 +214,7 @@ export interface Invoice {
   payloadHash: string
   sealHash: string
   prevSealHash: string
+  offlineSince: string
   printCount: number
   cancelledAt: string
   cancelReason: string

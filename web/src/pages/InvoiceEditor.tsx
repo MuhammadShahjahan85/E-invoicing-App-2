@@ -357,7 +357,7 @@ export default function InvoiceEditor() {
 
       <div className="row mt" style={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div className="muted small" style={{ maxWidth: 560 }}>
-          Taxes are computed by the built-in engine: sales tax on the value of supply (or printed retail price for Third Schedule goods), further tax
+          Taxes are computed by the built-in engine: sales tax on the value of supply (including any FED), or on the retail price for Third Schedule goods, further tax
           {' ' + company.furtherTaxRate}% for unregistered buyers where applicable (section 3(1A)), extra tax and FED where entered, and sales tax
           withheld when the buyer is a withholding agent.
         </div>
@@ -368,7 +368,7 @@ export default function InvoiceEditor() {
           </div>
           {!!totals?.retailValue && (
             <div className="t-row">
-              <span>Retail price (3rd Schedule)</span>
+              <span>Retail value excl. sales tax (3rd Schedule)</span>
               <span>{money(totals.retailValue)}</span>
             </div>
           )}
@@ -390,7 +390,11 @@ export default function InvoiceEditor() {
           )}
           {!!totals?.fed && (
             <div className="t-row">
-              <span>FED</span>
+              <span>
+                {Math.abs(totals.totalValue - (totals.valueExclST + totals.salesTax + totals.furtherTax + totals.extraTax)) < 0.01
+                  ? 'FED (included in the value of supply)'
+                  : 'FED'}
+              </span>
               <span>{money(totals.fed)}</span>
             </div>
           )}
@@ -564,7 +568,9 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update,
     setPq('')
     setOpen(false)
   }
-  const taxes = (c?.salesTax ?? 0) + (c?.furtherTax ?? 0) + (c?.extraTax ?? 0) + (c?.fed ?? 0)
+  // FED is usually part of the value of supply, so the taxes on top of the
+  // value are simply total minus value.
+  const taxes = (c?.totalValue ?? 0) - (c?.valueExclST ?? 0)
   const listId = `rates-${l.key}`
   const optNum = (v: string) => (v.trim() === '' ? null : num(v))
 
@@ -671,7 +677,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update,
                 <input value={l.sroItemSerialNo} onChange={(e) => update({ sroItemSerialNo: e.target.value })} />
               </Field>
               {st?.basis === 'retail_price' && (
-                <Field label="Printed retail price per unit *" hint="Third Schedule: tax on retail price">
+                <Field label="Printed retail price per unit (incl. sales tax) *" hint="Third Schedule: tax = printed price × rate ÷ (100 + rate)">
                   <input type="number" step="any" min="0" value={l.retailPrice} onChange={(e) => update({ retailPrice: num(e.target.value) })} />
                 </Field>
               )}

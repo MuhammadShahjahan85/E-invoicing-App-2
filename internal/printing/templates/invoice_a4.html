@@ -48,13 +48,16 @@
   .sign { border-top: 1px solid #111; width: 60mm; text-align: center; padding-top: 3px; font-size: 9pt; }
   .watermark { position: fixed; top: 40%; left: 0; right: 0; text-align: center; transform: rotate(-28deg); font-size: 44pt; font-weight: 800;
                color: rgba(200, 0, 0, .14); pointer-events: none; z-index: 0; white-space: nowrap; }
+  /* Longer watermarks use a smaller size so they stay within the A4 page. */
+  .watermark.wm-m { font-size: 32pt; }
+  .watermark.wm-s { font-size: 25pt; }
   .notice { border: 1px solid #c00; color: #a00; padding: 4px 8px; margin: 6px 0; font-weight: 600; font-size: 9pt; }
   .copy { font-size: 8pt; border: 1px solid #555; padding: 1px 6px; border-radius: 3px; }
   .copy-sheet + .copy-sheet { page-break-before: always; break-before: page; }
 </style>
 </head>
 <body>
-{{if .Watermark}}<div class="watermark">{{.Watermark}}</div>{{end}}
+{{if .Watermark}}<div class="watermark {{.WatermarkSize}}">{{.Watermark}}</div>{{end}}
 {{if .ShowToolbar}}<div class="toolbar sheet"><button id="print-btn" type="button">Print</button></div>{{end}}
 {{range .Sheets}}{{template "a4sheet" .}}{{end}}
 <script nonce="{{.Nonce}}">
@@ -129,8 +132,8 @@
         <th>#</th><th>Description / HS Code</th><th>Qty</th><th>UoM</th>
         {{if .Settings.ShowUnitPrice}}<th>Unit Price</th>{{end}}
         {{if .Cols.Discount}}<th>Discount</th>{{end}}
-        <th>Value excl. ST</th>
-        {{if .Cols.Retail}}<th>Retail Price</th>{{end}}
+        <th>Value excl. ST{{if .Cols.FEDInValue}} (incl. FED){{end}}</th>
+        {{if .Cols.Retail}}<th>Retail Price excl. ST</th>{{end}}
         <th>Rate</th><th>Sales Tax</th>
         {{if .Cols.Further}}<th>Further Tax</th>{{end}}
         {{if .Cols.Extra}}<th>Extra Tax</th>{{end}}
@@ -172,11 +175,11 @@
     </div>
     <table>
       <tr><td>Value excluding sales tax</td><td class="n">{{.T.Value}}</td></tr>
-      {{if .Cols.Retail}}<tr><td>Retail price (Third Schedule)</td><td class="n">{{.T.Retail}}</td></tr>{{end}}
+      {{if .Cols.Retail}}<tr><td>Retail price excl. sales tax (Third Schedule)</td><td class="n">{{.T.Retail}}</td></tr>{{end}}
       <tr><td>Sales tax</td><td class="n">{{.T.SalesTax}}</td></tr>
       {{if .Cols.Further}}<tr><td>Further tax</td><td class="n">{{.T.FurtherTax}}</td></tr>{{end}}
       {{if .Cols.Extra}}<tr><td>Extra tax</td><td class="n">{{.T.ExtraTax}}</td></tr>{{end}}
-      {{if .Cols.FED}}<tr><td>Federal excise duty</td><td class="n">{{.T.FED}}</td></tr>{{end}}
+      {{if .Cols.FED}}<tr><td>Federal excise duty{{if .Cols.FEDInValue}} (included in the value above){{end}}</td><td class="n">{{.T.FED}}</td></tr>{{end}}
       <tr class="grand"><td>Value inclusive of taxes</td><td class="n">{{.T.Total}}</td></tr>
       {{if .Cols.Withheld}}
       <tr><td>Less: sales tax withheld at source</td><td class="n">({{.T.Withheld}})</td></tr>

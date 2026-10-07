@@ -37,7 +37,7 @@ var catalogue = map[string]ErrorInfo{
 	"0022": {Title: "Quantity is not valid", Fix: "Enter a quantity (up to 4 decimals)."},
 	"0023": {Title: "Unit of measure is not valid", Fix: "Use the UoM FBR prescribes for the HS code (HS_UOM reference). UoM is case sensitive, e.g. 'KG' not 'kg'."},
 	"0024": {Title: "Product description is required", Fix: "Enter a description for the line."},
-	"0026": {Title: "Fixed / notified value or retail price is not valid", Fix: "For Third Schedule goods enter the printed retail price."},
+	"0026": {Title: "Fixed / notified value or retail price is not valid", Fix: "For Third Schedule goods enter the printed retail price (including sales tax); the system reports the retail value excluding sales tax."},
 	"0027": {Title: "Sales tax applicable is not valid", Fix: "Sales tax must equal value (or retail price) multiplied by the rate."},
 	"0028": {Title: "Further tax is not valid", Fix: "Further tax applies only to supplies to unregistered buyers."},
 	"0029": {Title: "Extra tax is not valid", Fix: "Check the extra tax amount."},
@@ -80,7 +80,7 @@ var catalogue = map[string]ErrorInfo{
 	"0168": {Title: "Cotton ginner transactions require a registered buyer", Fix: "Correct the buyer's registration type."},
 	"0169": {Title: "Sales tax withholding restricted to government / FTN holders", Fix: "Remove the withholding."},
 	"0174": {Title: "Sales tax is required", Fix: "Enter the sales tax amount."},
-	"0175": {Title: "Fixed / notified value or retail price is required", Fix: "Enter the retail price for Third Schedule goods."},
+	"0175": {Title: "Fixed / notified value or retail price is required", Fix: "Enter the printed retail price for Third Schedule goods."},
 	"0401": {Title: "Unauthorized seller access", Fix: "The token does not belong to this seller NTN/CNIC or has expired. Check the token for the selected environment."},
 	"0402": {Title: "Unauthorized buyer access", Fix: "Check the buyer registration number."},
 }

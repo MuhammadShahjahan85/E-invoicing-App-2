@@ -125,10 +125,10 @@ Optional override fields replace the tax engine's calculation. Use them when you
 | `quantity` | number | |
 | `unitPrice` | number | Price excluding sales tax |
 | `discountPercent` / `discountAmount` | number | Line discount |
-| `value` | number | *Override*: value excluding sales tax |
+| `value` | number | *Override*: value excluding sales tax **and excluding FED**. Any FED (`fedRate`/`fed`) is added to form the value of supply (s.2(46)), which is reported as `valueSalesExcludingST` |
 | `saleType` | string | FBR sale type text, e.g. `"Goods at standard rate (default)"`, `"Goods at Reduced Rate"`, `"3rd Schedule Goods"`, `"Exempt goods"` (see `/ref/sale-types`) |
 | `rate` | string | e.g. `"18%"`, `"5%"`, `"Exempt"`, `"Rs.200"`, `"18% along with rupees 60 per kilogram"`. Defaults from the sale type. |
-| `retailPrice` / `retailValue` | number | Third Schedule: printed retail price per unit / *override* of the total retail value |
+| `retailPrice` / `retailValue` | number | Third Schedule: retail price printed on the pack per unit, **including** sales tax (the system derives the retail value excluding sales tax) / *override*: the line's retail value **excluding** sales tax, exactly as FBR's `fixedNotifiedValueOrRetailPrice` |
 | `furtherTaxMode` | string | `"auto"` (unregistered buyers), `"yes"` or `"no"` |
 | `furtherTax`, `salesTax`, `extraTax`, `fed`, `stWithheld` | number | *Overrides* |
 | `extraTaxRate`, `fedRate` | number | Percentages |

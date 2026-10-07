@@ -66,7 +66,7 @@ func ImportTemplateXLSX() ([]byte, error) {
 	lines := []string{
 		"One row per invoice line. Rows with the same invoice_ref become one invoice (invoice_ref is stored as the external reference and prevents duplicates).",
 		"invoice_date: YYYY-MM-DD or DD/MM/YYYY. doc_type: 'Sale Invoice' or 'Debit Note' (debit notes need original_fbr_invoice_no).",
-		"buyer_registration_type: Registered / Unregistered. Registered buyers need buyer_ntn_cnic (7/9-digit NTN or 13-digit CNIC).",
+		"buyer_registration_type: Registered / Unregistered. Registered buyers need buyer_ntn_cnic (7/9-digit NTN or 13-digit CNIC). Leave blank to use the customer master (matched by buyer_ntn_cnic); unknown buyers are treated as Unregistered.",
 		"Either product_code (from the Products master) or hs_code + description + uom + sale_type + rate must be given.",
 		"value_excl_st, sales_tax, further_tax, extra_tax, fed and st_withheld are optional overrides; leave blank to let the tax engine compute them.",
 		"withholding_mode: blank, 'fraction' (1/5th) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
@@ -219,7 +219,7 @@ func rowsToInputs(rows []map[string]string, env domain.Environment) ([]*InvoiceI
 			in = &InvoiceInput{Environment: env, DocType: firstNonEmpty(r["doc_type"], string(domain.DocSaleInvoice)), InvoiceDate: date,
 				InvoiceRefNo: r["original_fbr_invoice_no"], ScenarioID: r["scenario_id"], ExternalRef: ref, Source: "import",
 				Buyer: &BuyerInput{NTNCNIC: r["buyer_ntn_cnic"], Name: r["buyer_name"], Province: r["buyer_province"],
-					Address: r["buyer_address"], RegistrationType: firstNonEmpty(r["buyer_registration_type"], "Unregistered")}}
+					Address: r["buyer_address"], RegistrationType: r["buyer_registration_type"]}}
 			if wm := r["withholding_mode"]; wm != "" {
 				in.WithholdingMode = &wm
 			}

@@ -16,7 +16,7 @@ export default function Audit() {
   const [to, setTo] = useState('')
   const [onlyCompany, setOnlyCompany] = useState(true)
   const [offset, setOffset] = useState(0)
-  const [verify, setVerify] = useState<{ intact: boolean; brokenAt: number; checked: number } | null>(null)
+  const [verify, setVerify] = useState<{ intact: boolean; brokenAt: number; checked: number; invoicesChecked?: number; problems?: string[] | null } | null>(null)
   const [verifyError, setVerifyError] = useState('')
   const limit = 100
   // Users limited to some companies can only read their companies' entries.
@@ -56,10 +56,17 @@ export default function Audit() {
       </div>
       {verifyError && <div className="alert alert-error">{verifyError}</div>}
       {verify && (
-        <div className={'alert ' + (verify.intact ? 'alert-ok' : 'alert-error')}>
+        <div className={'alert ' + (verify.intact && !verify.problems?.length ? 'alert-ok' : 'alert-error')}>
           {verify.intact
             ? `Audit chain intact — ${verify.checked} entries verified.`
             : `Audit chain broken at entry #${verify.brokenAt} (${verify.checked} entries checked). The database may have been altered outside the application.`}
+          {verify.invoicesChecked !== undefined &&
+            (verify.problems?.length
+              ? ` Invoice seals: ${verify.problems.length} problem(s) — ${verify.problems.slice(0, 5).join('; ')}.`
+              : ` Seals of ${verify.invoicesChecked} accepted invoices verified.`)}
+          {(!verify.intact || !!verify.problems?.length) && (
+            <div className="small">A tampering incident has been opened in the incident register; Rule 150R requires it to be reported to the Commissioner within 24 hours.</div>
+          )}
         </div>
       )}
       <div className="card">

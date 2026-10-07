@@ -122,13 +122,19 @@ export default function MobileAccess() {
             The server protects all traffic with HTTPS using its own certificate authority. Installing that certificate once on a phone removes security warnings and allows the app
             to be installed.
           </p>
+          {window.location.protocol !== 'https:' && (
+            <div className="alert alert-warn small">
+              This page is open over plain HTTP. Phones can use the system in the browser, but installing it as an app needs HTTPS: run the server with HTTPS
+              (the default; remove <span className="mono">--no-tls</span>) or behind an HTTPS reverse proxy.
+            </div>
+          )}
           {data?.localCA ? (
             <a className="btn" href="/api/v1/system/ca.crt">
               Download certificate
             </a>
-          ) : (
+          ) : window.location.protocol === 'https:' ? (
             <p className="small">This server uses a certificate issued by a public or company certificate authority; no download is needed.</p>
-          )}
+          ) : null}
           <div className="grid g2 mt">
             <div className="small">
               <b>Android</b>

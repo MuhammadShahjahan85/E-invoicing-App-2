@@ -222,7 +222,7 @@ var SaleTypes = []SaleType{
 	{Name: STExempt, Category: "goods", DefaultRate: "Exempt", Basis: BasisValue, SRORequired: true, Exempt: true, Scenario: "SN006",
 		Note: "Sixth Schedule exemption. Rate must be 'Exempt'; provide the table and serial number."},
 	{Name: STThirdSchedule, Category: "goods", DefaultRate: "18%", Basis: BasisRetailPrice, Scenario: "SN008",
-		Note: "Tax is charged on the printed retail price (section 3(2)(a)). Enter the retail price; further tax is not charged by default."},
+		Note: "Tax is charged on the retail price (section 3(2)(a)). Enter the price printed on the pack, which includes sales tax; the tax is printed price x rate / (100 + rate). Further tax is not charged by default."},
 	{Name: STSteel, Category: "goods", DefaultRate: "18%", Basis: BasisValue, FurtherTaxDefault: true, Scenario: "SN003",
 		Note: "Billets, ingots and long bars by steel melters/re-rollers."},
 	{Name: STShipBreaking, Category: "goods", DefaultRate: "18%", Basis: BasisValue, FurtherTaxDefault: true, Scenario: "SN004"},

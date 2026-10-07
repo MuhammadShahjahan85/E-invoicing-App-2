@@ -82,10 +82,13 @@ type LineResult struct {
 	Discount    decimal.Decimal `json:"discount"`
 	ValueExclST decimal.Decimal `json:"valueExclST"`
 	RetailValue decimal.Decimal `json:"retailValue"`
-	Rate        Rate            `json:"rate"`
-	Basis       domain.TaxBasis `json:"basis"`
-	TaxBase     decimal.Decimal `json:"taxBase"`
-	SalesTax    decimal.Decimal `json:"salesTax"`
+	// PrintedRetailValue is quantity x the printed (tax-inclusive) retail
+	// price, when a printed price was given.
+	PrintedRetailValue decimal.Decimal `json:"printedRetailValue"`
+	Rate               Rate            `json:"rate"`
+	Basis              domain.TaxBasis `json:"basis"`
+	TaxBase            decimal.Decimal `json:"taxBase"`
+	SalesTax           decimal.Decimal `json:"salesTax"`
 	// ComputedSalesTax is the engine's own figure (equals SalesTax unless an
 	// external amount was supplied).
 	ComputedSalesTax decimal.Decimal `json:"computedSalesTax"`
@@ -143,11 +146,33 @@ func ComputeLine(in LineInput) LineResult {
 		res.warn("Discount exceeds the line value; value of supply is negative.")
 	}
 
-	// Retail price / notified value (fixedNotifiedValueOrRetailPrice).
+	// Federal excise duty charged separately from sales tax is part of the
+	// value of supply (section 2(46)(a): the consideration "including all
+	// Federal and Provincial duties"), so sales tax and further tax are
+	// charged on value + FED. Under the "FED in ST mode" sale types FED is
+	// itself collected as sales tax and stays outside the value.
+	if in.FEDAmount != nil {
+		res.FED = R2(*in.FEDAmount)
+	} else if in.FEDRate.IsPositive() {
+		res.FED = R2(PercentOf(res.ValueExclST, in.FEDRate))
+	}
+	fedInValue := res.FED.IsPositive() && st.Name != domain.STGoodsFED && st.Name != domain.STServicesFED
+	if fedInValue {
+		res.ValueExclST = R2(res.ValueExclST.Add(res.FED))
+	}
+
+	// Retail price (fixedNotifiedValueOrRetailPrice). Section 2(27) defines
+	// the retail price as excluding sales tax, while section 3(2)(a)
+	// requires the price printed on the pack to include it. RetailPrice is
+	// the printed (tax-inclusive) price per unit, so the retail value is
+	// qty x printed price x 100 / (100 + rate). RetailValue, when given, is
+	// already FBR's value excluding sales tax.
 	if in.RetailValue != nil {
 		res.RetailValue = R2(*in.RetailValue)
 	} else if in.RetailPrice.IsPositive() {
-		res.RetailValue = R2(res.Quantity.Mul(in.RetailPrice))
+		printed := res.Quantity.Mul(in.RetailPrice)
+		res.PrintedRetailValue = R2(printed)
+		res.RetailValue = R2(printed.Mul(Hundred).Div(Hundred.Add(res.Rate.Percent)))
 	}
 
 	// Sales tax.
@@ -216,13 +241,6 @@ func ComputeLine(in LineInput) LineResult {
 		res.ExtraTaxEmpty = true
 	}
 
-	// Federal excise duty charged separately from sales tax.
-	if in.FEDAmount != nil {
-		res.FED = R2(*in.FEDAmount)
-	} else if in.FEDRate.IsPositive() {
-		res.FED = R2(PercentOf(res.ValueExclST, in.FEDRate))
-	}
-
 	// Sales tax withheld at source by a withholding agent buyer.
 	switch in.Withholding {
 	case WithholdFraction:
@@ -245,7 +263,11 @@ func ComputeLine(in LineInput) LineResult {
 		res.warn("FBR validation (error 0008) expects sales tax withheld at source to be either zero or equal to the sales tax; confirm the withholding treatment before submitting.")
 	}
 
-	res.TotalValue = R2(Sum(res.ValueExclST, res.SalesTax, res.FurtherTax, res.ExtraTax, res.FED))
+	if fedInValue {
+		res.TotalValue = R2(Sum(res.ValueExclST, res.SalesTax, res.FurtherTax, res.ExtraTax))
+	} else {
+		res.TotalValue = R2(Sum(res.ValueExclST, res.SalesTax, res.FurtherTax, res.ExtraTax, res.FED))
+	}
 	return res
 }
 

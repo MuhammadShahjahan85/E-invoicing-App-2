@@ -91,6 +91,18 @@ func TestRenderWatermarks(t *testing.T) {
 	if out := render(t, c, inv, Options{}); !strings.Contains(out, "PENDING FBR REPORTING") || !strings.Contains(out, "within 24 hours") || strings.Contains(out, `viewBox="0 0 25 25"`) {
 		t.Error("queued invoice must print as a provisional copy without a QR code")
 	}
+	// Issued offline, upload rejected after recovery: still provisional.
+	_, inv = sampleInvoice()
+	inv.Status, inv.OfflineSince, inv.FBRInvoiceNumber = domain.StatusRejected, "2026-10-07T05:00:00Z", ""
+	if out := render(t, c, inv, Options{}); !strings.Contains(out, "PENDING FBR REPORTING") || !strings.Contains(out, "REJECTED") {
+		t.Error("rejected offline invoice must stay a provisional copy")
+	}
+	// Once accepted, the offline history no longer affects the print.
+	_, inv = sampleInvoice()
+	inv.OfflineSince = "2026-10-07T05:00:00Z"
+	if out := render(t, c, inv, Options{}); strings.Contains(out, "PENDING FBR REPORTING") || !strings.Contains(out, `viewBox="0 0 25 25"`) {
+		t.Error("accepted invoice must print normally")
+	}
 	_, inv = sampleInvoice()
 	inv.Environment = domain.EnvSandbox
 	if out := render(t, c, inv, Options{}); !strings.Contains(out, "FBR SANDBOX — NOT A VALID TAX INVOICE") {

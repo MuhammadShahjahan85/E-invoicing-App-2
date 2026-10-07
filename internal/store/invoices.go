@@ -72,6 +72,7 @@ type Invoice struct {
 	PayloadHash           string                  `json:"payloadHash"`
 	SealHash              string                  `json:"sealHash"`
 	PrevSealHash          string                  `json:"prevSealHash"`
+	OfflineSince          string                  `json:"offlineSince"`
 	PrintCount            int                     `json:"printCount"`
 	CancelledAt           string                  `json:"cancelledAt"`
 	CancelReason          string                  `json:"cancelReason"`
@@ -138,7 +139,7 @@ const invoiceCols = `id, company_id, environment, doc_type, internal_no, invoice
 	total_retail_value, total_sales_tax, total_further_tax, total_extra_tax, total_fed, total_st_withheld, total_value, amount_payable,
 	fbr_invoice_number, fbr_dated, fbr_status_code, fbr_errors, last_error, validation_json, submit_attempts, next_attempt_at,
 	payload_json, payload_hash, seal_hash, prev_seal_hash, print_count, cancelled_at, cancel_reason, cancel_reference,
-	created_by, updated_by, created_at, updated_at, submitted_at, accepted_at`
+	created_by, updated_by, created_at, updated_at, submitted_at, accepted_at, offline_since`
 
 func scanInvoice(row interface{ Scan(...any) error }) (*Invoice, error) {
 	var inv Invoice
@@ -151,7 +152,7 @@ func scanInvoice(row interface{ Scan(...any) error }) (*Invoice, error) {
 		&rv, &stx, &ft, &et, &fed, &wh, &tv, &ap,
 		&inv.FBRInvoiceNumber, &inv.FBRDated, &inv.FBRStatusCode, &fbrErrs, &inv.LastError, &valJSON, &inv.SubmitAttempts, &inv.NextAttemptAt,
 		&inv.PayloadJSON, &inv.PayloadHash, &inv.SealHash, &inv.PrevSealHash, &inv.PrintCount, &inv.CancelledAt, &inv.CancelReason, &inv.CancelReference,
-		&cb, &ub, &inv.CreatedAt, &inv.UpdatedAt, &inv.SubmittedAt, &inv.AcceptedAt)
+		&cb, &ub, &inv.CreatedAt, &inv.UpdatedAt, &inv.SubmittedAt, &inv.AcceptedAt, &inv.OfflineSince)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -549,7 +550,9 @@ func (s *Store) DueForSubmission(ctx context.Context, nowRFC string, limit int) 
 // UNCERTAIN (they may or may not have reached FBR).
 func (s *Store) RecoverStuckSubmissions(ctx context.Context, olderThan string) (int64, error) {
 	res, err := s.DB.ExecContext(ctx, `UPDATE invoices SET status=CASE WHEN payload_json='' THEN 'QUEUED' ELSE 'UNCERTAIN' END,
-		last_error='Submission interrupted (application stopped). Verify on IRIS before resubmitting.', updated_at=?
+		last_error=CASE WHEN payload_json='' THEN 'Submission interrupted before it was sent to FBR; queued for resubmission.'
+			ELSE 'Submission interrupted before FBR''s answer was recorded (application stopped or connection lost). Verify on IRIS before resubmitting.' END,
+		next_attempt_at='', updated_at=?
 		WHERE status='SUBMITTING' AND updated_at<?`, now(), olderThan)
 	if err != nil {
 		return 0, err
@@ -617,6 +620,44 @@ func (s *Store) SumDebitNotes(ctx context.Context, companyID int64, fbrNo string
 func (s *Store) RequeueNow(ctx context.Context, companyID int64, env domain.Environment) (int64, error) {
 	res, err := s.DB.ExecContext(ctx, `UPDATE invoices SET next_attempt_at='' WHERE company_id=? AND environment=? AND status='QUEUED'`,
 		companyID, string(env))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// SealedInvoices returns the header rows (without items) of every invoice of a
+// company that carries a seal, i.e. every invoice FBR accepted, for the
+// integrity check.
+func (s *Store) SealedInvoices(ctx context.Context, companyID int64) ([]*Invoice, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+invoiceCols+` FROM invoices WHERE company_id=? AND seal_hash<>'' ORDER BY id`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Invoice
+	for rows.Next() {
+		inv, err := scanInvoice(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+// MarkOffline records when an invoice could first not be reported because
+// FBR (or its security token) was unavailable; later calls keep that time.
+func (s *Store) MarkOffline(ctx context.Context, id int64, at string) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE invoices SET offline_since=? WHERE id=? AND offline_since=''`, at, id)
+	return err
+}
+
+// RequeueOldest makes the oldest queued invoice of a company and environment
+// due immediately (a probe whether posting to FBR works again).
+func (s *Store) RequeueOldest(ctx context.Context, companyID int64, env domain.Environment) (int64, error) {
+	res, err := s.DB.ExecContext(ctx, `UPDATE invoices SET next_attempt_at='' WHERE id=(SELECT id FROM invoices
+		WHERE company_id=? AND environment=? AND status='QUEUED' ORDER BY created_at, id LIMIT 1)`, companyID, string(env))
 	if err != nil {
 		return 0, err
 	}

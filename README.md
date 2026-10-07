@@ -52,9 +52,11 @@ It is a single program with a built-in web interface. It is installed on the cli
 **Compliance controls**
 
 - Reported invoices are locked by database triggers.
-- 72-hour cancellation rule with Commissioner approval tracking (STGO 01/2026).
-- Rule 150R incident register with an auto-generated letter to the Commissioner.
-- Hash-chained audit trail and tamper-evident invoice seals.
+- 72-hour cancellation rule, counted from FBR's issue time, with Commissioner approval tracking (STGO 01/2026). Optional cancellation through FBR's cancellation service once PRAL publishes it.
+- Offline invoices: resent the moment FBR is reachable again, tracked on the dashboard until accepted (24-hour upload rule), with provisional "PENDING FBR REPORTING" printouts in the meantime.
+- Section 23(1)(b): warns when a manufacturer or importer invoices an unregistered buyer without a real CNIC/NTN.
+- Rule 150R incident register. FBR outages, token failures, crashes or power failures and tampering are detected automatically, and the letter to the Commissioner is generated for you.
+- Hash-chained audit trail and tamper-evident invoice seals, checked automatically every day.
 
 **Masters and data**
 

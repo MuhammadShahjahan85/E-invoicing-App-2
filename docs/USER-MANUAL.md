@@ -64,7 +64,7 @@ Shows:
 | Sale type | FBR's sale type, e.g. *Goods at standard rate (default)*, *Goods at Reduced Rate*, *3rd Schedule Goods*, *Exempt goods*, *Goods at zero-rate*, *Services* … |
 | Rate | Pick from FBR's list for the sale type, or type it, e.g. `18%`, `5%`, `Exempt`, `Rs.200`, `18% along with rupees 60 per kilogram` |
 | SRO / Schedule no., SRO item serial no. | Required for reduced-rate, exempt and other SRO-based supplies. Lists come from FBR when available. |
-| Printed retail price | Third Schedule goods: tax is charged on the retail price |
+| Printed retail price | Third Schedule goods: the price printed on the pack, which includes sales tax. Tax = printed price × rate ÷ (100 + rate), e.g. Rs 118 → Rs 18 at 18% |
 | Further tax | *Automatic* (unregistered buyers), *Always* or *Never* |
 | Extra tax / FED rate | Only where applicable |
 
@@ -93,7 +93,8 @@ After submission:
 | Case | How |
 |---|---|
 | Unregistered buyer | Further tax at 4% is added automatically to taxable lines (not to exempt or zero-rated lines). If your company is a **manufacturer or importer**, record the buyer's CNIC or NTN: section 23(1)(b) requires it and the system warns when it is missing. Other sellers are warned above Rs 100,000. |
-| Third Schedule goods | Enter the printed retail price per unit; sales tax is charged on the retail value |
+| Third Schedule goods | Enter the retail price printed on the pack per unit (it includes sales tax). The system reports the retail value excluding sales tax to FBR and charges 18% on it, i.e. printed price × 18 ÷ 118 |
+| Goods with federal excise duty | Set the FED rate (or amount) on the product. FED is part of the value of supply, so sales tax and further tax are charged on value + FED (section 2(46)) |
 | Reduced rate / exempt / zero-rated | Choose the sale type and rate, and enter the SRO schedule and serial number |
 | Withholding agent buyer | Set on the customer; *Amount payable* is reduced by the withheld tax |
 | Discounts | Enter an amount or percentage in the line details |
@@ -205,8 +206,12 @@ Used once per company before going live (see [FBR-ONBOARDING-GUIDE.md](FBR-ONBOA
 
 Rule 150R requires reporting failures, disruptions or tampering of the e-invoicing system to the Commissioner **within 24 hours**.
 
-- Loss of FBR connectivity and token failures are recorded automatically.
-- Record other incidents with **+ Record incident** (power failure, hardware/software failure, suspected tampering).
+- Recorded automatically:
+  - loss of FBR connectivity and token failures;
+  - **unexpected stops** of the system itself (crash or power failure longer than 10 minutes) for companies in production. A normal shutdown of the server or Windows service is not reported;
+  - **tampering**: every day, and whenever **Verify** is clicked on the Audit trail page, the system checks the audit trail and the seal of every accepted invoice. Any change made outside the application opens a tampering incident.
+- Record other incidents with **+ Record incident** (hardware/software failure, suspected tampering).
+- If an automatically recorded stop was planned (for example the server was switched off without stopping the service), edit the incident and enter a reference such as "Planned shutdown — not reportable" so it no longer shows as unreported.
 - **Letter** prints the intimation to the Commissioner with the list of affected invoices.
 - After sending it, edit the incident and enter the date and reference. Incidents not reported within 24 hours are flagged **overdue**.
 

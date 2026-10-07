@@ -321,7 +321,10 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Partial<Product>;
         <Field label="Default unit price (excl. tax)">
           <input type="number" step="0.01" min="0" value={p.unitPrice ?? 0} onChange={(e) => set('unitPrice', Number(e.target.value))} />
         </Field>
-        <Field label={'Printed retail price' + (st?.basis === 'retail_price' ? ' *' : '')} hint={st?.basis === 'retail_price' ? 'Third Schedule: tax is charged on the printed retail price' : undefined}>
+        <Field
+          label={'Printed retail price (incl. sales tax)' + (st?.basis === 'retail_price' ? ' *' : '')}
+          hint={st?.basis === 'retail_price' ? 'Third Schedule: tax = printed price × rate ÷ (100 + rate)' : undefined}
+        >
           <input type="number" step="0.01" min="0" value={p.retailPrice ?? 0} onChange={(e) => set('retailPrice', Number(e.target.value))} />
         </Field>
         {!st?.extraTaxMustBeEmpty && (

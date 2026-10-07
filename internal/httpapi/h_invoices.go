@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
@@ -164,6 +165,9 @@ func (s *Server) handleGetInvoice(w http.ResponseWriter, r *http.Request, rc *re
 		return
 	}
 	resp := map[string]any{"invoice": inv, "sealValid": inv.SealHash == "" || service.VerifySeal(inv)}
+	if t := service.IssuedAt(inv); !t.IsZero() {
+		resp["issuedAt"] = t.UTC().Format(time.RFC3339)
+	}
 	if inv.RefInvoiceID != nil {
 		if o, err := s.Svc.Store.GetInvoice(r.Context(), cid(r), *inv.RefInvoiceID); err == nil {
 			resp["original"] = map[string]any{"id": o.ID, "internalNo": o.InternalNo, "fbrInvoiceNumber": o.FBRInvoiceNumber}

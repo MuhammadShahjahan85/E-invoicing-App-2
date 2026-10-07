@@ -86,15 +86,24 @@ func (s *Service) Submit(ctx context.Context, a Actor, companyID, id int64, opts
 	}
 	res := s.ValidateLocal(ctx, c, inv, original)
 	if res.HasErrors() {
-		_ = s.Store.SetValidation(ctx, inv.ID, editableStatus(inv.Status), res.Issues, nil, "local validation failed")
+		st := editableStatus(inv.Status)
 		if inv.Status == domain.StatusQueued {
+			// Make the row editable first so the issues are stored with it;
+			// the operator needs them to correct an invoice already issued.
 			_ = s.Store.SetStatus(ctx, inv.ID, domain.StatusRejected, "local validation failed", "")
+			st = domain.StatusRejected
 		}
+		_ = s.Store.SetValidation(ctx, inv.ID, st, res.Issues, nil, "local validation failed")
 		return nil, &SubmissionError{Issues: res.Issues}
 	}
 	if inv.Environment == domain.EnvProduction {
-		if err := s.Opts.License.CheckProduction(c.NTNCNIC); err != nil {
-			return nil, Invalid("production submission blocked: %v", err)
+		// The licence governs issuing new invoices. A queued invoice was
+		// already issued (it passed this check when first submitted), and the
+		// law requires it to be reported, so it is never held back.
+		if inv.Status != domain.StatusQueued {
+			if err := s.Opts.License.CheckProduction(c.NTNCNIC); err != nil {
+				return nil, Invalid("production submission blocked: %v", err)
+			}
 		}
 		if !c.HasProductionToken {
 			return nil, Invalid("no FBR production security token is configured for %s", c.Name)
@@ -121,6 +130,11 @@ func (s *Service) Submit(ctx context.Context, a Actor, companyID, id int64, opts
 	if !claimed {
 		return nil, Invalid("invoice %s is not in a submittable state", inv.InternalNo)
 	}
+	// From here the exchange with FBR and the recording of its outcome must
+	// complete even if the caller goes away (browser closed, ERP timeout,
+	// service stopping); the FBR client's own timeout bounds the calls.
+	// Otherwise the invoice could stay SUBMITTING with FBR's answer lost.
+	ctx = context.WithoutCancel(ctx)
 	// The exact payload is stored before it is sent, so a crash mid-flight is
 	// detected on restart and reconciled instead of silently re-posted.
 	if err := s.Store.SetPayload(ctx, inv.ID, string(pj), ph); err != nil {
@@ -250,11 +264,13 @@ func (s *Service) handleTransportError(ctx context.Context, a Actor, c *store.Co
 		next := now.Add(backoff(attempt)).Format(time.RFC3339)
 		msg := "FBR could not be reached (" + err.Error() + "). Queued for automatic resubmission."
 		_ = s.Store.SetStatus(ctx, inv.ID, domain.StatusQueued, msg, next)
+		_ = s.Store.MarkOffline(ctx, inv.ID, now.Format(time.RFC3339))
 		s.Audit(ctx, a, inv.CompanyID, "invoice.queued", "invoice", fmt.Sprint(inv.ID), map[string]any{"no": inv.InternalNo, "error": err.Error(), "next": next})
 	case kind == fbr.ErrAuth:
 		next := now.Add(15 * time.Minute).Format(time.RFC3339)
 		msg := "FBR rejected the security token (" + err.Error() + "). Check the " + inv.Environment.Label() + " token and that this server's IP is whitelisted with PRAL. The invoice is queued."
 		_ = s.Store.SetStatus(ctx, inv.ID, domain.StatusQueued, msg, next)
+		_ = s.Store.MarkOffline(ctx, inv.ID, now.Format(time.RFC3339))
 		s.Audit(ctx, a, inv.CompanyID, "invoice.auth_error", "invoice", fmt.Sprint(inv.ID), err.Error())
 	default:
 		msg := "FBR returned an error: " + err.Error()
@@ -344,10 +360,16 @@ func (s *Service) ResolveUncertain(ctx context.Context, a Actor, companyID, id i
 		if !reFBRNo.MatchString(no) || !strings.HasPrefix(no, inv.SellerNTNCNIC+"DI") {
 			return nil, Invalid("%q is not a valid FBR invoice number for seller %s", no, inv.SellerNTNCNIC)
 		}
-		dated := strings.TrimSpace(in.FBRDated)
-		if dated == "" {
-			dated = s.Now().In(PKT).Format("2006-01-02 15:04:05")
+		// FBR's issue time decides the 72-hour cancellation window, so it
+		// is taken from IRIS rather than assumed to be now.
+		issued, ok := ParseFBRDated(in.FBRDated)
+		if !ok {
+			return nil, Invalid("enter the FBR date and time shown on IRIS for this invoice (YYYY-MM-DD HH:MM:SS)")
 		}
+		if issued.After(s.Now().Add(10 * time.Minute)) {
+			return nil, Invalid("the FBR date and time cannot be in the future")
+		}
+		dated := issued.In(PKT).Format("2006-01-02 15:04:05")
 		s.Audit(ctx, a, companyID, "invoice.reconciled", "invoice", fmt.Sprint(id), map[string]any{"action": "accepted", "fbr": no, "note": in.Note})
 		return s.accept(ctx, a, inv, no, dated, "00", nil)
 	case "retry":
