@@ -1,0 +1,23 @@
+[Unit]
+Description=E-Invoicing Suite PK (FBR Digital Invoicing)
+Documentation=file:///opt/einvoice/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=einvoice
+Group=einvoice
+ExecStart=/opt/einvoice/einvoice serve --data /var/lib/einvoice
+Restart=always
+RestartSec=5
+Environment=TZ=Asia/Karachi
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/einvoice
+
+[Install]
+WantedBy=multi-user.target

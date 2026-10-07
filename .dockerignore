@@ -1,0 +1,10 @@
+.git
+web/node_modules
+data
+dist
+*.db
+*.db-wal
+*.db-shm
+master.key
+license.lic
+vendor-private.key
