@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Types mirroring the Go API (internal/store, internal/service).
 
 export type Env = 'simulator' | 'sandbox' | 'production'
@@ -299,6 +302,8 @@ export interface Meta {
   product: string
   vendor: string
   support: string
+  copyright: string
+  developedBy: string
   version: string
   cancelWindowHours: number
 }
@@ -340,6 +345,8 @@ export interface DashboardData {
     monthSalesTax: number
     needsAttention: number
     topErrors: { code: string; message: string; count: number }[] | null
+    pendingUpload: number
+    oldestPending: string
   }
   connection: ConnectionStatus
   scenarios: ScenarioOverview

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package config loads the installation configuration (config.json in the
 // data directory), creating a default file on first run.
 package config
@@ -32,10 +35,13 @@ type Config struct {
 // TLS configures HTTPS.
 type TLS struct {
 	Enabled bool `json:"enabled"`
-	// CertFile/KeyFile: leave empty to auto-generate a self-signed
-	// certificate in the data directory.
+	// CertFile/KeyFile: leave empty to use a certificate issued by the
+	// installation's local certificate authority (<data>/tls/ca.pem).
 	CertFile string `json:"certFile"`
 	KeyFile  string `json:"keyFile"`
+	// Hosts lists extra DNS names or IP addresses the server is reached by
+	// (e.g. "einvoice.office.local" or a VPN address) for the local certificate.
+	Hosts []string `json:"hosts"`
 }
 
 // FBR configures the DI API.
@@ -121,3 +127,7 @@ func Load(dataDir string) (Config, error) {
 	}
 	return cfg, nil
 }
+
+// CACertPath is the local certificate authority created for HTTPS
+// (<data>/tls/ca.pem). Office PCs and phones install it to trust the server.
+func CACertPath(dataDir string) string { return filepath.Join(dataDir, "tls", "ca.pem") }

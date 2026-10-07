@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Formatting helpers (amounts in PKR, Pakistan time).
 
 const amountFmt = new Intl.NumberFormat('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { useState } from 'react'
 import { useSession } from '../state'
 
@@ -162,10 +165,15 @@ export default function Help() {
           <dl className="kv">
             <dt>Version</dt>
             <dd>{s.meta.version}</dd>
-            <dt>Vendor</dt>
+            <dt>Developer</dt>
             <dd>{s.meta.vendor}</dd>
             <dt>Support</dt>
             <dd>{s.meta.support}</dd>
+            <dt>Copyright</dt>
+            <dd>
+              {s.meta.copyright} This software is licensed, not sold; see the LICENSE file supplied with it. Third-party components are listed in
+              THIRD-PARTY-NOTICES.txt.
+            </dd>
             <dt>FBR DI help desk</dt>
             <dd>PRAL Digital Invoicing support (IRIS → Digital Invoicing → Help); FBR helpline 051-111-772-772</dd>
           </dl>

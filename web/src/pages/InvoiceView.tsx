@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, errorMessage } from '../api'
@@ -139,7 +142,7 @@ export default function InvoiceView() {
           )}
           {!editable && inv.status !== 'ACCEPTED' && inv.status !== 'CANCELLED' && (
             <a className="btn" href={`/api/v1${cp}/invoices/${inv.id}/print?preview=1`} target="_blank" rel="noopener">
-              Preview
+              {inv.status === 'QUEUED' ? 'Print provisional copy' : 'Preview'}
             </a>
           )}
           {editable && (
@@ -165,6 +168,8 @@ export default function InvoiceView() {
 
       {inv.status === 'QUEUED' && (
         <div className="alert alert-warn">
+          <b>Not yet reported to FBR.</b> The invoice is sent automatically as soon as FBR responds; invoices issued offline must be uploaded within 24 hours of the
+          connection being restored. A provisional copy can be printed now; print the final copy (with the FBR number and QR code) once it is accepted.{' '}
           {inv.lastError} {inv.nextAttemptAt && <>Next automatic attempt: {dateTimeFmt(inv.nextAttemptAt)}.</>}
         </div>
       )}

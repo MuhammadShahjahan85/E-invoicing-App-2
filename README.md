@@ -1,4 +1,6 @@
-# E-Invoicing Suite PK
+# Veridian E-invoicing PK
+
+**Developed by Veridian Partners Consultancy Private Limited** · © 2026 All rights reserved.
 
 **On-premise FBR Digital Invoicing software for Pakistani sales-tax registered businesses.**
 
@@ -9,7 +11,7 @@ The software:
 - reports them to FBR's Digital Invoicing System in real time (DI API v1.12, through PRAL);
 - prints compliant invoices with the FBR invoice number, QR code and FBR DI logo.
 
-It is a single program with a built-in web interface. It is installed on the client's own server or PC, and staff use it from any browser on the office network.
+It is a single program with a built-in web interface. It is installed on the client's own server or PC. Staff use it from any browser on the office network, or as an installed app on Android and iPhone.
 
 > Built to FBR DI technical specification v1.12 and Chapter XIV of the Sales Tax Rules 2006 (SRO 69(I)/2025). Each installation is certified for production through FBR's sandbox scenarios on IRIS. See [docs/FBR-COMPLIANCE-GUIDE.md](docs/FBR-COMPLIANCE-GUIDE.md).
 
@@ -69,6 +71,12 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 - REST API for ERP/POS systems: API keys, idempotent `externalRef`, raw FBR-payload pass-through.
 
+**Mobile and web**
+
+- Works in any browser on computers, tablets and phones, with a phone-friendly layout.
+- Installs on Android and iPhone as an app (Progressive Web App) with its own icon; no app store needed.
+- "Mobile app & access" page with QR codes to open the system on a phone, and a certificate download so phones trust the server.
+
 **Administration**
 
 - Multiple companies (NTNs); roles (admin, manager, accountant, operator, auditor).
@@ -110,6 +118,7 @@ Windows installer: compile `packaging/windows/einvoice-suite.iss` with Inno Setu
 | [docs/FBR-COMPLIANCE-GUIDE.md](docs/FBR-COMPLIANCE-GUIDE.md) | FBR DI legal framework, technical specification summary and requirement-by-requirement compliance matrix |
 | [docs/FBR-ONBOARDING-GUIDE.md](docs/FBR-ONBOARDING-GUIDE.md) | Taking each client live: IRIS, sandbox scenarios, production token, day-to-day compliance; vendor approval paths |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Installing on Windows/Linux/Docker, HTTPS, configuration, backups and restore, troubleshooting |
+| [docs/MOBILE-AND-REMOTE-ACCESS.md](docs/MOBILE-AND-REMOTE-ACCESS.md) | Using the system on phones and tablets (installable app), trusting the server's certificate, secure remote access |
 | [docs/USER-MANUAL.md](docs/USER-MANUAL.md) | End users: invoices, statuses, printing, debit notes, cancellations, import, reports |
 | [docs/ERP-INTEGRATION-API.md](docs/ERP-INTEGRATION-API.md) | Developers connecting ERP/POS systems |
 | [docs/LICENSING-AND-SALES.md](docs/LICENSING-AND-SALES.md) | Vendor: licences, release builds, commercial model, support |
@@ -133,3 +142,11 @@ Dockerfile, Makefile
 - Tax rules, rates, SROs and FBR's technical specification change. Keep the software updated, and re-check items marked **Verify** in the compliance guide against the latest FBR notifications.
 - Keep `master.key` and backups from the data folder in safe, separate storage. Records must be kept for six years.
 - Release builds must embed your licence public key (`LICENSE_PUBKEY`). Builds without it run in developer mode with no licence enforcement.
+
+## Copyright and licence
+
+Copyright © 2026 **Veridian Partners Consultancy Private Limited**. All rights reserved.
+
+Veridian E-invoicing PK is proprietary software, developed by Veridian Partners Consultancy Private Limited. It is licensed, not sold; see [LICENSE](LICENSE). Open-source components included in the software are listed with their licences in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) (regenerate with `sh scripts/third-party-notices.sh` after changing dependencies).
+
+Support: muhammadshahjahan.audit@gmail.com

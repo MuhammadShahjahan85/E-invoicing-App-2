@@ -1,6 +1,6 @@
 # ERP / POS Integration API
 
-ERP systems, accounting packages and POS terminals can send invoices to E-Invoicing Suite PK over a REST/JSON API. The product:
+ERP systems, accounting packages and POS terminals can send invoices to Veridian E-invoicing PK over a REST/JSON API. The product:
 
 - applies the tax engine and FBR validation;
 - reports each invoice to FBR in real time;
@@ -255,3 +255,7 @@ Console.WriteLine($"{(int)resp.StatusCode} {body.GetProperty("status")} {body.Ge
 ```
 
 (Install the server certificate in the Windows certificate store so that `HttpClient` trusts it. On a 422 response, read `error` and `issues` instead of `status`.)
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

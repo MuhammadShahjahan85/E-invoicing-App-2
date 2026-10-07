@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package printing
 
 import (
@@ -81,6 +84,12 @@ func TestRenderWatermarks(t *testing.T) {
 	out := render(t, c, inv, Options{})
 	if !strings.Contains(out, "DRAFT — NOT REPORTED TO FBR") || strings.Contains(out, `viewBox="0 0 25 25"`) {
 		t.Error("draft must be watermarked and carry no QR code")
+	}
+	_, inv = sampleInvoice()
+	inv.Status = domain.StatusQueued
+	inv.FBRInvoiceNumber = ""
+	if out := render(t, c, inv, Options{}); !strings.Contains(out, "PENDING FBR REPORTING") || !strings.Contains(out, "within 24 hours") || strings.Contains(out, `viewBox="0 0 25 25"`) {
+		t.Error("queued invoice must print as a provisional copy without a QR code")
 	}
 	_, inv = sampleInvoice()
 	inv.Environment = domain.EnvSandbox

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { useEffect, useState } from 'react'
 import { api, errorMessage, qs } from '../api'
 import { Empty, ErrorBox, Field, HSCodeInput, Modal, Pager, Spinner, useLoad } from '../components/ui'

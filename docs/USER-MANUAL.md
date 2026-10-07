@@ -1,6 +1,6 @@
 # User Manual
 
-This manual is for accountants, billing staff and managers who issue sales-tax invoices with E-Invoicing Suite PK.
+This manual is for accountants, billing staff and managers who issue sales-tax invoices with Veridian E-invoicing PK.
 
 ---
 
@@ -212,7 +212,11 @@ Rule 150R requires reporting failures, disruptions or tampering of the e-invoici
 
 Every action is logged with user, time and details: logins, invoices, changes, cancellations, settings. Entries are chained by SHA-256 hashes. **Verify integrity** proves that no entry was altered or removed.
 
-## 15. Settings
+## 15. Using a phone or tablet
+
+Open **Mobile app & access** in the menu. It has a QR code to open the system on your phone, an **Install** button (or instructions for Android and iPhone) and the certificate the phone needs to trust the server. On a phone, the menu opens from the **☰** button. See [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md).
+
+## 16. Settings
 
 | Page | Purpose |
 |---|---|
@@ -223,3 +227,7 @@ Every action is logged with user, time and details: logins, invoices, changes, c
 | ERP API keys | Keys for ERP/POS integration ([ERP-INTEGRATION-API.md](ERP-INTEGRATION-API.md)) |
 | System | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information |
 | Help & error codes | FBR error codes with fixes, compliance rules, sale types and rates |
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

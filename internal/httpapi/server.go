@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package httpapi exposes the REST API used by the web UI and by external
 // ERP/POS systems, and serves the embedded single-page application.
 package httpapi
@@ -9,6 +12,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"runtime/debug"
@@ -310,6 +314,11 @@ func (l *rateLimiter) allow(key string) bool {
 }
 
 // --- SPA ---
+
+func init() {
+	// Go's built-in table lacks the web app manifest type on some systems.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 func (s *Server) spa() http.Handler {
 	files := http.FileServer(http.FS(s.UI))

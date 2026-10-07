@@ -1,4 +1,4 @@
-# E-Invoicing Suite PK — build automation.
+# Veridian E-invoicing PK — build automation.
 #
 #   make build                      host binary in dist/einvoice (uses the committed web UI)
 #   make web                        rebuild the React UI into internal/webui/dist (needs Node.js 18+)

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package store
 
 import (
@@ -235,6 +238,10 @@ type Dashboard struct {
 	MonthSalesTax  decimal.Decimal `json:"monthSalesTax"`
 	NeedsAttention int             `json:"needsAttention"`
 	TopErrors      []ErrorCount    `json:"topErrors"`
+	// PendingUpload counts invoices issued but not yet reported because FBR
+	// was unreachable (QUEUED); OldestPending is the oldest one's creation time.
+	PendingUpload int    `json:"pendingUpload"`
+	OldestPending string `json:"oldestPending"`
 }
 
 // ErrorCount counts an FBR error code.
@@ -274,6 +281,10 @@ func (s *Store) GetDashboard(ctx context.Context, companyID int64, env domain.En
 		return nil, err
 	}
 	d.TodayValue, d.TodaySalesTax, d.MonthValue, d.MonthSalesTax = Rupees(tv), Rupees(tst), Rupees(mv), Rupees(mst)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MIN(created_at),'') FROM invoices WHERE company_id=? AND environment=? AND status='QUEUED'`,
+		companyID, string(env)).Scan(&d.PendingUpload, &d.OldestPending); err != nil {
+		return nil, err
+	}
 
 	// Top FBR error codes over rejected invoices.
 	erows, err := s.DB.QueryContext(ctx, `SELECT fbr_errors FROM invoices WHERE company_id=? AND environment=? AND fbr_errors<>'' ORDER BY id DESC LIMIT 500`, companyID, string(env))

@@ -190,7 +190,7 @@
   <footer>
     <div class="small muted">
       {{.Settings.FooterText}}<br>
-      {{if .Invoice.SealHash}}Integrity seal: {{.ShortSeal}} · {{end}}Printed {{.PrintedAt}} · {{.ProductName}}
+      {{if .Invoice.SealHash}}Integrity seal: {{.ShortSeal}} · {{end}}Printed {{.PrintedAt}} · {{.ProductName}} by {{.Developer}}
     </div>
     {{if .Settings.ShowSignature}}<div class="sign">Authorised signature</div>{{end}}
   </footer>

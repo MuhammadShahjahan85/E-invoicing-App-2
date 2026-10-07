@@ -1,6 +1,10 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { useState, type FormEvent } from 'react'
 import { api, errorMessage } from '../api'
 import { Field } from '../components/ui'
+import BrandFooter from '../components/BrandFooter'
 
 const provinces = ['PUNJAB', 'SINDH', 'KHYBER PAKHTUNKHWA', 'BALOCHISTAN', 'CAPITAL TERRITORY', 'GILGIT BALTISTAN', 'AZAD JAMMU AND KASHMIR']
 const activities = ['Manufacturer', 'Importer', 'Distributor', 'Wholesaler', 'Exporter', 'Retailer', 'Service Provider', 'Other']
@@ -149,6 +153,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
             {busy ? 'Saving…' : 'Complete setup'}
           </button>
         </div>
+        <BrandFooter />
       </form>
     </div>
   )

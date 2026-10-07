@@ -1,5 +1,5 @@
 [Unit]
-Description=E-Invoicing Suite PK (FBR Digital Invoicing)
+Description=Veridian E-invoicing PK (FBR Digital Invoicing)
 Documentation=file:///opt/einvoice/README.md
 After=network-online.target
 Wants=network-online.target

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package license implements offline, signature-verified product licences.
 //
 // The vendor generates an Ed25519 key pair once (`licensegen keygen`), keeps

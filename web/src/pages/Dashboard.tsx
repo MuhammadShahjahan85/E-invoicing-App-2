@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Spinner, useLoad } from '../components/ui'
@@ -42,6 +45,13 @@ export default function Dashboard() {
         <div className="alert alert-error">
           <b>{conn.authFailure ? 'FBR rejected the security token.' : 'FBR Digital Invoicing is not reachable.'}</b> Failing since {dateTimeFmt(conn.failingSince)}.
           Invoices are queued and will be sent automatically once the connection is restored. {conn.lastError}
+        </div>
+      )}
+      {st.pendingUpload > 0 && (
+        <div className="alert alert-warn">
+          <b>{st.pendingUpload} invoice(s) not yet reported to FBR</b> (oldest issued {dateTimeFmt(st.oldestPending)}). Invoices issued while FBR was unreachable must be uploaded
+          within 24 hours of the connection being restored; the system sends them automatically as soon as FBR responds.{' '}
+          <Link to="/invoices?status=QUEUED">View queued invoices</Link>.
         </div>
       )}
       {data.unreportedIncidents > 0 && (

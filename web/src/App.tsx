@@ -1,5 +1,8 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api, ApiError, onUnauthorized, setCsrf } from './api'
 import { SessionProvider, useSession } from './state'
 import { envLabels } from './format'
@@ -25,6 +28,7 @@ import PrintSettingsPage from './pages/settings/PrintSettingsPage'
 import Users from './pages/settings/Users'
 import ApiKeys from './pages/settings/ApiKeys'
 import SystemPage from './pages/settings/SystemPage'
+import MobileAccess from './pages/MobileAccess'
 
 interface Me {
   user: User
@@ -109,6 +113,9 @@ function Shell() {
   const navigate = useNavigate()
   const c = s.company
   const env = c?.environment ?? 'simulator'
+  const location = useLocation()
+  const [navOpen, setNavOpen] = useState(false)
+  useEffect(() => setNavOpen(false), [location.pathname])
 
   if (!c) {
     return (
@@ -125,8 +132,9 @@ function Shell() {
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className={'app' + (navOpen ? ' nav-open' : '')}>
+      <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+      <aside className="sidebar" aria-label="Main menu">
         <div className="brand">
           <div className="logo">e</div>
           <div>
@@ -159,12 +167,16 @@ function Shell() {
           {s.can('users') && <NavLink to="/settings/users">Users & roles</NavLink>}
           {s.can('apikeys') && <NavLink to="/settings/api-keys">ERP API keys</NavLink>}
           {s.can('system') && <NavLink to="/settings/system">System</NavLink>}
+          <NavLink to="/mobile">Mobile app & access</NavLink>
+          <NavLink to="/password">Change password</NavLink>
           <NavLink to="/help">Help & error codes</NavLink>
         </nav>
         <div className="sidebar-foot">
-          v{s.meta.version}
+          {s.meta.product} v{s.meta.version}
           <br />
-          {s.meta.vendor}
+          {s.meta.developedBy}
+          <br />
+          {s.meta.copyright}
         </div>
       </aside>
       <div className="main">
@@ -176,6 +188,9 @@ function Shell() {
           </div>
         )}
         <header className="topbar">
+          <button className="btn btn-sm menu-btn" aria-label="Open menu" onClick={() => setNavOpen(true)}>
+            ☰
+          </button>
           <select value={c.id} onChange={(e) => s.setCompanyId(Number(e.target.value))} style={{ width: 'auto', maxWidth: 360 }} aria-label="Company">
             {s.companies.map((x) => (
               <option key={x.id} value={x.id}>
@@ -188,10 +203,10 @@ function Shell() {
           <button className="btn btn-primary btn-sm" onClick={() => navigate('/invoices/new')}>
             + New invoice
           </button>
-          <span className="muted small">
+          <span className="muted small user-label">
             {s.user.fullName || s.user.username} · {s.user.role}
           </span>
-          <NavLink to="/password" className="btn btn-sm">
+          <NavLink to="/password" className="btn btn-sm hide-mobile">
             Password
           </NavLink>
           <button className="btn btn-sm" onClick={s.logout}>
@@ -213,6 +228,7 @@ function Shell() {
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/audit" element={<RequirePerm perm="audit"><Audit /></RequirePerm>} />
             <Route path="/help" element={<Help />} />
+            <Route path="/mobile" element={<MobileAccess />} />
             <Route path="/password" element={<ChangePassword onDone={() => navigate('/')} />} />
             <Route path="/settings/company" element={<CompanySettings />} />
             <Route path="/settings/fbr" element={<FBRSettings />} />

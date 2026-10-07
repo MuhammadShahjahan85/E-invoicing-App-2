@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package service
 
 import (
@@ -310,7 +313,7 @@ func (s *Service) buildItem(ctx context.Context, c *store.Company, inv *store.In
 
 // refContext builds the validation context from synced reference data.
 func (s *Service) refContext(ctx context.Context, c *store.Company, env domain.Environment) validate.Context {
-	vc := validate.Context{Env: env, Today: s.Now().In(PKT)}
+	vc := validate.Context{Env: env, Today: s.Now().In(PKT), SellerActivities: c.BusinessActivities}
 	if v, err := decimal.NewFromString(strings.TrimSpace(s.Opts.CNICThreshold)); err == nil {
 		vc.CNICThreshold = v
 	}

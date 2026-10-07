@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package store
 
 import (
@@ -606,4 +609,16 @@ func (s *Store) SumDebitNotes(ctx context.Context, companyID int64, fbrNo string
 	err := s.DB.QueryRowContext(ctx, `SELECT COALESCE(SUM(total_value_excl_st),0), COALESCE(SUM(total_sales_tax),0) FROM invoices
 		WHERE company_id=? AND doc_type='Debit Note' AND invoice_ref_no=? AND status='ACCEPTED'`, companyID, fbrNo).Scan(&v, &t)
 	return Rupees(v), Rupees(t), err
+}
+
+// RequeueNow makes every queued invoice of a company and environment due
+// immediately (used when the connection to FBR is restored, so invoices issued
+// during the outage are reported well within FBR's 24-hour window).
+func (s *Store) RequeueNow(ctx context.Context, companyID int64, env domain.Environment) (int64, error) {
+	res, err := s.DB.ExecContext(ctx, `UPDATE invoices SET next_attempt_at='' WHERE company_id=? AND environment=? AND status='QUEUED'`,
+		companyID, string(env))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

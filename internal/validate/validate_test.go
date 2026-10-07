@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package validate
 
 import (
@@ -83,6 +86,20 @@ func TestRegisteredBuyerNeedsNTN(t *testing.T) {
 	r = Payload(p, Context{Env: domain.EnvProduction, Today: today})
 	if r.HasErrors() {
 		t.Errorf("unregistered walk-in buyer without CNIC should be allowed: %v", r.Errors())
+	}
+	if strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {
+		t.Error("small supply by a non-manufacturer needs no CNIC warning")
+	}
+	// Section 23(1)(b): a manufacturer or importer must record the
+	// unregistered buyer's CNIC/NTN whatever the value.
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today, SellerActivities: []string{"Importer"}})
+	if r.HasErrors() || !strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {
+		t.Errorf("expected a section 23(1)(b) warning, got %s", codes(r, SevWarning))
+	}
+	p.BuyerNTNCNIC = "4210112345671"
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today, SellerActivities: []string{"Manufacturer"}})
+	if strings.Contains(codes(r, SevWarning), "buyerNTNCNIC:") {
+		t.Error("no warning once the CNIC is recorded")
 	}
 }
 

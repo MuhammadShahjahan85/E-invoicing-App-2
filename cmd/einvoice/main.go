@@ -1,4 +1,7 @@
-// Command einvoice is the E-Invoicing Suite PK server.
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
+// Command einvoice is the Veridian E-invoicing PK server.
 //
 //	einvoice serve [--data DIR] [--listen ADDR]   run the server (default command)
 //	einvoice service install|uninstall|start|stop  manage the Windows service
@@ -60,7 +63,7 @@ func main() {
 	case "reset-password":
 		err = cmdResetPassword(args)
 	case "version":
-		fmt.Printf("%s %s (built %s)\n", brand.ProductName, brand.Version, brand.BuildDate)
+		fmt.Printf("%s %s (built %s)\n%s\n%s\n", brand.ProductName, brand.Version, brand.BuildDate, brand.DevelopedBy, brand.Copyright)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -75,6 +78,7 @@ func main() {
 
 func usage() {
 	fmt.Printf(`%s %s
+%s
 
 Usage:
   einvoice serve [--data DIR] [--listen ADDR]     run the server (default)
@@ -84,7 +88,7 @@ Usage:
   einvoice backup [--data DIR] [--out FILE]       write a consistent database backup
   einvoice reset-password --user NAME --password NEW [--data DIR]
   einvoice version
-`, brand.ProductName, brand.Version)
+`, brand.ProductName, brand.Version, brand.Copyright)
 }
 
 func signalContext() (context.Context, context.CancelFunc) {

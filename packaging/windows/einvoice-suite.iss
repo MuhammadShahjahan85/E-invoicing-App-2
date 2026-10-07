@@ -1,20 +1,20 @@
-; Inno Setup 6 script — E-Invoicing Suite PK (Windows x64)
+; Inno Setup 6 script — Veridian E-invoicing PK (Windows x64)
 ;
 ; 1. Build the binary:   sh scripts/build-release.sh   (creates dist\windows-amd64\einvoice.exe)
 ; 2. Compile installer:  ISCC.exe /DAppVersion=1.0.0 packaging\windows\einvoice-suite.iss
-;    Output:             dist\EInvoicingSuitePK-Setup-<version>.exe
+;    Output:             dist\VeridianEInvoicingPK-Setup-<version>.exe
 ;
-; The installer registers the Windows service "EInvoicingSuitePK", which stores its data in
-; %ProgramData%\EInvoicingSuitePK (database, master.key, TLS certificate, logs, backups).
+; The installer registers the Windows service "VeridianEInvoicingPK", which stores its data in
+; %ProgramData%\VeridianEInvoicingPK (database, master.key, TLS certificate, logs, backups).
 ; Uninstalling never deletes that folder: records must be kept for six years (rule 150S).
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
-#define AppName "E-Invoicing Suite PK"
-#define AppPublisher "Your Company (Pvt) Ltd"
+#define AppName "Veridian E-invoicing PK"
+#define AppPublisher "Veridian Partners Consultancy Private Limited"
 #define AppExe "einvoice.exe"
-#define ServiceName "EInvoicingSuitePK"
+#define ServiceName "VeridianEInvoicingPK"
 #define Port "8443"
 
 [Setup]
@@ -22,6 +22,13 @@ AppId={{6F1C2B9E-4D3A-4E7B-9C51-2A8D7E3F4B10}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+AppCopyright=Copyright (C) 2026 {#AppPublisher}. All rights reserved.
+AppSupportURL=mailto:muhammadshahjahan.audit@gmail.com
+VersionInfoCompany={#AppPublisher}
+VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
+VersionInfoProductName={#AppName}
+VersionInfoVersion={#AppVersion}
+LicenseFile=..\..\LICENSE
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -29,7 +36,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 OutputDir=..\..\dist
-OutputBaseFilename=EInvoicingSuitePK-Setup-{#AppVersion}
+OutputBaseFilename=VeridianEInvoicingPK-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -43,6 +50,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Files]
 Source: "..\..\dist\windows-amd64\einvoice.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\docs\*.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]

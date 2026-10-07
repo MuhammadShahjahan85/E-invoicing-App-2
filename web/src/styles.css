@@ -1,3 +1,6 @@
+/* Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+   Veridian E-invoicing PK is proprietary software; see the LICENSE file. */
+
 :root {
   --bg: #f4f6f8;
   --surface: #ffffff;
@@ -129,7 +132,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } .sidebar { display: none; } .content { padding: 14px; } }
+@media (max-width: 760px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
 .stat { padding: 14px 16px; }
 .stat .label { color: var(--text-2); font-size: 12.5px; }
 .stat .value { font-size: 22px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
@@ -260,3 +263,42 @@ pre.code { background: var(--surface-2); border: 1px solid var(--border); border
 .steps li { counter-increment: s; padding: 8px 0 8px 36px; position: relative; border-bottom: 1px dashed var(--border); }
 .steps li::before { content: counter(s); position: absolute; left: 0; top: 7px; width: 24px; height: 24px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
 .steps li.done::before { content: "✓"; background: var(--success); color: #fff; }
+
+.brand-footer { margin: 18px 0 0; text-align: center; font-size: 11px; color: var(--text-3); line-height: 1.5; }
+
+/* ---------- Phones and small tablets ---------- */
+.menu-btn { display: none; font-size: 18px; line-height: 1; padding: 6px 10px; }
+.nav-backdrop { display: none; }
+@media (max-width: 760px) {
+  .menu-btn { display: inline-flex; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; height: auto; width: 270px; max-width: 85vw; z-index: 60;
+    transform: translateX(-105%); transition: transform .2s ease; padding-bottom: env(safe-area-inset-bottom);
+  }
+  .app.nav-open .sidebar { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, .35); }
+  .app.nav-open .nav-backdrop { display: block; position: fixed; inset: 0; background: rgba(10, 20, 30, .45); z-index: 55; }
+  .nav a { padding: 11px 12px; font-size: 15px; }
+  .topbar { height: auto; min-height: 52px; padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top)); gap: 8px; flex-wrap: wrap; }
+  .topbar select { max-width: 52vw; }
+  .topbar .user-label, .topbar .hide-mobile { display: none; }
+  .env-banner { padding: 6px 10px; font-size: 12px; }
+  .content { padding: 12px 12px calc(28px + env(safe-area-inset-bottom)); }
+  .page-head h1 { font-size: 20px; }
+  .page-head .actions { width: 100%; }
+  input, select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
+  .lines-table { min-width: 980px; }
+  .table th, .table td { padding: 8px 8px; }
+  .modal-back { padding: 8px; align-items: end; }
+  .modal, .modal.wide { width: 100%; max-height: calc(100vh - 16px); border-radius: 12px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .field { grid-column: auto !important; }
+  .stat .value { font-size: 20px; }
+  .toasts { left: 8px; right: 8px; max-width: none; bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .toast { max-width: none; }
+}
+/* Installed app (standalone window) */
+@media (display-mode: standalone) {
+  .topbar { padding-top: calc(6px + env(safe-area-inset-top)); }
+}
+.connect-qr { width: 220px; height: 220px; background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--border); }
+.connect-qr img { width: 100%; height: 100%; display: block; }

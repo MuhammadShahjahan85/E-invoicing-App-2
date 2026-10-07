@@ -1,6 +1,6 @@
 # Installation and Operations Guide
 
-E-Invoicing Suite PK is a single program (`einvoice.exe` on Windows, `einvoice` on Linux). It contains:
+Veridian E-invoicing PK is a single program (`einvoice.exe` on Windows, `einvoice` on Linux). It contains:
 
 - the web application;
 - an embedded SQLite database;
@@ -28,34 +28,34 @@ Users work in a web browser on any computer in the office network.
 
 ### 2.1 Using the installer (recommended)
 
-1. Run `EInvoicingSuitePK-Setup-<version>.exe` as Administrator.
+1. Run `VeridianEInvoicingPK-Setup-<version>.exe` as Administrator.
 2. Keep **"Allow other computers on the office network…"** ticked if other PCs will use the system. This adds a Windows Firewall rule for TCP 8443.
 3. Finish. The installer:
-   - registers and starts the Windows service **EInvoicingSuitePK** (automatic start, restarts on failure);
+   - registers and starts the Windows service **VeridianEInvoicingPK** (automatic start, restarts on failure);
    - opens `https://localhost:8443/`.
 4. The browser warns about the certificate once (see §5). Continue, then complete the **setup wizard**:
    - administrator account;
    - business name, NTN/CNIC, province and address exactly as on IRIS;
    - business activity and sector.
 
-Data is stored in `C:\ProgramData\EInvoicingSuitePK`.
+Data is stored in `C:\ProgramData\VeridianEInvoicingPK`.
 
 ### 2.2 Manual installation
 
 Open Command Prompt **as Administrator**:
 
 ```bat
-mkdir "C:\Program Files\E-Invoicing Suite PK"
-copy einvoice.exe "C:\Program Files\E-Invoicing Suite PK\"
-cd "C:\Program Files\E-Invoicing Suite PK"
+mkdir "C:\Program Files\Veridian E-invoicing PK"
+copy einvoice.exe "C:\Program Files\Veridian E-invoicing PK\"
+cd "C:\Program Files\Veridian E-invoicing PK"
 einvoice.exe service install
 einvoice.exe service start
-netsh advfirewall firewall add rule name="E-Invoicing Suite PK" dir=in action=allow protocol=TCP localport=8443
+netsh advfirewall firewall add rule name="Veridian E-invoicing PK" dir=in action=allow protocol=TCP localport=8443
 ```
 
-`service install` accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\EInvoicingSuitePK`.
+`service install` accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\VeridianEInvoicingPK`.
 
-To try the program without installing a service, run `einvoice.exe serve` in a console. Its data folder is `%ProgramData%\EInvoicingSuitePK`, or the folder given with `--data`.
+To try the program without installing a service, run `einvoice.exe serve` in a console. Its data folder is `%ProgramData%\VeridianEInvoicingPK`, or the folder given with `--data`.
 
 ### 2.3 Service management
 
@@ -65,7 +65,7 @@ einvoice.exe service start
 einvoice.exe service uninstall
 ```
 
-The service can also be managed from `services.msc` ("E-Invoicing Suite PK (FBR Digital Invoicing)").
+The service can also be managed from `services.msc` ("Veridian E-invoicing PK (FBR Digital Invoicing)").
 
 ## 3. Linux installation (systemd)
 
@@ -94,20 +94,20 @@ Open TCP 8443 in the server firewall if other computers need access (e.g. `sudo 
 ## 4. Docker
 
 ```sh
-docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t einvoice-pk .
-docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data einvoice-pk
+docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t veridian-einvoicing .
+docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data veridian-einvoicing
 ```
 
 All state lives in the `/data` volume. Back up that volume.
 
 ## 5. HTTPS certificate
 
-On first start the server creates a self-signed certificate valid for 10 years. It is stored in `<data>/tls/cert.pem` and `<data>/tls/key.pem` and covers `localhost`, the computer name and its IP addresses. Browsers show a warning once per computer.
+On first start the server creates its own **certificate authority** (`<data>/tls/ca.pem`, valid 10 years). It uses it to issue the server certificate (`<data>/tls/cert.pem`). That certificate covers `localhost`, the computer name, every IP address of the server and any names listed in `tls.hosts`. It lasts 800 days, is renewed automatically before expiry, and is re-issued when the server's addresses change.
 
-To remove the warning, either:
+Browsers warn until a device trusts the CA. To remove the warning (and to install the app on phones):
 
-- **trust the certificate:** on each client PC, import `cert.pem` into "Trusted Root Certification Authorities" (Windows: double-click → Install Certificate → Local Machine); or
-- **use the company's own certificate:** set `tls.certFile` and `tls.keyFile` in `config.json` to PEM files, then restart the service.
+- **Trust the CA on each device (recommended):** download it from **Mobile app & access → Download certificate** (or `https://<server>:8443/api/v1/system/ca.crt`) and install it as a trusted root. Steps for Windows, macOS, Android and iPhone are in [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md). Distribute only `ca.pem`; keep `ca-key.pem` secret.
+- **Use the company's own certificate:** set `tls.certFile` and `tls.keyFile` in `config.json` to PEM files, then restart the service.
 
 Use `--no-tls` (plain HTTP) only for local testing on `127.0.0.1`.
 
@@ -120,7 +120,8 @@ The file is created in the data folder on first start. Restart the service after
 | `listen` | `0.0.0.0:8443` | Address and port. `127.0.0.1:8443` restricts access to this computer. |
 | `backupDir` | *(empty)* = `<data>/backups` | Backup folder, e.g. a second disk or mapped network drive |
 | `tls.enabled` | `true` | Serve HTTPS |
-| `tls.certFile`, `tls.keyFile` | *(empty)* = self-signed in `<data>/tls` | Own certificate (PEM) |
+| `tls.certFile`, `tls.keyFile` | *(empty)* = issued by the installation's local CA in `<data>/tls` | Own certificate (PEM) |
+| `tls.hosts` | *(empty)* | Extra DNS names or IP addresses users reach the server by (VPN address, office DNS name); added to the local certificate |
 | `fbr.endpoints` | FBR v1.12 paths on `https://gw.fbr.gov.pk` | Override only if FBR announces new URLs |
 | `fbr.timeoutSeconds` | `30` | Timeout for each FBR call |
 | `fbr.cnicThreshold` | `100000` | Warn when an unregistered buyer without CNIC receives an invoice above this value (empty disables) |
@@ -149,7 +150,7 @@ The file is created in the data folder on first start. Restart the service after
 | `einvoice.db` (+ `-wal`, `-shm`) | The database (invoices, masters, audit trail) |
 | `master.key` | Key that encrypts the stored FBR tokens. **Keep a secure copy.** |
 | `config.json` | Configuration |
-| `tls/` | HTTPS certificate and key |
+| `tls/` | Local certificate authority (`ca.pem`, `ca-key.pem` — keep the key secret) and the server certificate (`cert.pem`, `key.pem`) |
 | `logs/einvoice.log` | Application log |
 | `backups/` | Automatic and manual backups (`einvoice-<kind>-<YYYYMMDD-HHMMSS>.db`) |
 
@@ -175,7 +176,7 @@ The file is created in the data folder on first start. Restart the service after
 
 ## 10. Uninstall
 
-- Windows: Apps & Features → E-Invoicing Suite PK → Uninstall. The service and firewall rule are removed. **The data folder is kept on purpose.**
+- Windows: Apps & Features → Veridian E-invoicing PK → Uninstall. The service and firewall rule are removed. **The data folder is kept on purpose.**
 - Linux: `sudo systemctl disable --now einvoice && sudo rm /etc/systemd/system/einvoice.service /opt/einvoice -r`. Keep `/var/lib/einvoice` until records are archived.
 
 ## 11. Troubleshooting
@@ -200,3 +201,7 @@ The file is created in the data folder on first start. Restart the service after
 - Store copies of `master.key` and backups securely, separately from the server.
 - Replace the self-signed certificate with a trusted one where possible.
 - Review the Audit trail periodically and run **Verify integrity**.
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

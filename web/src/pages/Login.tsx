@@ -1,6 +1,10 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, errorMessage } from '../api'
 import type { User } from '../types'
+import BrandFooter from '../components/BrandFooter'
 
 interface Me {
   user: User
@@ -13,7 +17,7 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [product, setProduct] = useState('E-Invoicing Suite PK')
+  const [product, setProduct] = useState('Veridian E-invoicing PK')
   const [license, setLicense] = useState('')
 
   useEffect(() => {
@@ -60,6 +64,7 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </div>
+        <BrandFooter />
       </form>
     </div>
   )

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package printing renders printable invoices (A4 and 80 mm thermal) with
 // the FBR invoice number, the FBR-specified QR code and the Digital
 // Invoicing logo.
@@ -91,4 +94,32 @@ func QRModuleCount(content string) (int, error) {
 		return 0, err
 	}
 	return len(q.Bitmap()), nil
+}
+
+// LinkQRSVG returns a scalable SVG QR code of any size for general links
+// (e.g. the server address for connecting a phone). FBR invoice QR codes
+// must use QRSVG instead.
+func LinkQRSVG(content string) (string, error) {
+	content = strings.TrimSpace(content)
+	if content == "" || len(content) > 512 {
+		return "", fmt.Errorf("QR content must be 1-512 characters")
+	}
+	q, err := qrcode.New(content, qrcode.Medium)
+	if err != nil {
+		return "", err
+	}
+	bm := q.Bitmap() // includes the quiet zone
+	n := len(bm)
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" shape-rendering="crispEdges" role="img" aria-label="QR code">`, n, n)
+	b.WriteString(`<rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="`)
+	for y, row := range bm {
+		for x, on := range row {
+			if on {
+				fmt.Fprintf(&b, "M%d %dh1v1h-1z", x, y)
+			}
+		}
+	}
+	b.WriteString(`"/></svg>`)
+	return b.String(), nil
 }

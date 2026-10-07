@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package validate checks a DI payload locally before it is sent to FBR, and
 // explains FBR's error codes in plain language.
 package validate

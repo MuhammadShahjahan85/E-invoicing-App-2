@@ -1,7 +1,7 @@
-# E-Invoicing Suite PK — container image.
+# Veridian E-invoicing PK — container image.
 #
-#   docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t einvoice-pk .
-#   docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data einvoice-pk
+#   docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t veridian-einvoicing .
+#   docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data veridian-einvoicing
 #
 # Back up the /data volume (database, master.key, certificates, backups).
 
@@ -32,6 +32,7 @@ RUN apk add --no-cache ca-certificates tzdata \
     && adduser -D -H -u 10001 einvoice \
     && mkdir -p /data && chown einvoice:einvoice /data
 COPY --from=build /out/einvoice /app/einvoice
+COPY LICENSE THIRD-PARTY-NOTICES.txt /app/
 USER einvoice
 ENV TZ=Asia/Karachi
 VOLUME /data

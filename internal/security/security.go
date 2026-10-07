@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package security provides password hashing, encryption of secrets at rest
 // (FBR security tokens), random token generation and hash chaining used for
 // tamper evidence of the audit log and accepted invoices.

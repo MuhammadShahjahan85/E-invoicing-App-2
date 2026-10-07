@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds release binaries of E-Invoicing Suite PK for Windows and Linux (x86-64).
+# Builds release binaries of Veridian E-invoicing PK for Windows and Linux (x86-64).
 #
 # Environment:
 #   VERSION         product version (default 1.0.0)
@@ -44,7 +44,7 @@ for os in windows linux; do
 	echo "Building $out/einvoice$ext (version $VERSION)..."
 	GOOS=$os GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o "$out/einvoice$ext" ./cmd/einvoice
 	GOOS=$os GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o "dist/vendor-tools/$os-amd64/licensegen$ext" ./cmd/licensegen
-	cp README.md "$out/"
+	cp README.md LICENSE THIRD-PARTY-NOTICES.txt "$out/"
 	mkdir -p "$out/docs"
 	cp docs/*.md "$out/docs/" 2>/dev/null || true
 done

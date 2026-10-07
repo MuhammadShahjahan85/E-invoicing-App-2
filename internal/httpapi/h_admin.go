@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package httpapi
 
 import (
@@ -5,12 +8,16 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"time"
 
 	"einvoicing/internal/brand"
+	"einvoicing/internal/config"
+	"einvoicing/internal/printing"
 	"einvoicing/internal/security"
 	"einvoicing/internal/service"
 	"einvoicing/internal/store"
@@ -374,4 +381,73 @@ func (s *Server) handleIncidentLetter(w http.ResponseWriter, r *http.Request, rc
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-"+nonce+"'")
 	_ = letterTpl.Execute(w, data)
+}
+
+// --- mobile access ---
+
+// handleCACert serves the installation's local CA certificate so that office
+// PCs and phones can trust the server (and install the web app on phones).
+func (s *Server) handleCACert(w http.ResponseWriter, r *http.Request) {
+	b, err := os.ReadFile(config.CACertPath(s.Svc.Opts.DataDir))
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "no local certificate authority: this server uses an externally issued certificate or HTTP")
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+	w.Header().Set("Content-Disposition", `attachment; filename="veridian-einvoicing-ca.crt"`)
+	_, _ = w.Write(b)
+}
+
+// handleLinkQR renders a QR code for a link on this server (used to open the
+// app on a phone by scanning the screen).
+func (s *Server) handleLinkQR(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	u, err := url.Parse(r.URL.Query().Get("url"))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		writeErr(w, http.StatusUnprocessableEntity, "url must be an http(s) address")
+		return
+	}
+	svg, err := printing.LinkQRSVG(u.String())
+	if err != nil {
+		s.fail(w, service.Invalid("%v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	_, _ = w.Write([]byte(svg))
+}
+
+// handleAddresses lists URLs at which other devices on the network can open
+// this server (the port and scheme of the current request on every
+// non-loopback interface address), plus whether a local CA is available.
+func (s *Server) handleAddresses(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	_, port, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		port = ""
+	}
+	var urls []string
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range addrs {
+			ipn, ok := a.(*net.IPNet)
+			if !ok || ipn.IP.IsLoopback() || ipn.IP.IsLinkLocalUnicast() {
+				continue
+			}
+			host := ipn.IP.String()
+			if ipn.IP.To4() == nil {
+				host = "[" + host + "]"
+			}
+			if port != "" {
+				host += ":" + port
+			}
+			urls = append(urls, scheme+"://"+host+"/")
+		}
+	}
+	if urls == nil {
+		urls = []string{}
+	}
+	_, caErr := os.Stat(config.CACertPath(s.Svc.Opts.DataDir))
+	writeJSON(w, 200, map[string]any{"urls": urls, "https": r.TLS != nil, "localCA": caErr == nil})
 }

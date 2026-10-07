@@ -1,20 +1,31 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package brand holds product identity values. Change these constants to
 // rebrand the product; nothing else in the code base hard-codes the name.
 package brand
 
 const (
 	// ProductName is shown in the UI, on printed invoices and in logs.
-	ProductName = "E-Invoicing Suite PK"
+	ProductName = "Veridian E-invoicing PK"
 	// ShortName is used for file names, service names and the User-Agent.
-	ShortName = "einvoice-pk"
+	ShortName = "veridian-einvoicing-pk"
 	// Vendor is the company that sells and supports the product.
-	Vendor = "Your Company (Pvt) Ltd"
+	Vendor = "Veridian Partners Consultancy Private Limited"
 	// SupportContact is printed in the About screen.
-	SupportContact = "support@example.com"
+	SupportContact = "muhammadshahjahan.audit@gmail.com"
 	// WindowsServiceName is the Windows service identifier.
-	WindowsServiceName = "EInvoicingSuitePK"
+	WindowsServiceName = "VeridianEInvoicingPK"
 	// WindowsServiceDisplay is the Windows service display name.
-	WindowsServiceDisplay = "E-Invoicing Suite PK (FBR Digital Invoicing)"
+	WindowsServiceDisplay = "Veridian E-invoicing PK (FBR Digital Invoicing)"
+	// Developer is the author and copyright holder of the software.
+	Developer = "Veridian Partners Consultancy Private Limited"
+	// CopyrightYear is the first year of publication.
+	CopyrightYear = "2026"
+	// Copyright is the notice shown in the UI, on printouts and in the CLI.
+	Copyright = "© " + CopyrightYear + " " + Developer + ". All rights reserved."
+	// DevelopedBy is the developer credit line.
+	DevelopedBy = "Developed by " + Developer
 )
 
 // Version is overridden at build time with

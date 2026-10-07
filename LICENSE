@@ -1,0 +1,60 @@
+Veridian E-invoicing PK — Software Licence
+
+Copyright © 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+
+Veridian E-invoicing PK, including its source code, object code, user
+interface, database design, documentation and related materials (the
+"Software"), is the proprietary property of Veridian Partners Consultancy
+Private Limited (the "Company"). It is protected by the Copyright Ordinance,
+1962 of Pakistan and by international copyright treaties.
+
+1. Licence
+   The Software is licensed, not sold. You may use it only under a valid
+   written agreement with the Company or a licence file issued by the Company,
+   and only for the seller NTN/CNICs, number of companies and users, edition
+   and period stated in that licence.
+
+2. Restrictions
+   Unless the Company agrees in writing, you may not:
+   (a) copy, modify, translate or create derivative works of the Software;
+   (b) distribute, sublicense, rent, lease, sell or otherwise make the
+       Software available to any third party;
+   (c) reverse engineer, decompile or disassemble the Software, or bypass or
+       tamper with its licence controls, except where applicable law
+       expressly permits this despite this restriction;
+   (d) remove or alter any copyright, trademark or other proprietary notice.
+
+3. Source code
+   Where the Company gives you access to the source code, that access is
+   confidential and limited to the purposes agreed in writing with the
+   Company.
+
+4. Third-party components
+   The Software includes open-source components that are licensed under
+   their own terms, listed in THIRD-PARTY-NOTICES.txt. Nothing in this
+   licence limits your rights under those licences.
+
+5. Tax compliance
+   The Software implements the Digital Invoicing requirements published by
+   the Federal Board of Revenue as understood by the Company at the time of
+   each release. The licensee remains responsible for its own tax affairs,
+   for the accuracy of the data it enters, and for complying with the law.
+
+6. Warranty and liability
+   Except as expressly agreed in a written contract with the Company, the
+   Software is provided "as is", without warranties of any kind. To the
+   extent permitted by law, the Company is not liable for indirect,
+   incidental or consequential loss, including loss of data or profits, or
+   penalties, arising from the use of the Software.
+
+7. Termination
+   This licence ends automatically if you breach it. You must then stop using
+   the Software, except to read your own records where the law requires you
+   to keep them.
+
+8. Governing law
+   This licence is governed by the laws of the Islamic Republic of Pakistan,
+   and the courts of Pakistan have exclusive jurisdiction.
+
+Developer: Veridian Partners Consultancy Private Limited
+Contact:   muhammadshahjahan.audit@gmail.com

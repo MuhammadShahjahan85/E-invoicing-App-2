@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package service
 
 import (
@@ -29,6 +32,9 @@ type connState struct {
 	Failures     int
 	LastError    string
 	AuthFailure  bool
+	// Recovered is set when a call succeeds after failures; the worker then
+	// resubmits the queued invoices at once.
+	Recovered bool
 }
 
 // ConnectionStatus is reported in the dashboard.
@@ -83,12 +89,30 @@ func (h *healthTracker) observe(companyID int64, env domain.Environment, l fbr.C
 			st.LastError = l.Err.Error()
 		}
 	default:
+		if st.Failures > 0 {
+			st.Recovered = true
+		}
 		st.LastSuccess = time.Now()
 		st.Failures = 0
 		st.FirstFailure = time.Time{}
 		st.AuthFailure = false
 		st.LastError = ""
 	}
+}
+
+// takeRecovered returns the connections that recovered since the last call
+// and clears their flag.
+func (h *healthTracker) takeRecovered() []connState {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []connState
+	for _, st := range h.state {
+		if st.Recovered {
+			st.Recovered = false
+			out = append(out, *st)
+		}
+	}
+	return out
 }
 
 func (h *healthTracker) snapshot() []connState {
@@ -118,6 +142,18 @@ func (s *Service) Connection(companyID int64, env domain.Environment) Connection
 
 // OutageThreshold is how long FBR must be unreachable before an incident is opened.
 var OutageThreshold = 10 * time.Minute
+
+// requeueRecovered makes the queued invoices of every connection that has just
+// recovered due at once, so invoices issued during an outage reach FBR well
+// within the 24 hours allowed after connectivity is restored.
+func (s *Service) requeueRecovered(ctx context.Context) {
+	for _, st := range s.health.takeRecovered() {
+		if n, err := s.Store.RequeueNow(ctx, st.CompanyID, st.Env); err == nil && n > 0 {
+			s.Log.Info("FBR connection restored; resubmitting queued invoices", "company", st.CompanyID, "env", st.Env, "count", n)
+			s.Audit(ctx, System, st.CompanyID, "worker.requeued", "invoice", "", fmt.Sprintf("%d invoices queued during the outage resubmitted after the connection was restored", n))
+		}
+	}
+}
 
 // checkIncidents opens or closes auto-detected incidents from the health state.
 func (s *Service) checkIncidents(ctx context.Context) {

@@ -1,4 +1,7 @@
--- Initial schema for E-Invoicing Suite PK.
+-- Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+-- Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
+-- Initial schema for Veridian E-invoicing PK.
 -- Monetary amounts are stored as INTEGER paisa (1 rupee = 100) so SQL sums
 -- are exact. Quantities and unit prices are stored as decimal TEXT.
 -- Timestamps are RFC 3339 UTC text; dates are YYYY-MM-DD.

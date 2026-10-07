@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package printing
 
 import (
@@ -51,19 +54,19 @@ type rateRow struct{ SaleType, Rate, Value, SalesTax string }
 type cols struct{ Discount, Retail, Further, Extra, FED, Withheld bool }
 
 type view struct {
-	Title, InvoiceDate, Watermark, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, ShortSeal string
-	FBRNumber, Nonce                                                                                 string
-	Company                                                                                          *store.Company
-	Invoice                                                                                          *store.Invoice
-	Settings                                                                                         store.PrintSettings
-	CompanyLogo, FBRLogo                                                                             template.URL
-	QR                                                                                               template.HTML
-	Lines                                                                                            []line
-	Rates                                                                                            []rateRow
-	T                                                                                                totals
-	Cols                                                                                             cols
-	IsDebitNote, AutoPrint, ShowToolbar                                                              bool
-	Sheets                                                                                           []sheet
+	Title, InvoiceDate, Watermark, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, Developer, ShortSeal string
+	FBRNumber, Nonce                                                                                            string
+	Company                                                                                                     *store.Company
+	Invoice                                                                                                     *store.Invoice
+	Settings                                                                                                    store.PrintSettings
+	CompanyLogo, FBRLogo                                                                                        template.URL
+	QR                                                                                                          template.HTML
+	Lines                                                                                                       []line
+	Rates                                                                                                       []rateRow
+	T                                                                                                           totals
+	Cols                                                                                                        cols
+	IsDebitNote, AutoPrint, ShowToolbar                                                                         bool
+	Sheets                                                                                                      []sheet
 }
 
 // sheet is one printed copy of the A4 invoice; CopyLabel shadows the view's.
@@ -97,7 +100,7 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		o.Now = time.Now()
 	}
 	v := view{Company: c, Invoice: inv, Settings: c.PrintSettings, AutoPrint: o.AutoPrint, ShowToolbar: o.ShowToolbar, Nonce: o.Nonce,
-		ProductName: brand.ProductName, IsDebitNote: inv.DocType == domain.DocDebitNote}
+		ProductName: brand.ProductName, Developer: brand.Developer, IsDebitNote: inv.DocType == domain.DocDebitNote}
 	v.Title = "SALES TAX INVOICE"
 	if v.IsDebitNote {
 		v.Title = "DEBIT NOTE"
@@ -129,6 +132,12 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 	case inv.Status == domain.StatusCancelled:
 		v.Watermark = "CANCELLED"
 		v.Notice = "This invoice was cancelled on " + inv.CancelledAt + " — " + inv.CancelReason
+	case inv.Status == domain.StatusQueued:
+		// Issued while FBR was unreachable: a provisional copy may be handed
+		// over, but the invoice must reach FBR within 24 hours of the
+		// connection being restored, after which the reported copy is printed.
+		v.Watermark = "PENDING FBR REPORTING"
+		v.Notice = "Provisional copy issued while FBR Digital Invoicing was unreachable. It is reported to FBR automatically, within 24 hours of the connection being restored; the reported copy carries the FBR invoice number and QR code."
 	case !reported:
 		v.Watermark = "DRAFT — NOT REPORTED TO FBR"
 		v.Notice = "Not a valid sales tax invoice: it has not been reported to FBR Digital Invoicing (status " + string(inv.Status) + ")."

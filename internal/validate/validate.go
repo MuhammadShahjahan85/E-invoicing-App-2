@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package validate
 
 import (
@@ -101,6 +104,20 @@ type Context struct {
 	// CNICThreshold warns when an unregistered buyer without NTN/CNIC
 	// receives an invoice above this value (0 disables).
 	CNICThreshold decimal.Decimal
+	// SellerActivities are the seller's IRIS business activities
+	// (Manufacturer, Importer, ...).
+	SellerActivities []string
+}
+
+// manufacturerOrImporter reports whether the seller is registered as a
+// manufacturer or importer.
+func (c Context) manufacturerOrImporter() bool {
+	for _, a := range c.SellerActivities {
+		if a == "Manufacturer" || a == "Importer" {
+			return true
+		}
+	}
+	return false
 }
 
 var (
@@ -274,7 +291,14 @@ func Payload(p *fbr.InvoicePayload, ctx Context) Result {
 		}
 	}
 
-	if regType == domain.Unregistered && p.BuyerNTNCNIC == "" && ctx.CNICThreshold.IsPositive() && totalValue.GreaterThan(ctx.CNICThreshold) {
+	switch {
+	case regType != domain.Unregistered || p.BuyerNTNCNIC != "":
+	case ctx.manufacturerOrImporter():
+		// Section 23(1)(b) of the Sales Tax Act, 1990: a manufacturer or
+		// importer supplying an unregistered person (distributor, dealer,
+		// wholesaler) must state the buyer's CNIC or NTN on the invoice.
+		r.add(0, "buyerNTNCNIC", "", SevWarning, "Supply by a manufacturer or importer to an unregistered buyer without CNIC/NTN. Section 23(1)(b) of the Sales Tax Act requires the buyer's CNIC or NTN on the invoice.")
+	case ctx.CNICThreshold.IsPositive() && totalValue.GreaterThan(ctx.CNICThreshold):
 		r.add(0, "buyerNTNCNIC", "", SevWarning, "Supply of %s to an unregistered buyer without CNIC. Record the buyer's CNIC for supplies above %s.", totalValue.StringFixed(2), ctx.CNICThreshold.StringFixed(0))
 	}
 	_ = invDate

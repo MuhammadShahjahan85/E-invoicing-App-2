@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package service
 
 import (
@@ -38,6 +41,7 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 			return
 		case <-t.C:
 		}
+		s.requeueRecovered(ctx)
 		s.processQueue(ctx)
 		s.checkIncidents(ctx)
 		_ = s.Store.PurgeExpiredSessions(ctx)

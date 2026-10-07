@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package fbrmock is an offline simulator of FBR's Digital Invoicing API.
 //
 // It is used (1) by the automated test-suite, (2) by the product's

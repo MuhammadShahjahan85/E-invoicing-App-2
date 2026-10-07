@@ -1,6 +1,6 @@
 # FBR Digital Invoicing — Research Summary and Compliance Matrix
 
-This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **E-Invoicing Suite PK** that satisfies it.
+This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **Veridian E-invoicing PK** that satisfies it.
 
 It is written for:
 
@@ -21,7 +21,7 @@ It is written for:
 - Failures, disruptions or tampering of the e-invoicing system must be reported to the Commissioner within **24 hours** (rule 150R). Electronic records are kept for **six years** (rule 150S).
 - Penalties for non-integration or for not issuing e-invoices are severe. Rs 1 million for a first default, escalating to Rs 5 million, plus possible suspension or blacklisting (Finance Act 2026 as reported — **Verify**).
 
-E-Invoicing Suite PK is an on-premise system that implements the full lifecycle:
+Veridian E-invoicing PK is an on-premise system that implements the full lifecycle:
 
 - invoice preparation with Pakistani sales-tax rules;
 - validation against FBR's rules before submission;
@@ -51,7 +51,7 @@ E-Invoicing Suite PK is an on-premise system that implements the full lifecycle:
 | **Licensed integrator** | A licensed firm (reported: Haball, EY Ford Rhodes, WebDNAworks — **Verify** the current list) operates the integration for the taxpayer. | Licence granted by the Board. Licensing committee decides within 7 days; licence valid 5 years (**Verify** eligibility criteria). |
 | **IRIS web portal** | Manual entry on FBR's portal. | Practical only for very low volumes. |
 
-E-Invoicing Suite PK is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
+Veridian E-invoicing PK is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
 
 ## 4. Technical specification summary (DI API v1.12)
 
@@ -197,3 +197,7 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 - Finance Act 2026 — penalty amounts (**Verify** against the enacted text).
 - PRAL Digital Invoicing technical documentation v1.12 — APIs, fields, scenarios, error codes, QR specification.
 - IRIS → Digital Invoicing — onboarding screens, scenario assignment, token issue.
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

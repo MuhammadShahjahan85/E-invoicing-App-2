@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package httpapi
 
 import (
@@ -20,6 +23,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	lic := s.License.Status(r.Context())
 	writeJSON(w, 200, map[string]any{
 		"product": brand.ProductName, "vendor": brand.Vendor, "version": brand.Version, "needsSetup": need,
+		"copyright": brand.Copyright, "developedBy": brand.DevelopedBy,
 		"license": map[string]any{"mode": lic.Mode, "message": lic.Message}, "serverTime": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -121,6 +125,8 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request, rc *reqCtx) 
 		"product":            brand.ProductName,
 		"vendor":             brand.Vendor,
 		"support":            brand.SupportContact,
+		"copyright":          brand.Copyright,
+		"developedBy":        brand.DevelopedBy,
 		"version":            brand.Version,
 		"cancelWindowHours":  int(service.CancelWindow.Hours()),
 	})

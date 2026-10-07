@@ -156,3 +156,7 @@ Run all with `make test` (or `GOTOOLCHAIN=local go test ./...`).
   - `packaging/windows/einvoice-suite.iss` (Inno Setup);
   - `packaging/linux/` (systemd unit and installer);
   - `Dockerfile`.
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

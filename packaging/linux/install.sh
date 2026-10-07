@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs (or upgrades) E-Invoicing Suite PK as a systemd service on Linux x86-64.
+# Installs (or upgrades) Veridian E-invoicing PK as a systemd service on Linux x86-64.
 #
 #   sudo sh install.sh [path/to/einvoice]
 #
@@ -50,7 +50,7 @@ systemctl start einvoice
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -n "$IP" ] || IP=localhost
 echo
-echo "E-Invoicing Suite PK is running."
+echo "Veridian E-invoicing PK is running."
 echo "  Open:  https://$IP:8443/   (accept the self-signed certificate once, then complete the setup wizard)"
 echo "  Data:  $DATA  — back it up regularly, including master.key"
 echo "  Logs:  journalctl -u einvoice  and  $DATA/logs/einvoice.log"

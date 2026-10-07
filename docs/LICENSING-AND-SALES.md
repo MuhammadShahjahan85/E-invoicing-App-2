@@ -1,6 +1,6 @@
 # Licensing and Sales Guide (Vendor)
 
-This guide is for you as the **vendor**: the practitioner or firm that sells, installs and supports E-Invoicing Suite PK. It covers product licensing, building releases, issuing licences to clients, and a commercial model.
+This guide is for you as the **vendor**: the practitioner or firm that sells, installs and supports Veridian E-invoicing PK. It covers product licensing, building releases, issuing licences to clients, and a commercial model.
 
 ---
 
@@ -45,7 +45,7 @@ It prints the **public key** (base64). Keep `vendor-private.key` secret and back
    - Value: the public key printed by `licensegen keygen`.
 2. Open the **Actions** tab → **Release** → **Run workflow**, and enter the version (e.g. `1.0.0`). Alternatively, push a tag such as `v1.0.0`; tags also create a GitHub Release.
 3. When the run finishes, download the artifacts:
-   - **windows-installer** (`EInvoicingSuitePK-Setup-<version>.exe`);
+   - **windows-installer** (`VeridianEInvoicingPK-Setup-<version>.exe`);
    - **linux-package**;
    - **vendor-tools-keep-private** (licensegen).
 
@@ -174,3 +174,7 @@ Change these, then update the matching values in `packaging/windows/einvoice-sui
 | "Cannot log in" | Lockout (15 minutes after 5 failures); `einvoice reset-password` |
 | "Server moved / restored" | Restore the procedure from backups; keep `master.key`; re-enter tokens if the key was lost |
 | "Licence warning" | Settings → System; issue a renewal |
+
+---
+
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.

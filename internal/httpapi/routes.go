@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 package httpapi
 
 import "net/http"
@@ -8,6 +11,9 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("POST /api/v1/system/setup", s.handleSetup)
 	m.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
 	m.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
+	m.HandleFunc("GET /api/v1/system/ca.crt", s.handleCACert) // public: phones install it before signing in
+	m.HandleFunc("GET /api/v1/system/link-qr.svg", s.perm(PermSelf, s.handleLinkQR))
+	m.HandleFunc("GET /api/v1/system/addresses", s.perm(PermSelf, s.handleAddresses))
 
 	// Session.
 	m.HandleFunc("POST /api/v1/auth/logout", s.perm(PermSelf, s.handleLogout))

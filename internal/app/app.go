@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
+// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+
 // Package app wires configuration, storage, services and the web server.
 package app
 
@@ -131,13 +134,15 @@ func (a *App) Serve(ctx context.Context) error {
 
 	errc := make(chan error, 1)
 	scheme := "http"
+	if a.Cfg.TLS.Enabled {
+		scheme = "https"
+	}
 	go func() {
 		if a.Cfg.TLS.Enabled {
-			scheme = "https"
 			cert, key := a.Cfg.TLS.CertFile, a.Cfg.TLS.KeyFile
 			if cert == "" || key == "" {
 				var err error
-				if cert, key, err = EnsureSelfSigned(a.Cfg.DataDir); err != nil {
+				if cert, key, err = EnsureCertificates(a.Cfg.DataDir, a.Cfg.TLS.Hosts); err != nil {
 					errc <- fmt.Errorf("TLS certificate: %w", err)
 					return
 				}
