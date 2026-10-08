@@ -3,7 +3,7 @@
 
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Copy, FileMinus, Printer, ReceiptText } from 'lucide-react'
+import { Copy, FileMinus, Printer, ReceiptText, Share2 } from 'lucide-react'
 import { api, ApiError, errorMessage } from '../api'
 import { Confirm, ErrorBox, Field, IssueList, Modal, StatusBadge, useLoad, PageSpinner } from '../components/ui'
 import { dateFmt, dateTimeFmt, envLabels, hoursSince, money, qty } from '../format'
@@ -78,6 +78,38 @@ export default function InvoiceView() {
       setActionError(e)
     } finally {
       setBusy('')
+    }
+  }
+  // Invoice summary for WhatsApp / e-mail (phones) or the clipboard (desktops).
+  const shareText = () =>
+    [
+      `${inv.docType === 'Debit Note' ? 'Debit Note' : 'Sales Tax Invoice'} ${inv.internalNo}`,
+      `Date: ${dateFmt(inv.invoiceDate)}`,
+      `Buyer: ${inv.buyerName || 'Walk-in buyer'}${inv.buyerNtnCnic ? ` (NTN/CNIC ${inv.buyerNtnCnic})` : ''}`,
+      `Value excl. sales tax: Rs ${money(inv.totals.valueExclST)}`,
+      `Sales tax: Rs ${money(inv.totals.salesTax)}`,
+      `Total: Rs ${money(inv.totals.totalValue)}`,
+      inv.fbrInvoiceNumber ? `FBR invoice no.: ${inv.fbrInvoiceNumber}` : '',
+      `Issued by ${inv.sellerName} (NTN/CNIC ${inv.sellerNtnCnic})${inv.fbrInvoiceNumber ? ' and reported to FBR Digital Invoicing.' : '.'}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  const share = async () => {
+    const text = shareText()
+    const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> }
+    if (nav.share) {
+      try {
+        await nav.share({ title: `Invoice ${inv.internalNo}`, text })
+        return
+      } catch {
+        return // cancelled by the user
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('ok', 'Invoice details copied — paste them into WhatsApp or an e-mail')
+    } catch {
+      toast('err', 'Copying is not allowed by this browser')
     }
   }
   const duplicate = async () => {
@@ -165,6 +197,11 @@ export default function InvoiceView() {
             <a className="btn" href={`/api/v1${cp}/invoices/${inv.id}/print?preview=1`} target="_blank" rel="noopener">
               {inv.offlineSince ? 'Print provisional copy' : 'Preview'}
             </a>
+          )}
+          {(inv.status === 'ACCEPTED' || inv.status === 'CANCELLED') && (
+            <button className="btn" onClick={share} title="Share the invoice details and FBR number (WhatsApp, e-mail) or copy them">
+              <Share2 size={16} /> Share
+            </button>
           )}
           {inv.docType === 'Sale Invoice' && s.can('invoice.write') && (
             <button className="btn" disabled={!!busy} onClick={duplicate} title="Create a new draft with the same buyer and lines">

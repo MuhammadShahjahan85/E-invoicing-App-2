@@ -66,6 +66,9 @@ type Service struct {
 
 	submitMu sync.Map // per-invoice locks
 	health   *healthTracker
+
+	notifyMu      sync.Mutex // one notification run at a time
+	lastNotifyRun time.Time
 }
 
 // New builds the service.

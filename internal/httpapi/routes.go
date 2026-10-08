@@ -110,4 +110,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/system/fbr-logo", s.perm(PermSelf, s.handleGetFBRLogo))
 	m.HandleFunc("PUT /api/v1/system/fbr-logo", s.perm(PermSystem, s.handlePutFBRLogo))
 	m.HandleFunc("GET /api/v1/system/info", s.perm(PermSystem, s.handleSystemInfo))
+	m.HandleFunc("GET /api/v1/system/notifications", s.perm(PermSystem, s.handleGetNotifications))
+	m.HandleFunc("PUT /api/v1/system/notifications", s.perm(PermSystem, s.handleSaveNotifications))
+	m.HandleFunc("POST /api/v1/system/notifications/test", s.perm(PermSystem, s.handleTestNotification))
 }

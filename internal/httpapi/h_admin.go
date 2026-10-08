@@ -459,3 +459,36 @@ func (s *Server) handleAddresses(w http.ResponseWriter, r *http.Request, rc *req
 	_, caErr := os.Stat(config.CACertPath(s.Svc.Opts.DataDir))
 	writeJSON(w, 200, map[string]any{"urls": urls, "https": r.TLS != nil, "localCA": caErr == nil})
 }
+
+// --- e-mail notifications ---
+
+func (s *Server) handleGetNotifications(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	ns, err := s.Svc.NotifySettings(r.Context())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, ns)
+}
+
+func (s *Server) handleSaveNotifications(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	var in service.NotifyInput
+	if err := decode(r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	out, err := s.Svc.SaveNotifySettings(r.Context(), rc.Actor, in)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, out)
+}
+
+func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	if err := s.Svc.SendTestEmail(r.Context(), rc.Actor); err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
