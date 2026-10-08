@@ -350,7 +350,7 @@ func (s *Service) TestConnection(ctx context.Context, a Actor, companyID int64, 
 	if err != nil {
 		hint := ""
 		if fbr.KindOf(err) == fbr.ErrAuth {
-			hint = " — check the token and that this server's public IP is whitelisted by PRAL"
+			hint = " — check the token (a sandbox token works only in the sandbox and a production token only in production, and tokens expire) and that this server's public IP is whitelisted by PRAL"
 		}
 		step("Reference API (provinces)", false, err.Error()+hint)
 		return res, nil

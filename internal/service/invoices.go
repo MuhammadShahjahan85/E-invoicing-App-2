@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
@@ -366,12 +367,30 @@ func (s *Service) ValidateLocal(ctx context.Context, c *store.Company, inv *stor
 	return res
 }
 
+// fbrText keeps descriptive text plain for FBR's parser, which integrators
+// report rejecting control characters and escaped quotes: control characters
+// become spaces, double quotes single quotes and backslashes slashes.
+func fbrText(s string) string {
+	s = strings.Map(func(r rune) rune {
+		switch {
+		case r == '"':
+			return '\''
+		case r == '\\':
+			return '/'
+		case unicode.IsControl(r):
+			return ' '
+		}
+		return r
+	}, s)
+	return strings.Join(strings.Fields(s), " ")
+}
+
 // BuildPayload maps an invoice to the DI JSON payload.
 func (s *Service) BuildPayload(c *store.Company, inv *store.Invoice) fbr.InvoicePayload {
 	p := fbr.InvoicePayload{
 		InvoiceType: string(inv.DocType), InvoiceDate: inv.InvoiceDate,
-		SellerNTNCNIC: inv.SellerNTNCNIC, SellerBusinessName: inv.SellerName, SellerProvince: inv.SellerProvince, SellerAddress: inv.SellerAddress,
-		BuyerNTNCNIC: inv.BuyerNTNCNIC, BuyerBusinessName: inv.BuyerName, BuyerProvince: inv.BuyerProvince, BuyerAddress: inv.BuyerAddress,
+		SellerNTNCNIC: inv.SellerNTNCNIC, SellerBusinessName: fbrText(inv.SellerName), SellerProvince: inv.SellerProvince, SellerAddress: fbrText(inv.SellerAddress),
+		BuyerNTNCNIC: inv.BuyerNTNCNIC, BuyerBusinessName: fbrText(inv.BuyerName), BuyerProvince: inv.BuyerProvince, BuyerAddress: fbrText(inv.BuyerAddress),
 		BuyerRegistrationType: string(inv.BuyerRegistrationType),
 	}
 	if inv.DocType == domain.DocDebitNote {
@@ -384,7 +403,7 @@ func (s *Service) BuildPayload(c *store.Company, inv *store.Invoice) fbr.Invoice
 	}
 	for _, it := range inv.Items {
 		ip := fbr.ItemPayload{
-			HSCode: it.HSCode, ProductDescription: it.Description, Rate: it.Rate, UoM: it.UoM,
+			HSCode: it.HSCode, ProductDescription: fbrText(it.Description), Rate: it.Rate, UoM: it.UoM,
 			Quantity: fbr.Q(it.Quantity), TotalValues: fbr.A(it.TotalValue), ValueSalesExcludingST: fbr.A(it.ValueExclST),
 			FixedNotifiedValueOrRetailPrice: fbr.A(it.RetailValue), SalesTaxApplicable: fbr.A(it.SalesTax),
 			SalesTaxWithheldAtSource: fbr.A(it.STWithheld), ExtraTax: fbr.A(it.ExtraTax), FurtherTax: fbr.A(it.FurtherTax),

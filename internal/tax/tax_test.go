@@ -120,6 +120,23 @@ func TestReducedRateExtraTaxEmpty(t *testing.T) {
 	}
 }
 
+// Integrators report FBR refusing even a numeric zero extraTax on exempt,
+// zero-rated and cotton ginner lines, so those are sent empty as well.
+func TestExtraTaxEmptyForExemptZeroRatedAndCottonGinners(t *testing.T) {
+	for _, c := range []struct{ saleType, rate string }{
+		{domain.STExempt, "Exempt"}, {domain.STZeroRated, "0%"}, {domain.STCottonGinners, "18%"},
+	} {
+		res := ComputeLine(LineInput{Quantity: MustD("1"), UnitPrice: MustD("1000"), SaleType: c.saleType, Rate: c.rate, BuyerRegistered: true})
+		if !res.ExtraTaxEmpty || !res.ExtraTax.IsZero() {
+			t.Errorf("%s: extra tax should be sent empty: %+v", c.saleType, res)
+		}
+	}
+	std := ComputeLine(LineInput{Quantity: MustD("1"), UnitPrice: MustD("1000"), SaleType: domain.STStandard, Rate: "18%", BuyerRegistered: true})
+	if std.ExtraTaxEmpty {
+		t.Error("standard-rate lines keep a numeric extra tax")
+	}
+}
+
 func TestWithholdingAndRounding(t *testing.T) {
 	res := ComputeLine(LineInput{Quantity: MustD("3"), UnitPrice: MustD("333.33"), SaleType: domain.STStandard, Rate: "18%", BuyerRegistered: true,
 		Withholding: WithholdFraction})

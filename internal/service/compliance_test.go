@@ -107,3 +107,12 @@ func TestDuplicateInvoiceAndPeriodReview(t *testing.T) {
 		t.Fatal("invalid period must be refused")
 	}
 }
+
+func TestPayloadTextIsPlain(t *testing.T) {
+	if got := fbrText("Cement \"OPC\"\t50kg\r\nC:\\bags  "); got != "Cement 'OPC' 50kg C:/bags" {
+		t.Fatalf("fbrText = %q", got)
+	}
+	if got := fbrText("سیمنٹ (OPC) 50 kg, grey"); got != "سیمنٹ (OPC) 50 kg, grey" {
+		t.Fatalf("ordinary punctuation and Urdu must be kept: %q", got)
+	}
+}

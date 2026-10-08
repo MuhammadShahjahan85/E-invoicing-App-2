@@ -164,8 +164,10 @@ type SaleType struct {
 	// SROTypical: an SRO/Schedule reference is normally expected; the UI
 	// warns when missing but FBR decides.
 	SROTypical bool `json:"sroTypical"`
-	// ExtraTaxMustBeEmpty: FBR error 0091 — extraTax must be "" (not 0)
-	// for reduced-rate goods.
+	// ExtraTaxMustBeEmpty: FBR error 0091 — extraTax must be "" (not 0).
+	// Integrators report FBR refusing even a numeric zero for reduced-rate,
+	// exempt, zero-rated and cotton ginner supplies (scenarios SN005-SN007,
+	// SN009 and SN028).
 	ExtraTaxMustBeEmpty bool `json:"extraTaxMustBeEmpty"`
 	// FurtherTaxDefault: further tax under section 3(1A) is charged by
 	// default when the buyer is unregistered.
@@ -217,16 +219,16 @@ var SaleTypes = []SaleType{
 		Note: "Standard rate under section 3(1) of the Sales Tax Act, 1990."},
 	{Name: STReduced, Category: "goods", DefaultRate: "1%", Basis: BasisValue, SRORequired: true, ExtraTaxMustBeEmpty: true, FurtherTaxDefault: true, Scenario: "SN005",
 		Note: "Eighth Schedule reduced rates. Provide 'EIGHTH SCHEDULE Table 1' (or 2) and the serial number. Extra tax must be left empty (FBR error 0091)."},
-	{Name: STZeroRated, Category: "goods", DefaultRate: "0%", Basis: BasisValue, SRORequired: true, Scenario: "SN007",
-		Note: "Fifth Schedule / zero-rating SRO. Provide the SRO or schedule and serial number."},
-	{Name: STExempt, Category: "goods", DefaultRate: "Exempt", Basis: BasisValue, SRORequired: true, Exempt: true, Scenario: "SN006",
-		Note: "Sixth Schedule exemption. Rate must be 'Exempt'; provide the table and serial number."},
+	{Name: STZeroRated, Category: "goods", DefaultRate: "0%", Basis: BasisValue, SRORequired: true, ExtraTaxMustBeEmpty: true, Scenario: "SN007",
+		Note: "Fifth Schedule / zero-rating SRO. Provide the SRO or schedule and serial number. Extra tax is sent empty."},
+	{Name: STExempt, Category: "goods", DefaultRate: "Exempt", Basis: BasisValue, SRORequired: true, Exempt: true, ExtraTaxMustBeEmpty: true, Scenario: "SN006",
+		Note: "Sixth Schedule exemption. Rate must be 'Exempt'; provide the table and serial number. Extra tax is sent empty."},
 	{Name: STThirdSchedule, Category: "goods", DefaultRate: "18%", Basis: BasisRetailPrice, Scenario: "SN008",
 		Note: "Tax is charged on the retail price (section 3(2)(a)). Enter the price printed on the pack, which includes sales tax; the tax is printed price x rate / (100 + rate). Further tax is not charged by default."},
 	{Name: STSteel, Category: "goods", DefaultRate: "18%", Basis: BasisValue, FurtherTaxDefault: true, Scenario: "SN003",
 		Note: "Billets, ingots and long bars by steel melters/re-rollers."},
 	{Name: STShipBreaking, Category: "goods", DefaultRate: "18%", Basis: BasisValue, FurtherTaxDefault: true, Scenario: "SN004"},
-	{Name: STCottonGinners, Category: "goods", DefaultRate: "18%", Basis: BasisValue, Scenario: "SN009"},
+	{Name: STCottonGinners, Category: "goods", DefaultRate: "18%", Basis: BasisValue, ExtraTaxMustBeEmpty: true, Scenario: "SN009"},
 	{Name: STTelecom, Category: "services", DefaultRate: "17%", Basis: BasisValue, Scenario: "SN010"},
 	{Name: STTollManufacture, Category: "goods", DefaultRate: "18%", Basis: BasisValue, FurtherTaxDefault: true, Scenario: "SN011"},
 	{Name: STPetroleum, Category: "goods", DefaultRate: "1.43%", Basis: BasisValue, SRORequired: true, Scenario: "SN012"},

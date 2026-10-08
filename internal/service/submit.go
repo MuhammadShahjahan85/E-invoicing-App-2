@@ -268,7 +268,7 @@ func (s *Service) handleTransportError(ctx context.Context, a Actor, c *store.Co
 		s.Audit(ctx, a, inv.CompanyID, "invoice.queued", "invoice", fmt.Sprint(inv.ID), map[string]any{"no": inv.InternalNo, "error": err.Error(), "next": next})
 	case kind == fbr.ErrAuth:
 		next := now.Add(15 * time.Minute).Format(time.RFC3339)
-		msg := "FBR rejected the security token (" + err.Error() + "). Check the " + inv.Environment.Label() + " token and that this server's IP is whitelisted with PRAL. The invoice is queued."
+		msg := "FBR rejected the security token (" + err.Error() + "). Check that the " + inv.Environment.Label() + " token is current (a sandbox token works only in the sandbox and a production token only in production) and that this server's IP is whitelisted with PRAL. The invoice is queued."
 		_ = s.Store.SetStatus(ctx, inv.ID, domain.StatusQueued, msg, next)
 		_ = s.Store.MarkOffline(ctx, inv.ID, now.Format(time.RFC3339))
 		s.Audit(ctx, a, inv.CompanyID, "invoice.auth_error", "invoice", fmt.Sprint(inv.ID), err.Error())

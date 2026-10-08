@@ -298,6 +298,19 @@ func Payload(p *fbr.InvoicePayload, ctx Context) Result {
 		totalTax = totalTax.Add(p.Items[i].SalesTaxApplicable.Value)
 	}
 
+	// Repeated lines: integrators report FBR flagging the same product on two
+	// lines of one invoice as a duplicate.
+	seen := map[string]int{}
+	for i, it := range p.Items {
+		key := strings.ToLower(strings.Join([]string{it.HSCode, strings.Join(strings.Fields(it.ProductDescription), " "), it.UoM, it.SaleType,
+			it.Rate, it.SROScheduleNo, it.SROItemSerialNo}, "|"))
+		if first, ok := seen[key]; ok {
+			r.add(i+1, "productDescription", "", SevWarning, "Line %d repeats line %d (same HS code, description, unit, sale type, rate and SRO). FBR may treat repeated lines as duplicates; combine them into one line.", i+1, first)
+			continue
+		}
+		seen[key] = i + 1
+	}
+
 	if dt == domain.DocDebitNote && ctx.Original != nil {
 		if ctx.Original.ValueExclST.IsPositive() && totalValue.GreaterThan(ctx.Original.ValueExclST) {
 			r.add(0, "items", "0036", SevWarning, "Debit note value %s exceeds the original invoice value %s.", totalValue.StringFixed(2), ctx.Original.ValueExclST.StringFixed(2))
@@ -424,7 +437,7 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 	}
 
 	if known && st.ExtraTaxMustBeEmpty && !it.ExtraTax.Empty {
-		r.add(n, "extraTax", "0091", SevError, "Extra tax must be empty (not 0) for reduced-rate goods.")
+		r.add(n, "extraTax", "0091", SevError, "Extra tax must be empty (not 0) for this sale type.")
 	}
 
 	if regType == domain.Registered && it.FurtherTax.Value.IsPositive() {
