@@ -6,6 +6,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"einvoicing/internal/brand"
@@ -41,5 +42,27 @@ func TestProgramDataDirKeepsLegacyInstallation(t *testing.T) {
 	}
 	if got := programDataDir(pd); got != cur {
 		t.Fatalf("both present: got %s, want %s", got, cur)
+	}
+}
+
+func TestListenOverrideAppliesOnFirstStart(t *testing.T) {
+	t.Setenv("EINV_LISTEN", "127.0.0.1:9443")
+	dir := t.TempDir()
+	for _, run := range []string{"first start", "later start"} {
+		cfg, err := Load(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Listen != "127.0.0.1:9443" {
+			t.Fatalf("%s: listen %q", run, cfg.Listen)
+		}
+	}
+	// The override is not written into config.json.
+	b, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "9443") {
+		t.Fatal("environment override saved to config.json")
 	}
 }

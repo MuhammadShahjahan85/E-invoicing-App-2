@@ -115,18 +115,20 @@ func Load(dataDir string) (Config, error) {
 	cfg.DataDir = dataDir
 	path := filepath.Join(dataDir, "config.json")
 	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		// First start: write the defaults; environment overrides below still
+		// apply but are not saved.
 		out, _ := json.MarshalIndent(cfg, "", "  ")
 		if err := os.WriteFile(path, out, 0o640); err != nil {
 			return cfg, err
 		}
-		return cfg, nil
-	}
-	if err != nil {
+	case err != nil:
 		return cfg, err
-	}
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return cfg, errors.New("config.json is invalid: " + err.Error())
+	default:
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			return cfg, errors.New("config.json is invalid: " + err.Error())
+		}
 	}
 	cfg.DataDir = dataDir
 	cfg.FBR.Endpoints = cfg.FBR.Endpoints.Merge(fbr.DefaultEndpoints())
