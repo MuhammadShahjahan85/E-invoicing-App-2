@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Copy, FileMinus, Printer, ReceiptText, Share2 } from 'lucide-react'
 import { api, ApiError, errorMessage } from '../api'
-import { Confirm, ErrorBox, Field, IssueList, Modal, Spinner, StatusBadge, useLoad } from '../components/ui'
+import { Confirm, ErrorBox, Field, IssueList, Modal, StatusBadge, useLoad, PageSpinner } from '../components/ui'
 import { dateFmt, dateTimeFmt, envLabels, hoursSince, money, qty } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
 import type { AuditEntry, FBRCall, Invoice, Paged } from '../types'
@@ -32,7 +33,7 @@ export default function InvoiceView() {
   const [showResolve, setShowResolve] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  if (loading && !data) return <Spinner />
+  if (loading && !data) return <PageSpinner />
   if (error) return <ErrorBox error={error} />
   if (!data) return null
   const inv = data.invoice
@@ -73,6 +74,50 @@ export default function InvoiceView() {
       const dn = await api.post<Invoice>(`${cp}/invoices/${inv.id}/debit-note`)
       toast('ok', `Draft debit note ${dn.internalNo} created — adjust the lines and submit`)
       nav(`/invoices/${dn.id}/edit`)
+    } catch (e) {
+      setActionError(e)
+    } finally {
+      setBusy('')
+    }
+  }
+  // Invoice summary for WhatsApp / e-mail (phones) or the clipboard (desktops).
+  const shareText = () =>
+    [
+      `${inv.docType === 'Debit Note' ? 'Debit Note' : 'Sales Tax Invoice'} ${inv.internalNo}`,
+      `Date: ${dateFmt(inv.invoiceDate)}`,
+      `Buyer: ${inv.buyerName || 'Walk-in buyer'}${inv.buyerNtnCnic ? ` (NTN/CNIC ${inv.buyerNtnCnic})` : ''}`,
+      `Value excl. sales tax: Rs ${money(inv.totals.valueExclST)}`,
+      `Sales tax: Rs ${money(inv.totals.salesTax)}`,
+      `Total: Rs ${money(inv.totals.totalValue)}`,
+      inv.fbrInvoiceNumber ? `FBR invoice no.: ${inv.fbrInvoiceNumber}` : '',
+      `Issued by ${inv.sellerName} (NTN/CNIC ${inv.sellerNtnCnic})${inv.fbrInvoiceNumber ? ' and reported to FBR Digital Invoicing.' : '.'}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  const share = async () => {
+    const text = shareText()
+    const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> }
+    if (nav.share) {
+      try {
+        await nav.share({ title: `Invoice ${inv.internalNo}`, text })
+        return
+      } catch {
+        return // cancelled by the user
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('ok', 'Invoice details copied — paste them into WhatsApp or an e-mail')
+    } catch {
+      toast('err', 'Copying is not allowed by this browser')
+    }
+  }
+  const duplicate = async () => {
+    setBusy('dup')
+    try {
+      const d = await api.post<Invoice>(`${cp}/invoices/${inv.id}/duplicate`)
+      toast('ok', `Draft ${d.internalNo} created from ${inv.internalNo} — check it and submit`)
+      nav(`/invoices/${d.id}/edit`)
     } catch (e) {
       setActionError(e)
     } finally {
@@ -136,10 +181,10 @@ export default function InvoiceView() {
           {(inv.status === 'ACCEPTED' || inv.status === 'CANCELLED') && (
             <>
               <button className="btn btn-primary" onClick={() => print('a4')}>
-                Print A4
+                <Printer size={16} /> Print A4
               </button>
               <button className="btn" onClick={() => print('thermal')}>
-                Print receipt (80 mm)
+                <ReceiptText size={16} /> Print receipt (80 mm)
               </button>
             </>
           )}
@@ -153,9 +198,19 @@ export default function InvoiceView() {
               {inv.offlineSince ? 'Print provisional copy' : 'Preview'}
             </a>
           )}
+          {(inv.status === 'ACCEPTED' || inv.status === 'CANCELLED') && (
+            <button className="btn" onClick={share} title="Share the invoice details and FBR number (WhatsApp, e-mail) or copy them">
+              <Share2 size={16} /> Share
+            </button>
+          )}
+          {inv.docType === 'Sale Invoice' && s.can('invoice.write') && (
+            <button className="btn" disabled={!!busy} onClick={duplicate} title="Create a new draft with the same buyer and lines">
+              <Copy size={16} /> {busy === 'dup' ? 'Copying…' : 'Duplicate'}
+            </button>
+          )}
           {inv.status === 'ACCEPTED' && inv.docType === 'Sale Invoice' && s.can('invoice.manage') && (
             <button className="btn" disabled={!!busy} onClick={debitNote}>
-              Debit note
+              <FileMinus size={16} /> Debit note
             </button>
           )}
           {inv.status === 'ACCEPTED' && s.can('invoice.manage') && (
@@ -446,7 +501,7 @@ function Calls({ cp, id }: { cp: string; id: number }) {
   const { data, error } = useLoad(() => api.get<FBRCall[]>(`${cp}/invoices/${id}/calls`), [cp, id])
   const [open, setOpen] = useState<number | null>(null)
   if (error) return <ErrorBox error={error} />
-  if (!data) return <Spinner />
+  if (!data) return <PageSpinner />
   if (data.length === 0) return <div className="empty">No exchanges with FBR yet.</div>
   return (
     <div className="table-wrap">
@@ -507,7 +562,7 @@ function pretty(s: string) {
 function History({ companyId, id }: { companyId: number; id: number }) {
   const { data, error } = useLoad(() => api.get<Paged<AuditEntry>>(`/audit?companyId=${companyId}&entity=invoice&entityId=${id}&limit=200`), [companyId, id])
   if (error) return <div className="card-body muted">History is available to users with audit permission.</div>
-  if (!data) return <Spinner />
+  if (!data) return <PageSpinner />
   return (
     <div className="table-wrap">
       <table className="table">

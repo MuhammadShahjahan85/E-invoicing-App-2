@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package httpapi
 
@@ -213,28 +213,70 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request, rc *req
 		return
 	}
 	scen, _ := s.Svc.Scenarios(r.Context(), c.ID)
-	incidents, _ := s.Svc.Store.ListIncidents(r.Context(), c.ID, 5)
-	openIncidents := 0
-	unreported := 0
-	for _, i := range incidents {
-		if i.EndedAt == "" {
-			openIncidents++
-		}
-		if i.ReportedAt == "" {
-			unreported++
-		}
-	}
+	openIncidents, unreported, _ := s.Svc.Store.IncidentCounts(r.Context(), c.ID)
 	tokenWarn := ""
 	if env == domain.EnvProduction && c.ProductionTokenExpiry != "" {
 		if exp, err := time.Parse("2006-01-02", c.ProductionTokenExpiry); err == nil && time.Until(exp) < 60*24*time.Hour {
 			tokenWarn = "The production security token expires on " + c.ProductionTokenExpiry + ". Renew it on IRIS."
 		}
 	}
-	writeJSON(w, 200, map[string]any{
+	out := map[string]any{
 		"environment": env, "stats": d, "connection": s.Svc.Connection(c.ID, env), "scenarios": scen,
 		"openIncidents": openIncidents, "unreportedIncidents": unreported, "tokenWarning": tokenWarn,
-		"license": s.License.Status(r.Context()),
-	})
+		"license": s.License.Status(r.Context()), "deadlines": s.Svc.CompanyDeadlines(c),
+	}
+	if recent, _, err := s.Svc.Store.ListInvoices(r.Context(), c.ID, store.InvoiceFilter{Environment: env, Limit: 6}); err == nil {
+		if recent == nil {
+			recent = []*store.Invoice{}
+		}
+		out["recent"] = recent
+	}
+	refSync, _ := s.Svc.Store.LastReferenceSync(r.Context(), env)
+	hsSource, hsCount, _ := s.Svc.Store.HSCodeSource(r.Context())
+	out["reference"] = map[string]any{"lastSync": refSync, "hsSource": hsSource, "hsCodes": hsCount}
+	// Sales figures by month, buyer and item are report data.
+	if allowed(rc, PermReports) {
+		out["trend"] = s.salesTrend(r, c.ID, env, now, 12)
+		month := store.ReportFilter{CompanyID: c.ID, Environment: env, From: now.Format("2006-01") + "-01", To: now.Format("2006-01-02")}
+		if buyers, err := s.Svc.Store.CustomerSummary(r.Context(), month); err == nil {
+			if len(buyers) > 5 {
+				buyers = buyers[:5]
+			}
+			if buyers == nil {
+				buyers = []store.CustomerRow{}
+			}
+			out["topBuyers"] = buyers
+		}
+		if items, err := s.Svc.Store.TopItems(r.Context(), month, 5); err == nil {
+			if items == nil {
+				items = []store.ItemRow{}
+			}
+			out["topItems"] = items
+		}
+	}
+	writeJSON(w, 200, out)
+}
+
+// salesTrend returns accepted documents per month for the last n months,
+// including months without sales.
+func (s *Server) salesTrend(r *http.Request, companyID int64, env domain.Environment, now time.Time, n int) []store.PeriodRow {
+	first := time.Date(now.Year(), now.Month()-time.Month(n-1), 1, 0, 0, 0, 0, service.PKT)
+	rows, _ := s.Svc.Store.MonthlySummary(r.Context(), store.ReportFilter{CompanyID: companyID, Environment: env,
+		From: first.Format("2006-01-02"), To: now.Format("2006-01-02")})
+	byPeriod := map[string]store.PeriodRow{}
+	for _, p := range rows {
+		byPeriod[p.Period] = p
+	}
+	out := make([]store.PeriodRow, 0, n)
+	for i := 0; i < n; i++ {
+		p := first.AddDate(0, i, 0).Format("2006-01")
+		row, ok := byPeriod[p]
+		if !ok {
+			row = store.PeriodRow{Period: p}
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // --- customers ---
@@ -430,6 +472,10 @@ func (s *Server) handleRef(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 		writeJSON(w, 200, s.Svc.SaleTypes(ctx, env))
 	case "uoms":
 		writeJSON(w, 200, s.Svc.UOMs(ctx, env))
+	case "doc-types":
+		writeJSON(w, 200, s.Svc.DocTypes(ctx, env))
+	case "sro-item-codes":
+		writeJSON(w, 200, s.Svc.SROItemCodes(ctx, env))
 	case "hs-codes":
 		list, err := s.Svc.Store.SearchHSCodes(ctx, q.Get("q"), qInt(r, "limit", 50))
 		if err != nil {
@@ -474,8 +520,9 @@ func (s *Server) handleRef(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 			s.fail(w, err)
 			return
 		}
-		n, _ := s.Svc.Store.CountHSCodes(ctx)
-		writeJSON(w, 200, map[string]any{"entries": st, "hsCodes": n})
+		src, n, _ := s.Svc.Store.HSCodeSource(ctx)
+		last, _ := s.Svc.Store.LastReferenceSync(ctx, env)
+		writeJSON(w, 200, map[string]any{"entries": st, "hsCodes": n, "hsSource": src, "lastSync": last, "environment": env})
 	default:
 		writeErr(w, 404, "unknown reference list")
 	}

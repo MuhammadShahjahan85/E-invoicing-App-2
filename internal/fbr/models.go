@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 // Package fbr is the client for FBR's Digital Invoicing (DI) web services
 // operated by PRAL (Pakistan Revenue Automation (Pvt) Ltd), as described in

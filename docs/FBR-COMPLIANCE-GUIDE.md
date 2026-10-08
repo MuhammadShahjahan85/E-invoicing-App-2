@@ -1,6 +1,6 @@
 # FBR Digital Invoicing — Research Summary and Compliance Matrix
 
-This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **Veridian E-invoicing PK** that satisfies it.
+This document summarises the Federal Board of Revenue (FBR) Digital Invoicing (DI) regime for sales-tax registered persons in Pakistan. It then maps every requirement to the feature of **Veridian E-invoicing Pakistan** that satisfies it.
 
 It is written for:
 
@@ -29,7 +29,7 @@ It is written for:
   These are from the Finance Act 2026 as reported (**Verify** against the enacted text).
 - Buyers' input tax depends on it: Annex-A of the buyer's sales-tax return is populated from the supplier's Annex-C, which is fed by DI invoices. An invoice that never reaches FBR is an invoice the customer cannot claim.
 
-Veridian E-invoicing PK is an on-premise system that implements the full lifecycle:
+Veridian E-invoicing Pakistan is an on-premise system that implements the full lifecycle:
 
 - invoice preparation with Pakistani sales-tax rules;
 - validation against FBR's rules before submission;
@@ -64,7 +64,7 @@ Veridian E-invoicing PK is an on-premise system that implements the full lifecyc
 | **Licensed integrator** | A licensed firm (reported: Haball, EY Ford Rhodes, WebDNAworks — **Verify** the current list) operates the integration for the taxpayer. | Licence granted by the Board. Licensing committee decides within 7 days; licence valid 5 years (**Verify** eligibility criteria). |
 | **IRIS web portal** | Manual entry on FBR's portal. | Practical only for very low volumes. |
 
-Veridian E-invoicing PK is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
+Veridian E-invoicing Pakistan is the taxpayer's own e-invoicing system. It runs on the client's premises and calls FBR's DI API with the client's own security token, issued through PRAL. It does not route data through any third party.
 
 ## 4. Technical specification summary (DI API v1.12)
 
@@ -195,7 +195,12 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 | 27 | Audit trail | Good practice | Append-only, SHA-256 hash-chained log with verification | Audit trail page; `internal/store/audit.go` | TestMigrateAndTriggers | Implemented |
 | 28 | Access control | Good practice | Roles: admin, manager, accountant, operator, auditor; sessions + CSRF; hashed API keys; lockout after failed logins | `internal/httpapi/server.go`, `perms.go`; `internal/store/users.go` | TestRoutesRegister | Implemented |
 | 29 | Protection of FBR tokens | Good practice | AES-256-GCM encryption with `master.key`; tokens never returned by the API or logged | `internal/security/security.go`; `internal/fbr/client.go` | TestProductionRequiresToken | Implemented |
-| 30 | Buyer status checks | Good practice | Active Taxpayer List and registration-type lookups | Customers → Check FBR | TestReferenceAPIs | Implemented |
+| 30 | Buyer status checks | Good practice | Active Taxpayer List and registration-type lookups, single or for all buyers; master records differing from FBR are flagged; inline check in the invoice editor | Customers → Check FBR / Check all with FBR; FBR reference library → Buyer check | TestReferenceAPIs | Implemented |
+| 31 | Monthly return: payment and filing on time; Annexure-C complete | s.26; return due dates (generally 15th / 18th of the following month — **Verify** current notifications and extensions) | Compliance calendar with per-company due days and countdowns; period-close checklist (unreported, rejected, unreconciled, drafts, incidents); supplies by sale type and rate as they feed Annexure-C | Tax periods & returns; `internal/service/compliance.go` | TestUpcomingDeadlines, TestReturnDueDateClampsToMonthEnd, TestDuplicateInvoiceAndPeriodReview | Implemented |
+| 32 | Use of FBR's reference data | DI v1.12 reference APIs | Synced lists (provinces, document and transaction types, UoM, SRO item codes, HS codes); live SaleTypeToRate, SroSchedule, SROItem and HS_UOM; reference library; FBR unit and SRO pickers in the editor | FBR reference library; `internal/service/refdata.go` | TestReferenceAPIs, TestDashboardSearchAlertsAndCompliance | Implemented |
+| 33 | Prompt action on outages, rejections and the 24-hour upload | 150R; offline upload rule (PRAL manual) | Notifications and e-mail alerts checked every 5 minutes (FBR unreachable, token rejected, invoices not reported, rejected or unreconciled invoices, unreported incidents, deadlines); optional daily summary | Bell; Settings → System & licence → E-mail notifications; `internal/service/alerts.go`, `notify.go`; `internal/mail` | TestEmailNotifications, TestNotifyPasswordIsEncrypted, TestSendPlainRelay | Implemented |
+| 34 | extraTax left empty where FBR refuses a value | DI v1.12 error 0091; reports from other integrators | Sent empty for reduced-rate, exempt, zero-rated and cotton ginner supplies | `internal/domain/domain.go`; `internal/tax/engine.go` | TestReducedRateExtraTaxEmpty, TestExtraTaxEmptyForExemptZeroRatedAndCottonGinners | Implemented |
+| 35 | Payloads FBR's parser accepts | Reports from other integrators | Plain text in names, addresses and descriptions (no control characters, double quotes or backslashes); warning when the same product is on two lines | `internal/service/invoices.go` (fbrText); `internal/validate/validate.go` | TestPayloadTextIsPlain, TestRepeatedLinesWarned | Implemented |
 
 ## 7. Gaps and client responsibilities
 
@@ -217,8 +222,9 @@ Status: **Implemented**, **Partial** (implemented with a manual step), or **Clie
 - PRAL Digital Invoicing user manual v1.6 (16 April 2026) — IRIS cancellation screens.
 - Draft SRO 288(I)/2026 — income-tax online integration (draft).
 - PRAL Digital Invoicing technical documentation v1.12 — APIs, fields, scenarios, error codes, QR specification.
+- Reports from other DI integrations in use (reviewed October 2026): FBR refusing a numeric zero extraTax for scenarios SN005–SN007, SN009 and SN028; FBR flagging repeated lines; FBR checking the invoice date against a UTC clock just after midnight (error 0043) (**Verify** with PRAL).
 - IRIS → Digital Invoicing — onboarding screens, scenario assignment, token issue.
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

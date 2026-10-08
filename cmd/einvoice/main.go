@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
-// Command einvoice is the Veridian E-invoicing PK server.
+// Command einvoice is the Veridian E-invoicing Pakistan server.
 //
 //	einvoice serve [--data DIR] [--listen ADDR]   run the server (default command)
 //	einvoice service install|uninstall|start|stop  manage the Windows service

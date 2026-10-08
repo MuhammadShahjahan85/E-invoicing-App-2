@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package tax
 
@@ -235,7 +235,7 @@ func ComputeLine(in LineInput) LineResult {
 	}
 	if st.ExtraTaxMustBeEmpty {
 		if res.ExtraTax.IsPositive() {
-			res.warn("Extra tax cannot be charged on reduced-rate goods (FBR error 0091); it was removed.")
+			res.warn("Extra tax cannot be charged on this sale type (FBR error 0091); it was removed.")
 		}
 		res.ExtraTax = Zero
 		res.ExtraTaxEmpty = true

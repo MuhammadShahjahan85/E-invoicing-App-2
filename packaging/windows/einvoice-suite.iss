@@ -1,20 +1,25 @@
-; Inno Setup 6 script — Veridian E-invoicing PK (Windows x64)
+; Inno Setup 6 script — Veridian E-invoicing Pakistan (Windows x64)
 ;
 ; 1. Build the binary:   sh scripts/build-release.sh   (creates dist\windows-amd64\einvoice.exe)
 ; 2. Compile installer:  ISCC.exe /DAppVersion=1.0.0 packaging\windows\einvoice-suite.iss
-;    Output:             dist\VeridianEInvoicingPK-Setup-<version>.exe
+;    Output:             dist\VeridianEInvoicingPakistan-Setup-<version>.exe
 ;
-; The installer registers the Windows service "VeridianEInvoicingPK", which stores its data in
-; %ProgramData%\VeridianEInvoicingPK (database, master.key, TLS certificate, logs, backups).
+; The installer registers the Windows service "VeridianEInvoicingPakistan", which stores its data in
+; %ProgramData%\VeridianEInvoicingPakistan (database, master.key, TLS certificate, logs, backups).
 ; Uninstalling never deletes that folder: records must be kept for six years (rule 150S).
+; Upgrading a computer that runs a build released as "Veridian E-invoicing PK" removes the old
+; service "VeridianEInvoicingPK"; the program keeps using its data folder
+; %ProgramData%\VeridianEInvoicingPK, so no invoices, settings or keys are lost.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
-#define AppName "Veridian E-invoicing PK"
+#define AppName "Veridian E-invoicing Pakistan"
 #define AppPublisher "Veridian Partners Consultancy Private Limited"
 #define AppExe "einvoice.exe"
-#define ServiceName "VeridianEInvoicingPK"
+#define ServiceName "VeridianEInvoicingPakistan"
+#define LegacyServiceName "VeridianEInvoicingPK"
+#define LegacyAppName "Veridian E-invoicing PK"
 #define Port "8443"
 
 [Setup]
@@ -36,7 +41,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 OutputDir=..\..\dist
-OutputBaseFilename=VeridianEInvoicingPK-Setup-{#AppVersion}
+OutputBaseFilename=VeridianEInvoicingPakistan-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -72,11 +77,16 @@ Filename: "{app}\{#AppExe}"; Parameters: "service uninstall"; Flags: runhidden w
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#AppName}"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveFirewallRule"
 
 [Code]
-function ServiceExists(): Boolean;
+function NamedServiceExists(Name: String): Boolean;
 var
   ResultCode: Integer;
 begin
-  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query {#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query ' + Name, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
+function ServiceExists(): Boolean;
+begin
+  Result := NamedServiceExists('{#ServiceName}');
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -89,13 +99,32 @@ begin
     Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Sleep(5000);
   end;
+  // Upgrade from a build released as "{#LegacyAppName}": remove its service and
+  // firewall rule. The new service is installed afterwards and keeps using the
+  // existing data folder.
+  if NamedServiceExists('{#LegacyServiceName}') then
+  begin
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#LegacyServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(5000);
+    Exec(ExpandConstant('{sys}\sc.exe'), 'delete {#LegacyServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\netsh.exe'), 'advfirewall firewall delete rule name="{#LegacyAppName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
   Result := '';
+end;
+
+// DataFolder mirrors config.DefaultDataDir: the current folder, or the folder of
+// an installation upgraded from "{#LegacyAppName}".
+function DataFolder(): String;
+begin
+  Result := ExpandConstant('{commonappdata}') + '\{#ServiceName}';
+  if (not DirExists(Result)) and FileExists(ExpandConstant('{commonappdata}') + '\{#LegacyServiceName}\config.json') then
+    Result := ExpandConstant('{commonappdata}') + '\{#LegacyServiceName}';
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
-    MsgBox('The data folder ' + ExpandConstant('{commonappdata}') + '\{#ServiceName} was NOT deleted.' + #13#10 + #13#10 +
+    MsgBox('The data folder ' + DataFolder() + ' was NOT deleted.' + #13#10 + #13#10 +
       'It contains the invoice database, master.key, certificates and backups. Keep it (records must be retained for six years) ' +
       'or copy it to safe storage before removing it manually.', mbInformation, MB_OK);
 end;

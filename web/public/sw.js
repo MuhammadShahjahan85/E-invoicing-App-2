@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK service worker: keeps the app shell available for a
+// Veridian E-invoicing Pakistan service worker: keeps the app shell available for a
 // fast start and an offline message. API responses (invoices, customers,
 // reports) are never cached on the device.
-const CACHE = 'veridian-shell-v1'
-const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png']
+const CACHE = 'veridian-shell-v2'
+const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()))

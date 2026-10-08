@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -8,7 +8,9 @@ import App from './App'
 import { ToastProvider } from './state'
 import './styles.css'
 import { registerPWA } from './pwa'
+import { applyTheme, getTheme } from './theme'
 
+applyTheme(getTheme())
 registerPWA()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

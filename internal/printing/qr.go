@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 // Package printing renders printable invoices (A4 and 80 mm thermal) with
 // the FBR invoice number, the FBR-specified QR code and the Digital

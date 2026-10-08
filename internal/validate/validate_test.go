@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package validate
 
@@ -196,5 +196,26 @@ func TestCatalogue(t *testing.T) {
 	}
 	if len(Catalogue()) < 40 {
 		t.Error("catalogue too small")
+	}
+}
+
+func TestRepeatedLinesWarned(t *testing.T) {
+	p := base()
+	other := p.Items[0]
+	other.HSCode = "0101.2900"
+	p.Items = append(p.Items, other, p.Items[0])
+	p.Items[2].ProductDescription = "  item " // same product, spacing and case differ
+	r := Payload(p, Context{Env: domain.EnvProduction, Today: today})
+	var got []Issue
+	for _, i := range r.Warnings() {
+		if strings.Contains(i.Message, "repeats line") {
+			got = append(got, i)
+		}
+	}
+	if len(got) != 1 || got[0].Line != 3 || !strings.Contains(got[0].Message, "repeats line 1") {
+		t.Fatalf("repeated-line warnings: %+v", got)
+	}
+	if r.HasErrors() {
+		t.Fatalf("a repeated line is only a warning: %v", r.Errors())
 	}
 }

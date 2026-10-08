@@ -1,6 +1,6 @@
 # Mobile App and Remote Access
 
-Veridian E-invoicing PK works in any modern browser on computers, tablets and phones. On phones and tablets it can also be **installed as an app** (a Progressive Web App). This gives it its own icon, a full-screen window and automatic updates, with no app store needed. The same server provides both the website and the app, so users see the same data everywhere.
+Veridian E-invoicing Pakistan works in any modern browser on computers, tablets and phones. On phones and tablets it can also be **installed as an app** (a Progressive Web App). This gives it its own icon, a full-screen window and automatic updates, with no app store needed. The same server provides both the website and the app, so users see the same data everywhere.
 
 ---
 
@@ -8,16 +8,19 @@ Veridian E-invoicing PK works in any modern browser on computers, tablets and ph
 
 Open `https://<server-address>:8443/` in Chrome, Edge, Firefox or Safari, for example `https://192.168.1.10:8443/`. The screens adapt to the screen size:
 
-- on phones, the menu opens from the **☰** button;
+- on phones, a bar at the bottom opens **Home**, **Invoices**, a new invoice (the round **+** button), **FBR data** (reference library and buyer check) and the full **Menu**; the magnifier at the top searches invoices, buyers, products and HS codes;
 - forms show one field per row;
-- wide tables scroll sideways inside their card.
+- wide tables scroll sideways inside their card;
+- **Share** on an accepted invoice sends its details and FBR invoice number through WhatsApp, e-mail or any app on the phone;
+- light and dark themes follow the phone's setting, or choose one under your initials → *Appearance*.
 
 **Mobile app & access** in the menu shows a QR code for each of the server's network addresses. Scan it with a phone camera to open the system on that phone.
 
 <p>
-<img src="images/phone-dashboard.png" alt="Dashboard on a phone" width="240">
-<img src="images/phone-menu.png" alt="Menu on a phone" width="240">
-<img src="images/phone-invoice.png" alt="Accepted invoice with FBR number and QR code on a phone" width="240">
+<img src="images/phone-dashboard.png" alt="Dashboard on a phone" width="220">
+<img src="images/phone-menu.png" alt="Menu on a phone" width="220">
+<img src="images/phone-invoice.png" alt="Accepted invoice with FBR number and QR code on a phone" width="220">
+<img src="images/phone-library.png" alt="FBR buyer check on a phone" width="220">
 </p>
 
 ![Mobile app & access page](images/mobile-access.png)
@@ -76,4 +79,4 @@ The static public IP whitelisted by PRAL is for the server's **outgoing** calls 
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.

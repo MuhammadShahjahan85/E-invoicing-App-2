@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package service
 
@@ -57,6 +57,8 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 		s.requeueRecovered(ctx)
 		s.processQueue(ctx)
 		s.checkIncidents(ctx)
+		// E-mails can take a while (slow mail server); never hold up the queue.
+		go s.runNotifications(ctx)
 		_ = s.Store.PurgeExpiredSessions(ctx)
 		if o.BackupHour >= 0 {
 			now := s.Now().In(PKT)

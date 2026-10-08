@@ -1,13 +1,14 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BadgeCheck, Sparkles, TriangleAlert } from 'lucide-react'
 import { api, ApiError, errorMessage } from '../api'
-import { ErrorBox, Field, HSCodeInput, IssueList, Spinner } from '../components/ui'
-import { money, num, todayPK } from '../format'
+import { ErrorBox, Field, HSCodeInput, IssueList, PageSpinner } from '../components/ui'
+import { dateFmt, money, num, todayPK } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
-import type { Customer, Invoice, InvoiceItem, Issue, Paged, Product, RateRef, SaleType } from '../types'
+import type { BuyerStatus, Customer, Invoice, InvoiceItem, Issue, Paged, Product, RateRef, SaleType } from '../types'
 
 interface Line extends InvoiceItem {
   key: number
@@ -156,6 +157,19 @@ export default function InvoiceEditor() {
     [docType, date, buyer, invoiceRefNo, scenarioId, notes, externalRef, lines, env],
   )
 
+  // Track whether the user has changed anything yet.
+  const initialBody = useRef<string>()
+  const [touched, setTouched] = useState(editing)
+  useEffect(() => {
+    if (loading) return
+    const j = JSON.stringify(body)
+    if (initialBody.current === undefined) {
+      initialBody.current = j
+      return
+    }
+    if (j !== initialBody.current) setTouched(true)
+  }, [body, loading])
+
   // Live computation (debounced) using the server's tax engine.
   const timer = useRef<number>()
   useEffect(() => {
@@ -224,12 +238,13 @@ export default function InvoiceEditor() {
     }
   }
 
-  if (loading) return <Spinner />
+  if (loading) return <PageSpinner />
   if (loadError) return <ErrorBox error={loadError} />
 
   const totals = computed?.totals
   const compItem = (i: number) => computed?.items?.[i]
-  const issues = saveIssues ?? computed?.validation ?? null
+  // FBR's checks are shown once the user has started (or when editing).
+  const issues = saveIssues ?? (touched ? computed?.validation ?? null : null)
 
   return (
     <>
@@ -256,6 +271,14 @@ export default function InvoiceEditor() {
       {saveError && <div className="alert alert-error">{saveError}</div>}
       {computeError && <div className="alert alert-error">{computeError}</div>}
       <IssueList issues={issues} />
+      {!touched && (
+        <div className="alert alert-info">
+          <Sparkles size={18} />
+          <div className="alert-body">
+            Choose the buyer and add the first product — taxes are computed as you type, and FBR's checks are applied before anything is sent.
+          </div>
+        </div>
+      )}
 
       <div className="grid g2">
         <div className="card">
@@ -343,6 +366,7 @@ export default function InvoiceEditor() {
                     uoms={uoms}
                     saleTypes={saleTypes}
                     rates={rateOptions[l.saleType]}
+                    date={date}
                     onFocusRate={() => loadRates(l.saleType)}
                     update={(p) => updateLine(l.key, p)}
                     onSaleType={(name) => onSaleType(l, name)}
@@ -424,6 +448,25 @@ function BuyerCard({ buyer, setBuyer, provinces, cp }: { buyer: Buyer; setBuyer:
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Customer[]>([])
   const [open, setOpen] = useState(false)
+  const [stored, setStored] = useState<Customer | null>(null)
+  const [check, setCheck] = useState<BuyerStatus | null>(null)
+  const [checking, setChecking] = useState(false)
+  const regDigits = buyer.ntnCnic.replace(/\D/g, '')
+  const checkable = [7, 9, 13].includes(regDigits.length)
+  useEffect(() => setCheck(null), [buyer.ntnCnic])
+  const verify = async () => {
+    setChecking(true)
+    setCheck(null)
+    try {
+      const r = await api.post<BuyerStatus>(`${cp}/buyer-check`, { regNo: regDigits })
+      setCheck(r)
+      if (!r.error && r.registrationType) setBuyer({ ...buyer, registrationType: r.registered ? 'Registered' : 'Unregistered' })
+    } catch (e) {
+      setCheck({ regNo: regDigits, statlActive: false, statlStatus: '', registrationType: '', registered: false, checkedAt: '', error: errorMessage(e) })
+    } finally {
+      setChecking(false)
+    }
+  }
   const t = useRef<number>()
   const search = (q: string) => {
     window.clearTimeout(t.current)
@@ -437,6 +480,7 @@ function BuyerCard({ buyer, setBuyer, provinces, cp }: { buyer: Buyer; setBuyer:
     }, 200)
   }
   const pick = (c: Customer) => {
+    setStored(c)
     setBuyer({ customerId: c.id, ntnCnic: c.ntnCnic, name: c.name, province: c.province, address: c.address, registrationType: c.registrationType, withholdingMode: c.withholdingMode })
     setQuery('')
     setOpen(false)
@@ -488,6 +532,32 @@ function BuyerCard({ buyer, setBuyer, provinces, cp }: { buyer: Buyer; setBuyer:
           <Field label="NTN / CNIC" hint="Required for registered buyers">
             <input value={buyer.ntnCnic} onChange={(e) => set('ntnCnic', e.target.value)} />
           </Field>
+          {(checkable || stored?.statusCheckedAt) && (
+            <div className="row small" style={{ gridColumn: '1 / -1', gap: 8 }}>
+              {checkable && (
+                <button type="button" className="btn btn-sm" onClick={verify} disabled={checking}>
+                  <BadgeCheck size={14} /> {checking ? 'Asking FBR…' : 'Check with FBR (ATL & registration)'}
+                </button>
+              )}
+              {check && !check.error && (
+                <>
+                  <span className={'badge ' + (check.statlActive ? 'b-green' : 'b-red')}>ATL: {check.statlStatus || (check.statlActive ? 'Active' : 'Not active')}</span>
+                  <span className={'badge ' + (check.registered ? 'b-green' : 'b-amber')}>{check.registrationType || (check.registered ? 'Registered' : 'Unregistered')}</span>
+                  {!check.registered && <span className="faint">Further tax applies to taxable supplies to unregistered buyers.</span>}
+                </>
+              )}
+              {check?.error && (
+                <span style={{ color: 'var(--warning)', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                  <TriangleAlert size={13} /> {check.error}
+                </span>
+              )}
+              {!check && stored?.statusCheckedAt && stored.ntnCnic === buyer.ntnCnic && (
+                <span className="faint">
+                  On file: {stored.statlStatus || '—'} · {stored.fbrRegType || '—'} (checked {dateFmt(stored.statusCheckedAt)})
+                </span>
+              )}
+            </div>
+          )}
           <Field label="Registration type">
             <select value={buyer.registrationType} onChange={(e) => set('registrationType', e.target.value)}>
               <option>Registered</option>
@@ -527,14 +597,35 @@ interface LineRowProps {
   uoms: string[]
   saleTypes: SaleType[]
   rates?: RateRef[]
+  date: string
   onFocusRate: () => void
   update: (p: Partial<Line>) => void
   onSaleType: (name: string) => void
   remove?: () => void
 }
 
-function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update, onSaleType, remove }: LineRowProps) {
+function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, update, onSaleType, remove }: LineRowProps) {
   const [pq, setPq] = useState('')
+  const [hsUoms, setHsUoms] = useState<string[]>([])
+  // FBR prescribes the unit of measure for many HS codes (HS_UOM).
+  useEffect(() => {
+    if (!/^\d{4}\.\d{4}$/.test(l.hsCode)) {
+      setHsUoms([])
+      return
+    }
+    let alive = true
+    const t = window.setTimeout(() => {
+      api
+        .get<{ id: number; description: string }[]>(`${cp}/ref/hs-uom?hsCode=${encodeURIComponent(l.hsCode)}`)
+        .then((r) => alive && setHsUoms((r ?? []).map((x) => x.description)))
+        .catch(() => alive && setHsUoms([]))
+    }, 250)
+    return () => {
+      alive = false
+      window.clearTimeout(t)
+    }
+  }, [cp, l.hsCode])
+  const uomMismatch = hsUoms.length > 0 && !hsUoms.includes(l.uom)
   const [products, setProducts] = useState<Product[]>([])
   const [open, setOpen] = useState(false)
   const t = useRef<number>()
@@ -626,6 +717,14 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update,
               <option key={u}>{u}</option>
             ))}
           </select>
+          {uomMismatch && (
+            <div className="small" style={{ color: 'var(--warning)', marginTop: 3 }}>
+              FBR unit for {l.hsCode}: {hsUoms.join(' / ')}{' '}
+              <button className="btn-link small" style={{ padding: 0 }} onClick={() => update({ uom: hsUoms[0] })}>
+                Use
+              </button>
+            </div>
+          )}
         </td>
         <td>
           <input className="right" type="number" step="any" min="0" value={l.quantity} onChange={(e) => update({ quantity: num(e.target.value) })} />
@@ -676,6 +775,16 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update,
               <Field label={'SRO item serial no.' + (st?.sroRequired ? ' *' : '')}>
                 <input value={l.sroItemSerialNo} onChange={(e) => update({ sroItemSerialNo: e.target.value })} />
               </Field>
+              {(st?.sroRequired || st?.sroTypical) && (
+                <SroPicker
+                  cp={cp}
+                  date={date}
+                  rateId={(rates ?? []).find((r) => r.description === l.rate)?.id ?? 0}
+                  ensureRates={onFocusRate}
+                  onSchedule={(v) => update({ sroScheduleNo: v, sroItemSerialNo: '' })}
+                  onItem={(v) => update({ sroItemSerialNo: v })}
+                />
+              )}
               {st?.basis === 'retail_price' && (
                 <Field label="Printed retail price per unit (incl. sales tax) *" hint="Third Schedule: tax = printed price × rate ÷ (100 + rate)">
                   <input type="number" step="any" min="0" value={l.retailPrice} onChange={(e) => update({ retailPrice: num(e.target.value) })} />
@@ -717,6 +826,73 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, onFocusRate, update,
           </td>
         </tr>
       )}
+    </>
+  )
+}
+
+interface SRORef {
+  id: number
+  description: string
+}
+
+/** SroPicker offers FBR's SRO / schedule references and serial numbers for the line's rate. */
+function SroPicker({ cp, date, rateId, ensureRates, onSchedule, onItem }: { cp: string; date: string; rateId: number; ensureRates: () => void; onSchedule: (v: string) => void; onItem: (v: string) => void }) {
+  const [schedules, setSchedules] = useState<SRORef[] | null>(null)
+  const [sroId, setSroId] = useState(0)
+  const [items, setItems] = useState<SRORef[]>([])
+  useEffect(() => {
+    ensureRates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    setSchedules(null)
+    setSroId(0)
+    if (!rateId) return
+    api
+      .get<SRORef[]>(`${cp}/ref/sro-schedules?rateId=${rateId}&date=${date}`)
+      .then((r) => setSchedules(r ?? []))
+      .catch(() => setSchedules([]))
+  }, [cp, rateId, date])
+  useEffect(() => {
+    setItems([])
+    if (!sroId) return
+    api
+      .get<SRORef[]>(`${cp}/ref/sro-items?sroId=${sroId}&date=${date}`)
+      .then((r) => setItems(r ?? []))
+      .catch(() => setItems([]))
+  }, [cp, sroId, date])
+  if (!rateId) return <div className="small faint" style={{ gridColumn: '1 / -1' }}>Pick a rate from FBR's list to see the SROs that apply to it.</div>
+  return (
+    <>
+      <Field label="Pick SRO / schedule from FBR" hint={schedules && schedules.length === 0 ? 'FBR lists no SRO for this rate' : undefined}>
+        <select
+          value={sroId || ''}
+          onChange={(e) => {
+            const id = Number(e.target.value)
+            setSroId(id)
+            const x = schedules?.find((y) => y.id === id)
+            if (x) onSchedule(x.description)
+          }}
+          disabled={!schedules || schedules.length === 0}
+        >
+          <option value="">{schedules === null ? 'Loading…' : '— choose —'}</option>
+          {(schedules ?? []).map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.description}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Pick serial no. from FBR">
+        <select value="" onChange={(e) => e.target.value && onItem(e.target.value)} disabled={items.length === 0}>
+          <option value="">{sroId ? (items.length ? '— choose —' : 'No serial numbers listed') : 'Choose an SRO first'}</option>
+          {items.map((x) => (
+            <option key={x.id} value={x.description}>
+              {x.description}
+            </option>
+          ))}
+        </select>
+      </Field>
     </>
   )
 }

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useEffect, useState } from 'react'
 import { api, errorMessage } from '../../api'
@@ -135,6 +135,22 @@ export default function CompanySettings() {
               <input type="checkbox" checked={c.sendInternalRef} onChange={(e) => set('sendInternalRef', e.target.checked)} /> Send our invoice number to FBR as
               invoiceRefNo on sale invoices
             </label>
+          </div>
+        </div>
+
+        <div className="card card-pad mt">
+          <h3>Sales tax return calendar</h3>
+          <p className="small muted">
+            Used for the due-date reminders on the dashboard, in notifications and on <b>Tax periods & returns</b>. Generally tax is paid by the 15th and the
+            return filed by the 18th of the month after the tax period; some sectors have other dates, and FBR sometimes extends them.
+          </p>
+          <div className="form-grid">
+            <Field label="Pay sales tax by (day of the following month)">
+              <input type="number" min="1" max="31" value={c.returnPaymentDay || 15} onChange={(e) => set('returnPaymentDay', Number(e.target.value))} />
+            </Field>
+            <Field label="File the return by (day of the following month)">
+              <input type="number" min="1" max="31" value={c.returnFilingDay || 18} onChange={(e) => set('returnFilingDay', Number(e.target.value))} />
+            </Field>
           </div>
         </div>
         {canWrite && (

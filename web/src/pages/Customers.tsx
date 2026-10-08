@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { BadgeCheck } from 'lucide-react'
 import { api, errorMessage, qs } from '../api'
 import { Empty, ErrorBox, Field, Modal, Pager, Spinner, useLoad } from '../components/ui'
 import { dateTimeFmt } from '../format'
@@ -37,13 +39,52 @@ const blank: Partial<Customer> = {
 export default function Customers() {
   const s = useSession()
   const cp = useCompanyPath()
-  const [q, setQ] = useState('')
-  const [search, setSearch] = useState('')
+  const [params] = useSearchParams()
+  const urlQ = params.get('q') ?? ''
+  const [q, setQ] = useState(urlQ)
+  const [search, setSearch] = useState(urlQ)
+  // Opening the page from the global search fills the search box.
+  useEffect(() => {
+    setQ(urlQ)
+    setSearch(urlQ)
+  }, [urlQ])
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState<Partial<Customer> | null>(null)
   const limit = 50
   const { data, error, loading, reload } = useLoad(() => api.get<Paged<Customer>>(`${cp}/customers${qs({ q: search, limit, offset })}`), [cp, search, offset])
   const canWrite = s.can('masters.write')
+  const toast = useToast()
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
+
+  // Re-checks every active buyer with an NTN/CNIC against FBR (ATL status and
+  // registration type), one at a time.
+  const checkAll = async () => {
+    try {
+      const all = await api.get<Paged<Customer>>(`${cp}/customers${qs({ limit: 1000, active: 1 })}`)
+      const list = all.items.filter((c) => [7, 9, 13].includes(c.ntnCnic.replace(/\D/g, '').length))
+      if (list.length === 0) {
+        toast('info', 'No buyers with an NTN or CNIC to check')
+        return
+      }
+      let failed = 0
+      setBulk({ done: 0, total: list.length })
+      for (let i = 0; i < list.length; i++) {
+        try {
+          const r = await api.post<{ error?: string }>(`${cp}/customers/${list[i].id}/check`)
+          if (r.error) failed++
+        } catch {
+          failed++
+        }
+        setBulk({ done: i + 1, total: list.length })
+      }
+      toast(failed ? 'err' : 'ok', failed ? `${list.length - failed} of ${list.length} buyers checked; ${failed} could not be checked` : `${list.length} buyers checked with FBR`)
+    } catch (e) {
+      toast('err', errorMessage(e))
+    } finally {
+      setBulk(null)
+      reload()
+    }
+  }
 
   return (
     <>
@@ -53,6 +94,11 @@ export default function Customers() {
           <p>Buyer master used on invoices. FBR checks the buyer's NTN/CNIC, registration type and province of destination.</p>
         </div>
         <div className="actions">
+          {canWrite && (
+            <button className="btn" onClick={checkAll} disabled={!!bulk} title="Check every buyer's Active Taxpayer List status and registration type with FBR">
+              <BadgeCheck size={16} /> {bulk ? `Checking ${bulk.done} / ${bulk.total}…` : 'Check all with FBR'}
+            </button>
+          )}
           {canWrite && (
             <button className="btn btn-primary" onClick={() => setEditing({ ...blank, province: s.company?.province ?? '' })}>
               + New customer
@@ -113,6 +159,13 @@ export default function Customers() {
                             <>
                               <span className={'badge ' + (c.statlStatus.toLowerCase().includes('in') ? 'b-red' : 'b-green')}>{c.statlStatus}</span>{' '}
                               {c.fbrRegType}
+                              {c.fbrRegType && c.fbrRegType !== c.registrationType && (
+                                <div>
+                                  <span className="badge b-amber" title="The registration type in the customer master differs from FBR's record">
+                                    FBR says {c.fbrRegType}
+                                  </span>
+                                </div>
+                              )}
                               <div className="faint">{dateTimeFmt(c.statusCheckedAt)}</div>
                             </>
                           ) : (

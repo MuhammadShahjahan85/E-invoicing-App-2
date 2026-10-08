@@ -1,13 +1,23 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { CircleAlert, TriangleAlert, X } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { statusLabels } from '../format'
 import type { HSCode, Issue } from '../types'
 
 export function Spinner() {
   return <span className="spinner" aria-label="loading" />
+}
+
+/** PageSpinner is shown while a whole page loads. */
+export function PageSpinner() {
+  return (
+    <div className="page-loading">
+      <span className="spinner" aria-label="loading" />
+    </div>
+  )
 }
 
 export function Empty({ children }: { children: ReactNode }) {
@@ -26,7 +36,7 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
         <div className="modal-head">
           <h3>{title}</h3>
           <button className="x" onClick={onClose} aria-label="Close">
-            ×
+            <X size={18} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -70,6 +80,8 @@ export function IssueList({ issues, title }: { issues: Issue[] | null | undefine
     <>
       {errors.length > 0 && (
         <div className="alert alert-error">
+          <CircleAlert size={18} />
+          <div className="alert-body">
           <b>{title ?? 'Please correct the following before submitting to FBR'}</b>
           <ul className="issue-list">
             {errors.map((i, k) => (
@@ -80,10 +92,13 @@ export function IssueList({ issues, title }: { issues: Issue[] | null | undefine
               </li>
             ))}
           </ul>
+          </div>
         </div>
       )}
       {warnings.length > 0 && (
         <div className="alert alert-warn">
+          <TriangleAlert size={18} />
+          <div className="alert-body">
           <b>Warnings</b>
           <ul className="issue-list">
             {warnings.map((i, k) => (
@@ -94,6 +109,7 @@ export function IssueList({ issues, title }: { issues: Issue[] | null | undefine
               </li>
             ))}
           </ul>
+          </div>
         </div>
       )}
     </>
@@ -102,7 +118,12 @@ export function IssueList({ issues, title }: { issues: Issue[] | null | undefine
 
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null
-  return <div className="alert alert-error">{errorMessage(error)}</div>
+  return (
+    <div className="alert alert-error">
+      <CircleAlert size={18} />
+      <div className="alert-body">{errorMessage(error)}</div>
+    </div>
+  )
 }
 
 /** useLoad fetches data for a component and exposes reload. */

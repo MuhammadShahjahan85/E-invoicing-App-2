@@ -9,9 +9,9 @@ export GOTOOLCHAIN=local
 MODCACHE=$(go env GOMODCACHE)
 
 {
-	echo "Veridian E-invoicing PK — Third-party notices"
+	echo "Veridian E-invoicing Pakistan — Third-party notices"
 	echo
-	echo "Veridian E-invoicing PK is proprietary software of Veridian Partners Consultancy"
+	echo "Veridian E-invoicing Pakistan is proprietary software of Veridian Partners Consultancy"
 	echo "Private Limited (see LICENSE). It includes the open-source components below, each"
 	echo "used under its own licence, reproduced in full."
 	echo

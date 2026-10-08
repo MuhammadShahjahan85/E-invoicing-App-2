@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
-// Veridian E-invoicing PK is proprietary software; see the LICENSE file.
+// Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 package service
 
@@ -199,6 +199,26 @@ func (s *Service) UOMs(ctx context.Context, env domain.Environment) []string {
 		}
 	}
 	return append([]string(nil), domain.UOMs...)
+}
+
+// DocTypes returns FBR's document types (synced or the two DI document types).
+func (s *Service) DocTypes(ctx context.Context, env domain.Environment) []fbr.DocTypeRef {
+	if e, err := s.Store.GetRef(ctx, refKey(env, "doctypecode")); err == nil {
+		var l []fbr.DocTypeRef
+		if json.Unmarshal([]byte(e.Data), &l) == nil && len(l) > 0 {
+			return l
+		}
+	}
+	return []fbr.DocTypeRef{{ID: 4, Name: string(domain.DocSaleInvoice)}, {ID: 9, Name: string(domain.DocDebitNote)}}
+}
+
+// SROItemCodes returns FBR's SRO item code list (empty until synced).
+func (s *Service) SROItemCodes(ctx context.Context, env domain.Environment) []fbr.SROItemRef {
+	l := []fbr.SROItemRef{}
+	if e, err := s.Store.GetRef(ctx, refKey(env, "sroitemcode")); err == nil {
+		_ = json.Unmarshal([]byte(e.Data), &l)
+	}
+	return l
 }
 
 func (s *Service) provinceCode(ctx context.Context, c *store.Company, env domain.Environment) int {

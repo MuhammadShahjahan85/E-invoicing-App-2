@@ -1,6 +1,6 @@
 # User Manual
 
-This manual is for accountants, billing staff and managers who issue sales-tax invoices with Veridian E-invoicing PK.
+This manual is for accountants, billing staff and managers who issue sales-tax invoices with Veridian E-invoicing Pakistan.
 
 ---
 
@@ -22,12 +22,38 @@ Open the address given by your administrator, e.g. `https://server:8443/`, and s
 
 ### Screen layout
 
-- **Left menu:** Sales, Masters, Compliance and Settings.
-- **Top bar:** company selector (for multi-company installations), current environment, **+ New invoice**, Password and Log out.
+- **Left menu:** the company selector (for multi-company installations) with the company's environment and NTN, then Sales, Masters, FBR & compliance, Settings and Support. On a phone the menu opens from the **☰** button.
+- **Top bar:**
+  - **Search** (or press **Ctrl K** or **/**): finds invoices by number, FBR number, buyer or NTN; buyers; products; FBR HS codes; and pages such as *Verify a buyer* or *Tax calculator*. Use the arrow keys and **Enter** to open a result.
+  - the current environment, **+ New invoice**;
+  - the **bell** (notifications, see below);
+  - your **initials**: change password, mobile app, help, **Appearance** (light, dark or automatic) and **Log out**.
 - **Coloured banner:** shows when you are **not** in production.
   - *Training simulator:* nothing is sent to FBR.
   - *FBR sandbox:* test submissions for certification.
   - Invoices from either are watermarked and are not valid tax invoices.
+
+![Search](images/search.png)
+
+### Notifications (the bell)
+
+The red number counts what needs action now; a blue dot means there is only information. Notifications are worked out from the current state, so each disappears by itself once its cause is dealt with. Click one to go to the page where you can fix it:
+
+| Notification | What to do |
+|---|---|
+| FBR not reachable / token rejected | Check the internet connection or the token under **FBR integration**. Invoices are queued meanwhile. |
+| Invoices not yet reported to FBR | Shown in red after 24 hours: invoices issued during an outage must be uploaded within 24 hours of the connection being restored. |
+| Invoices rejected by FBR | Correct the errors and resubmit. |
+| Submissions need reconciliation | Check the invoice on IRIS and record the outcome. |
+| Draft invoices not yet issued | Issue them when the supply is made, or delete them. |
+| Incidents not reported to FBR | Rule 150R: report within 24 hours and record the reference. |
+| Pay sales tax / file the return in *n* days | Review the period on **Tax periods & returns**. |
+| FBR reference data not downloaded / out of date | Download it under **FBR reference library → Data sync**. |
+| Token or licence expiring, no recent backup | Renew, or check the backups (administrators). |
+
+![Notifications](images/notifications.png)
+
+The same items can be **e-mailed** to the people responsible, so problems are seen even when nobody has the system open — see *E-mail notifications* in section 16.
 
 ### Dashboard
 
@@ -35,11 +61,16 @@ Open the address given by your administrator, e.g. `https://server:8443/`, and s
 
 Shows:
 
-- invoices accepted today and this month (value and sales tax);
-- items that need attention (rejected, queued, needing reconciliation);
-- FBR connection health and go-live readiness;
+- **sales this month** (value excluding sales tax, with a 12-month trend line), sales tax this month and today's invoices;
+- items that need attention (rejected, queued, needing reconciliation) and FBR connection health;
+- **sales by month** for the last 12 months (point at a column for its figures, or click **Show table**);
+- the **sales tax return** due dates with a countdown;
+- invoices by status, the top buyers and HS codes of the month, the latest invoices;
+- go-live readiness and the state of FBR reference data;
 - the most frequent FBR errors;
 - warnings: licence, token expiry, unreported incidents, and invoices **not yet reported to FBR** with the age of the oldest one.
+
+Sales figures by month, buyer and HS code are shown to roles that can see reports.
 
 ## 2. Customers (buyers)
 
@@ -49,6 +80,8 @@ Shows:
 |---|---|
 | Name | Buyer's name as registered |
 | NTN / CNIC | 7-digit NTN (without the check digit after the dash) or 13-digit CNIC, no dashes. **Check FBR** queries FBR's Active Taxpayer List and registration type. |
+
+**Check all with FBR** (on the Customers page) checks every buyer that has an NTN or CNIC, one after another, and records the result with the date. A buyer whose registration type in your master differs from FBR's record is flagged **FBR says …** so that further tax is charged correctly.
 | Registration type | *Registered* or *Unregistered*. Taxable supplies to unregistered buyers attract **further tax (4%)**. A registered buyer must have an NTN/CNIC. |
 | Province (destination of supply) | Required by FBR |
 | Sales tax withholding agent | If the buyer withholds sales tax: *fraction* (default one-fifth) or *full* |
@@ -75,11 +108,11 @@ Shows:
 ![Invoice editor](images/invoice-editor.png)
 
 1. **Document:** type (*Sale Invoice* or *Debit Note*) and invoice date (today; report at the time of supply). Optionally add your reference, such as an order or ERP number; it prevents duplicates.
-2. **Buyer:** search the customer master, or type the buyer's details for a one-off sale (e.g. *Walk-in customer*, Unregistered).
-3. **Lines:** type to search products, or enter a description, then set HS code, UoM, quantity, price, sale type and rate. Click **▸ SRO, retail price, further/extra tax, discount…** for the extra fields.
+2. **Buyer:** search the customer master, or type the buyer's details for a one-off sale (e.g. *Walk-in customer*, Unregistered). **Check with FBR** next to the NTN/CNIC asks FBR's Active Taxpayer List and registration type and sets *Registered* or *Unregistered* for you; a buyer picked from the master shows the status on file.
+3. **Lines:** type to search products, or enter a description, then set HS code, UoM, quantity, price, sale type and rate. If FBR prescribes a different unit for the HS code, the unit is flagged with **Use** to apply FBR's unit. Click **▸ SRO, retail price, further/extra tax, discount…** for the extra fields, including **Pick SRO / schedule from FBR** and **Pick serial no. from FBR**.
 4. Taxes and totals are **calculated live** as you type:
    - value excluding tax, sales tax, further tax, extra tax, FED, withholding, total and amount payable;
-   - warnings appear under the line.
+   - warnings appear under the line; FBR's checks are listed at the top once you start entering the invoice. Put each product on one line: FBR may treat the same product on two lines as a duplicate, and the system warns about it.
 5. Click **Save & submit to FBR**. **Save draft** keeps it unreported.
 
 After submission:
@@ -167,6 +200,14 @@ This appears when the connection broke after the invoice was sent, so FBR may or
 
 Never re-enter the sale as a new invoice; it could be reported twice.
 
+### Duplicating an invoice
+
+For repeat sales, open an earlier sale invoice and click **Duplicate**. A new draft dated today is created with the same buyer and lines (taxes are recalculated); check it and submit it.
+
+### Sharing an invoice
+
+On an accepted invoice, **Share** opens the phone's share sheet (WhatsApp, e-mail and so on) with the invoice number, date, buyer, amounts and the **FBR invoice number**. On a computer the same details are copied, ready to paste. The printed or PDF copy (**Print A4**, then *Save as PDF*) remains the tax invoice.
+
 ## 10. Importing invoices (CSV / Excel)
 
 **Import (CSV / Excel)**
@@ -191,6 +232,38 @@ Re-importing a file never duplicates invoices whose `invoice_ref` already exists
 - **FBR API log:** every request and response exchanged with FBR (security tokens are never logged).
 
 Choose the period and environment, then **Download CSV** or **Download Excel**.
+
+## 11a. Tax periods & returns
+
+![Tax periods & returns](images/compliance.png)
+
+**FBR & compliance → Tax periods & returns** (roles that can see reports). Invoices reported through Digital Invoicing populate Annexure-C of the monthly sales tax return on IRIS, so review each tax period before filing:
+
+- **Due dates** with a countdown: by default tax is paid by the 15th and the return filed by the 18th of the following month. Change the days under **Settings → Company → Sales tax return calendar** if your sector has other dates; FBR sometimes extends the dates, so check its announcements.
+- **Period-close checklist:** every issued invoice reported; no rejected invoices left uncorrected; no submissions awaiting reconciliation; no unissued drafts dated in the period; incidents reported. **Review** opens the matching invoices.
+- The period's value of supplies, sales tax, further tax, debit notes, net sales tax and tax withheld by buyers.
+- **Supplies by sale type and rate** — the figures that feed Annexure-C — and the largest buyers and HS codes.
+- Incidents that overlapped the period.
+
+## 11b. FBR reference library
+
+![FBR reference library](images/library-rates.png)
+
+**FBR & compliance → FBR reference library** shows the lists FBR maintains for Digital Invoicing, downloaded with the company's security token:
+
+| Tab | Use it to |
+|---|---|
+| HS codes | Search FBR's HS (PCT) codes by number or description; click a code for the unit of measure FBR prescribes for it (HS_UOM). |
+| Rates & SROs | Pick a sale type and date: the rates FBR accepts (SaleTypeToRate) → the SROs or schedules linked to a rate → their serial numbers. These are the values to put on the invoice. |
+| Units | FBR's units of measure, spelt as FBR expects them. |
+| Provinces & types | Province codes, document types and transaction (sale) types. |
+| Buyer check (ATL) | Check an NTN or CNIC against FBR's Active Taxpayer List and registration type, with what it means for the invoice (registered or unregistered buyer, further tax). |
+| Tax calculator | Work out sales tax, further tax, extra tax, FED, withholding and the invoice total for a sale, using the same engine as invoices. |
+| Data sync | See what is stored on the server and **Download from FBR now** (company settings permission). Refresh after FBR announces new sale types, rates or SROs. |
+
+![Tax calculator](images/library-calculator.png)
+
+The invoice editor uses the same data: it shows FBR's unit for the HS code you enter (with **Use** to apply it), offers **Pick SRO / schedule from FBR** and **Pick serial no. from FBR** in the line details, and has **Check with FBR** next to the buyer's NTN/CNIC.
 
 ## 12. Sandbox scenarios
 
@@ -221,7 +294,9 @@ Every action is logged with user, time and details: logins, invoices, changes, c
 
 ## 15. Using a phone or tablet
 
-Open **Mobile app & access** in the menu. It has a QR code to open the system on your phone, an **Install** button (or instructions for Android and iPhone) and the certificate the phone needs to trust the server. On a phone, the menu opens from the **☰** button. See [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md).
+Open **Mobile app & access** in the menu. It has a QR code to open the system on your phone, an **Install** button (or instructions for Android and iPhone) and the certificate the phone needs to trust the server. See [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md).
+
+On a phone, the bar at the bottom of the screen opens **Home**, **Invoices**, a new invoice (the round **+** button), the **FBR data** library and the full **Menu**; the magnifier at the top opens search.
 
 ![Mobile app & access](images/mobile-access.png)
 
@@ -237,14 +312,29 @@ Open **Mobile app & access** in the menu. It has a QR code to open the system on
 
 | Page | Purpose |
 |---|---|
-| Company | Seller particulars, business activity and sector, invoice prefixes, further-tax rate, withholding fraction, validate-before-post. **+ Add another company** for multi-company installations. |
+| Company | Seller particulars, business activity and sector, invoice prefixes, further-tax rate, withholding fraction, validate-before-post, sales tax return due days. **+ Add another company** for multi-company installations. |
 | FBR integration | Working environment (training simulator / FBR sandbox / FBR production), sandbox and production tokens with expiry, **Test connection**, reference data download, go-live requirements |
 | Invoice printing | Default format, amount-in-words style, columns, copies, terms, footer, company logo |
 | Users & roles | Create users, assign roles and companies, reset passwords, deactivate leavers |
 | ERP API keys | Keys for ERP/POS integration ([ERP-INTEGRATION-API.md](ERP-INTEGRATION-API.md)) |
-| System | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information |
+| System & licence | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information, **e-mail notifications** |
 | Help & error codes | FBR error codes with fixes, compliance rules, sale types and rates |
+
+### E-mail notifications
+
+![E-mail notifications](images/email-notifications.png)
+
+**Settings → System & licence → E-mail notifications** (administrators). The e-mails go through your own mail server; nothing passes through Veridian.
+
+1. Click **Microsoft 365 / Outlook** or **Gmail / Google Workspace** to fill in the server, port and security, or enter your mail server's details.
+2. Enter the user name (usually the full e-mail address) and password. Microsoft 365 and Gmail may require an *app password* when two-step sign-in is on. The password is stored encrypted.
+3. Enter the sender, and the recipients separated by commas.
+4. Choose whether problems are e-mailed as soon as they are found (checked every 5 minutes), and whether to receive a **daily summary** at a chosen hour (yesterday's and this month's invoices and tax, the return due dates and open items).
+5. Optionally enter the address of the system (for example `https://192.168.1.10:8443`) so that the e-mails link to it.
+6. Tick **Send e-mails** and click **Save & send test e-mail**. The result of the last e-mail is shown below the form.
+
+Each problem is e-mailed at most once a day while it lasts, and again if it recurs after being fixed. Companies working in the training simulator do not raise e-mails about invoices. The server must be able to reach the mail server (usually TCP port 587 or 465).
 
 ---
 
-© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing PK is proprietary software.
+© 2026 Veridian Partners Consultancy Private Limited. All rights reserved. Veridian E-invoicing Pakistan is proprietary software.
