@@ -18,7 +18,7 @@ Users work in a web browser on any computer in the office network.
 | Operating system | Windows 10/11 or Windows Server 2016+ (x64), or Linux x86-64 with systemd | Windows Server 2019+ or Ubuntu 22.04+ |
 | CPU / RAM | 2 cores, 2 GB | 4 cores, 4 GB |
 | Disk | 2 GB free | SSD. Allow about 1 GB per 100,000 invoices, plus backups. |
-| Network | Outbound HTTPS (TCP 443) to `gw.fbr.gov.pk` | A **static public IP**, whitelisted by PRAL for production |
+| Network | Outbound HTTPS (TCP 443) to `gw.fbr.gov.pk` | A **static public IP**, whitelisted by PRAL for production. For e-mail notifications, outbound access to the mail server (usually TCP 587 or 465). |
 | Clients | Any modern browser (Chrome, Edge, Firefox) | — |
 | Printers | Any A4 printer; 80 mm thermal printer for POS receipts | — |
 

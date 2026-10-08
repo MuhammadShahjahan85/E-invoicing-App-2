@@ -7,9 +7,10 @@
 The software:
 
 - prepares sales tax invoices with Pakistan's sales-tax rules;
-- validates them against FBR's rules;
+- validates them against FBR's rules and FBR's own reference data (HS codes, sale types, rates, SROs, units, buyer ATL status);
 - reports them to FBR's Digital Invoicing System in real time (DI API v1.12, through PRAL);
-- prints compliant invoices with the FBR invoice number, QR code and FBR DI logo.
+- prints compliant invoices with the FBR invoice number, QR code and FBR DI logo;
+- keeps the business on top of compliance: notifications and e-mail alerts, the 24-hour upload rule, incidents, and the monthly sales tax return calendar with a period-close checklist.
 
 It is a single program with a built-in web interface. It is installed on the client's own server or PC. Staff use it from any browser on the office network, or as an installed app on Android and iPhone.
 
@@ -17,15 +18,21 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 ## Screenshots
 
-| Dashboard | Invoice entry with live tax calculation |
+| Dashboard | Sign-in |
 |---|---|
-| ![Dashboard](docs/images/dashboard.png) | ![Invoice editor](docs/images/invoice-editor.png) |
-| **Accepted invoice with FBR number and QR code** | **Printed A4 tax invoice** |
-| ![Invoice view](docs/images/invoice-view.png) | ![Printed invoice](docs/images/print-a4.png) |
+| ![Dashboard](docs/images/dashboard.png) | ![Sign-in](docs/images/login.png) |
+| **Invoice entry with live tax calculation** | **Accepted invoice with FBR number and QR code** |
+| ![Invoice editor](docs/images/invoice-editor.png) | ![Invoice view](docs/images/invoice-view.png) |
+| **FBR reference library: sale types → rates → SROs** | **Buyer check against FBR's Active Taxpayer List** |
+| ![Reference library](docs/images/library-rates.png) | ![Buyer check](docs/images/library-buyer.png) |
+| **Tax periods & returns (Annexure-C, due dates, checklist)** | **Notifications** |
+| ![Tax periods and returns](docs/images/compliance.png) | ![Notifications](docs/images/notifications.png) |
+| **Printed A4 tax invoice** | **Dark theme** |
+| ![Printed invoice](docs/images/print-a4.png) | ![Dark theme](docs/images/dashboard-dark.png) |
 | **Sandbox scenarios (FBR certification)** | **Reports (Annexure-C reconciliation)** |
 | ![Scenarios](docs/images/scenarios.png) | ![Reports](docs/images/reports.png) |
-| **Mobile app & access (QR code, install, certificate)** | **On a phone: dashboard, menu and accepted invoice** |
-| ![Mobile app & access](docs/images/mobile-access.png) | <img src="docs/images/phone-dashboard.png" alt="Phone dashboard" width="31%"> <img src="docs/images/phone-menu.png" alt="Phone menu" width="31%"> <img src="docs/images/phone-invoice.png" alt="Phone invoice" width="31%"> |
+| **Mobile app & access (QR code, install, certificate)** | **On a phone: dashboard, menu, invoice and FBR data** |
+| ![Mobile app & access](docs/images/mobile-access.png) | <img src="docs/images/phone-dashboard.png" alt="Phone dashboard" width="23%"> <img src="docs/images/phone-menu.png" alt="Phone menu" width="23%"> <img src="docs/images/phone-invoice.png" alt="Phone invoice" width="23%"> <img src="docs/images/phone-library.png" alt="Phone FBR data" width="23%"> |
 
 ## Features
 
@@ -60,11 +67,23 @@ It is a single program with a built-in web interface. It is installed on the cli
 - Rule 150R incident register. FBR outages, token failures, crashes or power failures and tampering are detected automatically, and the letter to the Commissioner is generated for you.
 - Hash-chained audit trail and tamper-evident invoice seals, checked automatically every day.
 
+**FBR reference data built in**
+
+- FBR reference library: HS codes with the unit FBR prescribes (HS_UOM); sale types → rates (SaleTypeToRate) → SROs/schedules → serial numbers; units; provinces, document and transaction types — downloaded with the company's token and refreshed on demand.
+- Buyer checks against FBR's Active Taxpayer List and registration type, one at a time or for the whole customer list, with buyers whose master record differs from FBR flagged.
+- The invoice editor uses the same data: FBR's unit for the HS code, SRO pickers and an inline buyer check.
+- Sales tax calculator using the invoice engine.
+
 **Masters and data**
 
-- Customers with FBR Active Taxpayer List checks.
-- Products with HS code, UoM, sale type, rate and SRO lookups.
-- CSV/Excel import with preview.
+- Customers and products (HS code, UoM, sale type, rate, SRO).
+- CSV/Excel import with preview; duplicate an invoice for repeat sales.
+
+**Compliance assistant**
+
+- Tax periods & returns: payment and filing due dates with countdowns (days configurable per company), a period-close checklist (unreported, rejected, unreconciled, drafts, incidents) and supplies by sale type and rate as they feed Annexure-C.
+- Notifications (bell) and **e-mail alerts** through the client's own mail server: FBR unreachable or token rejected, invoices not reported within 24 hours, rejected invoices, unreported incidents, deadlines, licence and backups; optional daily summary.
+- Hardening learned from other DI integrations in use: blank extraTax where FBR refuses a zero, plain text in payloads, repeated-line warnings, guidance for FBR error codes.
 
 **Reports**
 
@@ -77,7 +96,8 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 **Mobile and web**
 
-- Works in any browser on computers, tablets and phones, with a phone-friendly layout.
+- Veridian design for desktop, web and phone, in light or dark; global search (Ctrl K) across invoices, buyers, products and FBR HS codes.
+- Works in any browser on computers, tablets and phones; on phones a bottom tab bar with a one-tap new invoice, and **Share** for accepted invoices (WhatsApp, e-mail).
 - Installs on Android and iPhone as an app (Progressive Web App) with its own icon; no app store needed.
 - "Mobile app & access" page with QR codes to open the system on a phone, and a certificate download so phones trust the server.
 
