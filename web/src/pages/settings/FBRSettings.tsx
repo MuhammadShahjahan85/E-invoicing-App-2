@@ -277,7 +277,7 @@ function CopyValue({ value }: { value: string }) {
       await navigator.clipboard.writeText(value)
       toast('ok', 'Copied')
     } catch {
-      toast('err', 'Copy is not available here — select the text and copy it')
+      toast('err', 'This browser does not allow copying — select the text and copy it')
     }
   }
   return (

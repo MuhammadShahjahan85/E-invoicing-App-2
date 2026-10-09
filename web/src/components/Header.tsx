@@ -235,7 +235,7 @@ interface Hit {
 
 const commands: { label: string; keywords: string; to: string; icon: LucideIcon; perm?: string }[] = [
   { label: 'New invoice', keywords: 'create sale invoice issue', to: '/invoices/new', icon: FilePlus2 },
-  { label: 'Import invoices (CSV / Excel)', keywords: 'upload bulk erp', to: '/import', icon: Upload },
+  { label: 'Import invoices from any file', keywords: 'upload bulk erp excel csv pdf', to: '/import', icon: Upload },
   { label: 'Tax periods & returns', keywords: 'calendar deadline due date annexure c return filing payment', to: '/compliance', icon: CalendarClock, perm: 'reports' },
   { label: 'FBR reference library', keywords: 'hs code pct uom unit sro schedule rate sale type province', to: '/library', icon: Library },
   { label: 'Verify a buyer (ATL / registration)', keywords: 'atl active taxpayer ntn cnic strn check buyer', to: '/library?tab=buyer', icon: ShieldCheck },

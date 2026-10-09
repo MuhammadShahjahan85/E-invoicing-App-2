@@ -7,7 +7,7 @@ import { ClipboardCopy, Copy, FileDown, FileMinus, MessageCircle, Printer, Recei
 import { usePopover } from '../components/Popover'
 import { api, ApiError, errorMessage } from '../api'
 import { Confirm, ErrorBox, Field, IssueList, Modal, StatusBadge, useLoad, PageSpinner } from '../components/ui'
-import { dateFmt, dateTimeFmt, envLabels, hoursSince, money, qty } from '../format'
+import { dateFmt, dateTimeFmt, envLabels, hoursSince, money, qty, statusLabels } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
 import type { AuditEntry, FBRCall, Invoice, Paged } from '../types'
 
@@ -66,11 +66,11 @@ export default function InvoiceView() {
 
   const submit = () =>
     act('submit', () => api.post<Invoice>(`${cp}/invoices/${inv.id}/submit`), (i) =>
-      i.status === 'ACCEPTED' ? `Accepted by FBR: ${i.fbrInvoiceNumber}` : `Status: ${i.status}`,
+      i.status === 'ACCEPTED' ? `Accepted by FBR: ${i.fbrInvoiceNumber}` : `Status: ${statusLabels[i.status] ?? i.status}`,
     )
   const validate = () =>
     act('validate', () => api.post<Invoice>(`${cp}/invoices/${inv.id}/validate`), (i) => (i.status === 'VALIDATED' ? 'FBR validation passed' : 'FBR validation reported errors'))
-  const retry = () => act('retry', () => api.post<Invoice>(`${cp}/invoices/${inv.id}/retry`), (i) => `Status: ${i.status}`)
+  const retry = () => act('retry', () => api.post<Invoice>(`${cp}/invoices/${inv.id}/retry`), (i) => `Status: ${statusLabels[i.status] ?? i.status}`)
   const debitNote = async () => {
     setBusy('dn')
     try {
@@ -103,7 +103,7 @@ export default function InvoiceView() {
       await navigator.clipboard.writeText(shareText())
       toast('ok', 'Invoice details copied — paste them into WhatsApp or an e-mail')
     } catch {
-      toast('err', 'Copying is not allowed by this browser')
+      toast('err', 'This browser does not allow copying — use Share the PDF instead')
     }
   }
   const whatsapp = () => {
@@ -321,15 +321,18 @@ export default function InvoiceView() {
         <div className="card card-pad">
           <h3>FBR</h3>
           {inv.fbrInvoiceNumber ? (
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div className="qr-box">
-                <img src={`/api/v1${cp}/invoices/${inv.id}/qr.svg`} alt="FBR QR code" />
+            <>
+              <div className="fbr-head">
+                <div className="qr-box">
+                  <img src={`/api/v1${cp}/invoices/${inv.id}/qr.svg`} alt="FBR QR code" />
+                </div>
+                <div className="fbr-id">
+                  <span className="fbr-id-label">FBR invoice number</span>
+                  <span className="fbr-no">{inv.fbrInvoiceNumber}</span>
+                  <span className="small muted">{inv.fbrDated}</span>
+                </div>
               </div>
               <dl className="kv" style={{ gridTemplateColumns: '110px 1fr' }}>
-                <dt>Invoice no.</dt>
-                <dd className="fbr-no">{inv.fbrInvoiceNumber}</dd>
-                <dt>FBR time</dt>
-                <dd>{inv.fbrDated}</dd>
                 <dt>Integrity</dt>
                 <dd>{data.sealValid ? <span className="badge b-green">Seal verified</span> : <span className="badge b-red">Seal mismatch</span>}</dd>
                 <dt>Signature</dt>
@@ -353,7 +356,7 @@ export default function InvoiceView() {
                   </>
                 )}
               </dl>
-            </div>
+            </>
           ) : (
             <p className="muted">Not yet accepted by FBR. Submit the invoice to obtain the FBR invoice number and QR code.</p>
           )}
@@ -438,7 +441,7 @@ export default function InvoiceView() {
           onDone={(i) => {
             setData({ ...data, invoice: i })
             setShowResolve(false)
-            toast('ok', `Invoice is now ${i.status}`)
+            toast('ok', `Invoice is now: ${statusLabels[i.status] ?? i.status}`)
           }}
         />
       )}

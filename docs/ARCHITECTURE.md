@@ -36,7 +36,8 @@ Everything runs in one process with no external services other than FBR (and, if
 
 | Package | Responsibility |
 |---|---|
-| `cmd/einvoice` | CLI: `serve`, `service`, `mock-fbr`, `backup`, `reset-password`, `version` |
+| `cmd/einvoice` | CLI: `serve`, `service`, `mock-fbr`, `backup`, `reset-password`, `tls`, `firewall`, `version` |
+| `cmd/launcher` | Desktop launcher `VeridianEInvoicing.exe` (Windows GUI program): starts the service if needed and opens the app in an Edge or Chrome app window |
 | `cmd/licensegen` | Vendor tool: `keygen`, `issue`, `verify` |
 | `internal/app` | Startup: config, logging, DB, vault, licence, service; HTTP(S) server and worker; self-signed TLS |
 | `internal/brand` | Product, vendor and support names used everywhere (one place to change them) |
@@ -51,7 +52,10 @@ Everything runs in one process with no external services other than FBR (and, if
 | `internal/mail` | Minimal SMTP client: implicit TLS (465), STARTTLS (587) or plain relay (25); AUTH PLAIN/LOGIN; multipart text + HTML |
 | `internal/httpapi` | REST routes, authentication, authorisation, error mapping, security headers |
 | `internal/printing` | HTML templates (A4 and 80 mm invoices, stock transfer note, "Integrated with FBR" signboard), QR generation, the official FBR DI logo (`assets/fbr-di-logo.jpg`) |
-| `internal/winsvc` | Windows service integration |
+| `internal/dataimport` | Reads sales registers in any format — Excel (.xlsx, .xls), OpenDocument, CSV and other separated text, fixed-width text reports, JSON, XML, Word (.docx), HTML and the tables of PDF reports — finds the heading row and recognises the columns; normalises dates, amounts, NTN/CNIC and units |
+| `internal/pdf` | PDF documents with the embedded Inter and Plus Jakarta Sans fonts: report tables (net totals where debit notes are included), the invoice PDF and the monthly report pack with its books–FBR–Annexure-C tie diagram |
+| `internal/winsvc` | Windows service integration; lets signed-in users start the service |
+| `internal/wintrust` | Adds the local certificate authority to (or removes it from) the Windows trusted root store, for the installer |
 | `web/` | React + TypeScript + Vite source; built into `internal/webui/dist` and embedded with `go:embed` |
 
 Main files of `internal/service`:
@@ -68,7 +72,9 @@ Main files of `internal/service`:
 | `compliance.go` | Sales tax return calendar (payment and filing days per company, FBR filing-date extensions), period-close review |
 | `alerts.go` | Alerts shown under the bell and e-mailed: connection, token, unreported / rejected / unreconciled invoices, drafts, incidents, deadlines, stale reference data, sandbox progress, backups, licence |
 | `notify.go` | E-mail settings (password encrypted with the vault), immediate alerts and the daily summary |
-| `scenarios.go`, `importer.go`, `masters.go`, `auth.go` | Sandbox scenarios, Excel/CSV import and export, companies/customers/products, users and API keys |
+| `smartimport.go` | Import wizard: analyses an uploaded file (columns, sample values, what FBR needs that the file lacks), applies the user's matching and once-per-file answers, checks every invoice before saving; re-imports never duplicate |
+| `pdfexport.go`, `reportpack.go` | Report PDFs and the monthly report pack (figures, tie, checklist, tax by rate, documents reported, incidents, sign-off) |
+| `scenarios.go`, `importer.go`, `masters.go`, `auth.go` | Sandbox scenarios, report tables and the Excel template, companies/customers/products, users and API keys |
 
 The web app (`web/src`) has a sidebar layout for desktops and a bottom tab bar for phones (`App.tsx`), a header with global search, notifications and account menu (`components/Header.tsx`), light/dark themes (`theme.ts`) and hand-made SVG charts with table views (`components/Charts.tsx`). Pages are in `web/src/pages`; `ReferenceLibrary.tsx` and `Compliance.tsx` present FBR's reference data and the return calendar.
 
@@ -181,7 +187,10 @@ The schema is in `internal/db/migrations/` (`0001_init.sql`; `0002_offline_since
 | `internal/service/compliance_test.go` | Return due dates and calendar, period review, duplicating invoices, plain-text payloads |
 | `internal/service/notify_test.go` | E-mail settings, immediate alerts (once a day per alert), daily summary, password encryption |
 | `internal/service/integrity_test.go`, `health_test.go` | Tampering detection, unexpected stops, outage incidents |
-| `internal/service/fbrrules_test.go` | Digital signature and key faults, day/week/month closings and their chain, stock transfer notes, return filing extensions, Annex-C reconciliation, FED particulars, advance receipt invoices, import of the new columns |
+| `internal/service/fbrrules_test.go` | Digital signature and key faults, day/week/month closings and their chain, stock transfer notes, return filing extensions, Annexure-C reconciliation, FED particulars, advance receipt invoices, import of the new columns |
+| `internal/dataimport/*_test.go`, `internal/service/smartimport_test.go` | Every supported file format from real fixtures (xlsx, xls, ods, docx, PDF), heading detection, column recognition, value normalisation, missing-details prompts, idempotent re-import |
+| `internal/pdf/pdf_test.go`, `internal/printing/render_test.go`, `internal/httpapi/pdf_test.go` | Report, invoice and report-pack PDFs: fonts, totals, page layout, download endpoints |
+| `cmd/launcher/main_test.go` | The address the desktop launcher opens for each listen setting |
 | `internal/domain/scenarios_test.go` | The DI specification's business activity × sector scenario matrix |
 | `internal/mail/mail_test.go` | Sending through a test SMTP server, STARTTLS required, no password over plain connections, address validation |
 | `internal/license/license_test.go` | Licence states and limits; developer build |

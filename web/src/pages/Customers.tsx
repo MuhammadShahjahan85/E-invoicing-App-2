@@ -318,7 +318,7 @@ export function CustomerForm({ initial, onClose, onSaved }: { initial: Partial<C
         <Field label="Sales tax withholding agent" hint="Buyer withholds sales tax under the Eleventh Schedule" span={2}>
           <select value={c.withholdingMode ?? ''} onChange={(e) => set('withholdingMode', e.target.value)}>
             <option value="">Not a withholding agent</option>
-            <option value="fraction">Withholds a fraction of sales tax (default 1/5)</option>
+            <option value="fraction">Withholds a fraction of sales tax (one-fifth by default)</option>
             <option value="full">Withholds the full sales tax</option>
           </select>
         </Field>

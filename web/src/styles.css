@@ -691,6 +691,13 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .kv-table tr:last-child th { border-bottom: none; }
 .table .cell-sub { font-size: 12px; color: var(--text-3); }
 .lines-table input, .lines-table select { padding: 6px 8px; font-size: 13px; min-height: 36px; border-radius: 8px; }
+.lines-table { table-layout: fixed; min-width: 1040px; }
+.lines-table td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lines-table td.amt-long { font-size: 11.5px; letter-spacing: -.01em; }
+.line-tax { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: var(--text-3); }
+/* Amounts and quantities: right-aligned, without spinner arrows taking room (arrow keys still step). */
+.lines-table input[type=number] { text-align: right; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.lines-table input[type=number]::-webkit-outer-spin-button, .lines-table input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .lines-table td { padding: 7px 5px; }
 
 /* Badges */
@@ -762,6 +769,10 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .kv dt { color: var(--text-2); }
 .kv dd { margin: 0; word-break: break-word; }
 .fbr-no { font-family: var(--mono); font-weight: 700; font-size: 14px; }
+.fbr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-bottom: 12px; }
+.fbr-id { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: max-content; }
+.fbr-id-label { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.fbr-id .fbr-no { font-size: 14px; white-space: nowrap; color: var(--text); }
 .qr-box { background: #fff; padding: 6px; border-radius: 10px; display: inline-block; border: 1px solid var(--border); }
 .qr-box img { width: 1in; height: 1in; display: block; image-rendering: pixelated; }
 pre.code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow: auto; max-height: 420px; font-size: 12px; }
@@ -1045,7 +1056,7 @@ a.legend-row:hover { text-decoration: none; background: var(--surface-2); }
   .page-head h1 { font-size: 23px; }
   .page-head .actions { width: 100%; }
   input, select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
-  .lines-table { min-width: 980px; }
+  .lines-table { min-width: 1040px; }
   .table th, .table td { padding: 10px 10px; }
   .modal-back { padding: 0; align-items: end; }
   .modal, .modal.wide { width: 100%; max-height: calc(100vh - 24px - env(safe-area-inset-top)); border-radius: 22px 22px 0 0; padding-bottom: env(safe-area-inset-bottom); }

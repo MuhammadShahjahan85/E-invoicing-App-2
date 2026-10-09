@@ -135,7 +135,7 @@ export const documents: { group: string; items: OfficialDoc[] }[] = [
       {
         title: 'SRO 1666(I)/2026 — amendments to Chapter XIV',
         date: '29 Sep 2026',
-        about: 'Extends e-invoicing to federal excise and ICT services, adds the FED particulars (aa)–(ff), advance receipt invoices and Annex-C accountability (rule 150XD(2)).',
+        about: 'Extends e-invoicing to federal excise and ICT services, adds the FED particulars (aa)–(ff), advance receipt invoices and Annexure-C accountability (rule 150XD(2)).',
         url: 'https://download1.fbr.gov.pk/SROs/202693089244653SRO1666dated29-09-2026.pdf',
       },
       {
@@ -165,7 +165,7 @@ export const documents: { group: string; items: OfficialDoc[] }[] = [
       {
         title: 'SRO 1655(I)/2026 — electronic scrutiny (Chapter XII-A)',
         date: '25 Sep 2026',
-        about: 'Discrepancies found by FBR’s system are intimated through IRIS with at least seven days to explain or correct; the Annex-C reconciliation helps answer them.',
+        about: 'Discrepancies found by FBR’s system are intimated through IRIS with at least seven days to explain or correct; the Annexure-C reconciliation helps answer them.',
         url: 'https://download1.fbr.gov.pk/SROs/20269251892143851SRO1655.pdf',
       },
       {

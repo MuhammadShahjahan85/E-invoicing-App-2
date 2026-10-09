@@ -72,7 +72,7 @@ func ImportTemplateXLSX() ([]byte, error) {
 		"buyer_registration_type: Registered / Unregistered. Registered buyers need buyer_ntn_cnic (7/9-digit NTN or 13-digit CNIC). Leave blank to use the customer master (matched by buyer_ntn_cnic); unknown buyers are treated as Unregistered.",
 		"Either product_code (from the Products master) or hs_code + description + uom + sale_type + rate must be given.",
 		"value_excl_st, sales_tax, further_tax, extra_tax, fed and st_withheld are optional overrides; leave blank to let the tax engine compute them.",
-		"withholding_mode: blank, 'fraction' (1/5th) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
+		"withholding_mode: blank, 'fraction' (one-fifth) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
 		"advance_receipt: 'yes' for an invoice issued on receipt of an advance (section 23(1)); advance_ref: on a final invoice, the FBR numbers of the advance receipt invoices it adjusts.",
 		"fed_type, fed_rate_text, fed_unit_price, fed_sro and fed_sro_serial: federal excise duty particulars printed on the invoice (rule 150R(13)(aa)-(ff), SRO 1666(I)/2026); blanks are taken from the product.",
 	}
@@ -507,9 +507,9 @@ func CustomerTable(rows []store.CustomerRow) *Table {
 // AnnexCTable builds the Annex-C reconciliation export: every document
 // reported to FBR in the period, to be matched with Annexure-C of the return.
 func AnnexCTable(rows []store.AnnexCRow) *Table {
-	t := &Table{Title: "Annex-C reconciliation", PDFCols: []int{0, 1, 2, 3, 5, 6, 9, 10, 11, 14, 15, 16}, Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
+	t := &Table{Title: "Annexure-C reconciliation", PDFCols: []int{0, 1, 2, 3, 5, 6, 9, 10, 11, 14, 15, 16}, Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
 		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Destination Province", "Value excl ST", "Sales Tax", "Further Tax", "Extra Tax", "FED",
-		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annex-C"}}
+		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annexure-C"}}
 	for _, r := range rows {
 		status := "Reported"
 		if r.Status == "CANCELLED" {

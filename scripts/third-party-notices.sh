@@ -66,4 +66,48 @@ if [ -d web/node_modules ]; then
 	done
 fi
 
+# Fonts embedded in the server for PDF documents.
+for pair in "Inter:Inter" "PlusJakartaSans:Plus Jakarta Sans"; do
+	file=${pair%%:*}
+	name=${pair#*:}
+	{
+		echo "================================================================================"
+		echo "Font embedded in PDF documents: $name (SIL Open Font License 1.1)"
+		echo "================================================================================"
+		cat "internal/pdf/fonts/$file-OFL.txt"
+		echo
+	} >>"$OUT"
+done
+
+# The Windows installer is built with NSIS.
+cat >>"$OUT" <<'TXT'
+================================================================================
+Windows installer: NSIS (Nullsoft Scriptable Install System)
+================================================================================
+The setup program (VeridianEInvoicingPakistan-Setup-*.exe) and its uninstaller are
+built with NSIS, https://nsis.sourceforge.io/
+Copyright (C) 1999-2021 Nullsoft and Contributors. Licensed under the zlib/libpng
+licence:
+
+This software is provided 'as-is', without any express or implied warranty. In no
+event will the authors be held liable for any damages arising from the use of this
+software.
+
+Permission is granted to anyone to use this software for any purpose, including
+commercial applications, and to alter it and redistribute it freely, subject to the
+following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that
+   you wrote the original software. If you use this software in a product, an
+   acknowledgment in the product documentation would be appreciated but is not
+   required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+The installer's LZMA decompression code is by Igor Pavlov (7-Zip), used under the
+Common Public License with the special exception for NSIS installers.
+
+TXT
+
 echo "Wrote $OUT"

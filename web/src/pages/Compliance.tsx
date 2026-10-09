@@ -212,9 +212,9 @@ function PeriodView({ r, onChanged }: { r: PeriodReview; onChanged: () => void }
             <a
               className="btn btn-sm"
               href={`/api/v1${cp}/reports/annex-c${qs({ from: r.from, to: r.to, env: r.environment, format: 'xlsx' })}`}
-              title="Every document with an FBR invoice number in the period, to match with Annex-C before filing"
+              title="Every document with an FBR invoice number in the period, to match with Annexure-C before filing"
             >
-              <Download size={14} /> Annex-C (Excel)
+              <Download size={14} /> Annexure-C (Excel)
             </a>
             <a
               className="btn btn-sm"

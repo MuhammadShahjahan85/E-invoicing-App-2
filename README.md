@@ -12,7 +12,7 @@ The software:
 - prints compliant invoices with the FBR invoice number, QR code and FBR DI logo;
 - keeps the business on top of compliance: notifications and e-mail alerts, the 24-hour upload rule, incidents, and the monthly sales tax return calendar with a period-close checklist.
 
-It is a single program with a built-in web interface. It is installed on the client's own server or PC. Staff use it from any browser on the office network, or as an installed app on Android and iPhone.
+It is a single program with a built-in web interface, installed on the client's own PC or server with a Windows installer (Setup.exe) and run quietly in the background as a Windows service. The desktop icon opens it in a window of its own; staff on the office network use it from any browser, or as an installed app on Android and iPhone.
 
 > Built to FBR DI technical specification v1.12 and Chapter XIV of the Sales Tax Rules 2006 (SRO 69(I)/2025). Each installation is certified for production through FBR's sandbox scenarios on IRIS. See [docs/FBR-COMPLIANCE-GUIDE.md](docs/FBR-COMPLIANCE-GUIDE.md).
 
@@ -71,7 +71,7 @@ It is a single program with a built-in web interface. It is installed on the cli
 - Day, week and month closings recorded automatically (rule 150R(4)(f)), hash-chained and unalterable.
 - Hash-chained audit trail and tamper-evident invoice seals; seals, signatures and closings checked automatically every day.
 - Advance receipt invoices (section 23(1), Finance Act 2026) and Stock Transfer Notes for goods moved to your own warehouse (Sales Tax General Order 25 of 2026).
-- Annex-C reconciliation export of every document with an FBR number (rule 150XD(2)); FBR filing-date extensions recorded per tax period.
+- Annexure-C reconciliation export of every document with an FBR number (rule 150XD(2)); FBR filing-date extensions recorded per tax period.
 
 **FBR reference data built in**
 
@@ -82,19 +82,21 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 **Masters and data**
 
-- Customers and products (HS code, UoM, sale type, rate, SRO).
-- CSV/Excel import with preview; duplicate an invoice for repeat sales.
+- Customers and products (HS code, UoM, sale type, rate, SRO); the province is filled in from the city.
+- **Import from any file**: Excel (.xlsx, .xls), OpenDocument, CSV and other text, JSON, XML, Word, web pages and PDF reports, as exported. Columns are recognised automatically and can be re-matched; whatever FBR needs that the file lacks (province, sale type, FBR's unit names…) is asked for once per file; every invoice is checked before anything is saved; re-importing never creates duplicates.
+- Duplicate an invoice for repeat sales.
 
 **Compliance assistant**
 
 - Tax periods & returns: payment and filing due dates with countdowns (days configurable per company), a period-close checklist (unreported, rejected, unreconciled, drafts, incidents) and supplies by sale type and rate as they feed Annexure-C.
+- **Books, FBR and Annexure-C tie** on the dashboard, with the steps to close the month, and a one-click monthly **report pack (PDF)** for the file, the tax adviser or an FBR enquiry.
 - Notifications (bell) and **e-mail alerts** through the client's own mail server: FBR unreachable or token rejected, invoices not reported within 24 hours, rejected invoices, unreported incidents, deadlines, licence and backups; optional daily summary.
 - Hardening learned from other DI integrations in use: blank extraTax where FBR refuses a zero, plain text in payloads, repeated-line warnings, guidance for FBR error codes.
 
 **Reports**
 
 - Sales register (Annexure-C reconciliation), tax summary, monthly summary, buyer-wise summary.
-- CSV/Excel export and a full FBR API log.
+- **PDF**, Excel and CSV export; invoices as PDF, shared on WhatsApp or by e-mail; a full FBR API log.
 
 **Integration**
 
@@ -102,7 +104,8 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 **Mobile and web**
 
-- Veridian design for desktop, web and phone, in light or dark; global search (Ctrl K) across invoices, buyers, products and FBR HS codes.
+- Veridian design for desktop, web and phone, in light or dark; global search (Ctrl K) across invoices, buyers, products and FBR HS codes; keyboard shortcuts (Alt N for a new invoice and more).
+- Made for Pakistan: amounts in lakh and crore if preferred, optional Urdu captions, a daily tax tip in English and Urdu, Pakistani cities mapped to provinces.
 - Works in any browser on computers, tablets and phones; on phones a bottom tab bar with a one-tap new invoice, and **Share** for accepted invoices (WhatsApp, e-mail).
 - Installs on Android and iPhone as an app (Progressive Web App) with its own icon; no app store needed.
 - "Mobile app & access" page with QR codes to open the system on a phone, and a certificate download so phones trust the server.
@@ -111,7 +114,7 @@ It is a single program with a built-in web interface. It is installed on the cli
 
 - Multiple companies (NTNs); roles (admin, manager, accountant, operator, auditor).
 - Encrypted FBR tokens; HTTPS; nightly backups.
-- Windows service, Linux systemd unit or Docker.
+- Windows installer with a background service, desktop icon, trusted HTTPS certificate and firewall rule; Linux systemd unit or Docker.
 - Built-in **training simulator** that works without FBR access.
 
 **Commercial**

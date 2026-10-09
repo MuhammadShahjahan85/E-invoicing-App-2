@@ -294,7 +294,7 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Partial<Product>;
             <option value="no">Never charge</option>
           </select>
         </Field>
-        <Field label={'SRO / Schedule no.' + (st?.sroRequired ? ' *' : '')} hint={schedules.length ? undefined : st?.sroRequired ? 'Required for this sale type' : undefined}>
+        <Field label={'SRO / schedule no.' + (st?.sroRequired ? ' *' : '')} hint={schedules.length ? undefined : st?.sroRequired ? 'Required for this sale type' : undefined}>
           {schedules.length > 0 ? (
             <select
               value={p.sroScheduleNo ?? ''}
@@ -363,7 +363,7 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Partial<Product>;
         <Field label="FED rate as printed" hint="e.g. Rs 4 per kg; blank prints the % rate">
           <input value={p.fedRateText ?? ''} onChange={(e) => set('fedRateText', e.target.value)} />
         </Field>
-        <Field label="FED Schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
+        <Field label="FED schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
           <input value={p.fedSro ?? ''} onChange={(e) => set('fedSro', e.target.value)} />
         </Field>
         <Field label="FED serial no.">

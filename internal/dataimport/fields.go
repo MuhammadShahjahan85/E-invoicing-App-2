@@ -70,7 +70,7 @@ var Fields = []Field{
 		Help: "The buyer's address. A city in the address also tells the province.",
 		syn:  []string{"buyer address", "address", "customer address", "billing address", "party address", "client address", "delivery address", "city", "location"}},
 	{Key: "withholding_mode", Label: "Withholding agent", Group: "Buyer", Need: "optional", Kind: "text",
-		Help: "Blank, fraction (1/5th) or full, when the buyer withholds sales tax.", syn: []string{"withholding mode", "withholding agent", "wht agent", "withholding"}},
+		Help: "Blank, fraction (one-fifth) or full, when the buyer withholds sales tax.", syn: []string{"withholding mode", "withholding agent", "wht agent", "withholding"}},
 
 	{Key: "product_code", Label: "Product code", Group: "Item", Need: "optional", Kind: "text",
 		Help: "A code from your Products master; its HS code, unit, sale type and rate are used for anything the file leaves blank.",
