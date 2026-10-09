@@ -377,6 +377,32 @@ export interface DashboardData {
   topBuyers?: CustomerRow[]
   topItems?: ItemRow[]
   reference?: { lastSync: string; hsSource: string; hsCodes: number }
+  tie?: PeriodTie
+}
+
+/** PeriodTie compares the books, FBR and Annexure-C for the return due next. */
+export interface PeriodTie {
+  period: string
+  periodLabel: string
+  filingDue: string
+  daysLeft: number
+  books: number
+  annexC: number
+  annexCTax: number
+  accepted: number
+  issued: number
+  edges: TieEdge[]
+  checksOpen: number
+  checksTotal: number
+}
+
+export interface TieEdge {
+  id: 'books-fbr' | 'fbr-annexc' | 'books-annexc'
+  title: string
+  detail: string
+  count: number
+  value: number
+  link: string
 }
 
 export interface ReturnDeadline {

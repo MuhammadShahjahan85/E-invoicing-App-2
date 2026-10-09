@@ -6,6 +6,7 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"einvoicing/internal/service"
 	"einvoicing/internal/store"
@@ -17,11 +18,18 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request, rc *reqCtx
 		s.fail(w, err)
 		return
 	}
-	alerts := s.Svc.Alerts(r.Context(), c, envParam(r, c), allowed(rc, PermSystem))
+	env := envParam(r, c)
+	alerts := s.Svc.Alerts(r.Context(), c, env, allowed(rc, PermSystem))
 	if alerts == nil {
 		alerts = []service.Alert{}
 	}
-	writeJSON(w, 200, map[string]any{"alerts": alerts})
+	out := map[string]any{"alerts": alerts}
+	// The pulse feeds the status chip in the header.
+	now := time.Now().In(service.PKT)
+	if d, err := s.Svc.Store.GetDashboard(r.Context(), c.ID, env, now.Format("2006-01-02"), now.Format("2006-01")+"-01"); err == nil {
+		out["pulse"] = map[string]any{"needsAttention": d.NeedsAttention, "pendingUpload": d.PendingUpload}
+	}
+	writeJSON(w, 200, out)
 }
 
 // handleSearch searches invoices, customers, products and FBR's HS codes.

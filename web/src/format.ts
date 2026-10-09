@@ -10,6 +10,20 @@ export function money(n: number | null | undefined): string {
   return amountFmt.format(Number(n ?? 0))
 }
 
+/**
+ * lakhCrore expresses an amount the way it is spoken in Pakistan:
+ * 4,343,659 → "43.44 lakh", 125,000,000 → "12.5 crore".
+ */
+export function lakhCrore(n: number | null | undefined): string {
+  const v = Number(n ?? 0)
+  const a = Math.abs(v)
+  const f = (x: number) => x.toLocaleString('en-PK', { maximumFractionDigits: 2 })
+  if (a >= 1e7) return f(v / 1e7) + ' crore'
+  if (a >= 1e5) return f(v / 1e5) + ' lakh'
+  if (a >= 1e3) return f(v / 1e3) + ' thousand'
+  return f(v)
+}
+
 export function qty(n: number | null | undefined): string {
   return qtyFmt.format(Number(n ?? 0))
 }

@@ -4,7 +4,7 @@
 // Tax periods & returns: due dates of the monthly sales tax return and a
 // period-close review (what was reported to FBR, what was not, incidents).
 
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import { CalendarCheck2, CalendarClock, CircleCheck, ClipboardList, Download, ExternalLink, FileSpreadsheet, Link2, TriangleAlert } from 'lucide-react'
 import { api, errorMessage, qs } from '../api'
@@ -30,7 +30,8 @@ function monthOptions(): { value: string; label: string }[] {
 export default function Compliance() {
   const s = useSession()
   const cp = useCompanyPath()
-  const [period, setPeriod] = useState('')
+  const [params] = useSearchParams()
+  const [period, setPeriod] = useState(() => (/^\d{4}-\d{2}$/.test(params.get('period') ?? '') ? params.get('period')! : ''))
   const { data, error, loading, reload } = useLoad(() => api.get<PeriodReview>(`${cp}/compliance${qs({ period })}`), [cp, period, s.company?.environment])
   const months = monthOptions()
 

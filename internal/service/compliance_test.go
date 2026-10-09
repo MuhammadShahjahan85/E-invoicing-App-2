@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"einvoicing/internal/domain"
+	"einvoicing/internal/store"
 	"einvoicing/internal/tax"
+
+	"github.com/shopspring/decimal"
 )
 
 func pkt(y int, m time.Month, d int) time.Time { return time.Date(y, m, d, 10, 0, 0, 0, PKT) }
@@ -114,5 +117,52 @@ func TestPayloadTextIsPlain(t *testing.T) {
 	}
 	if got := fbrText("سیمنٹ (OPC) 50 kg, grey"); got != "سیمنٹ (OPC) 50 kg, grey" {
 		t.Fatalf("ordinary punctuation and Urdu must be kept: %q", got)
+	}
+}
+
+func TestPeriodTie(t *testing.T) {
+	f := setup(t)
+	cust, prod := f.customer(t), f.product(t)
+	f.setClock(pkTime(t, "2026-09-20 11:00"))
+	a := f.accepted(t, cust, prod)
+	f.accepted(t, cust, prod)
+	draft := func() *store.Invoice {
+		inv, err := f.svc.CreateInvoice(f.ctx, f.admin, f.cid, &InvoiceInput{CustomerID: &cust.ID,
+			Items: []ItemInput{{ProductID: &prod.ID, Quantity: tax.MustD("1")}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return inv
+	}
+	draft()
+	rejected := draft()
+	if _, err := f.svc.Store.DB.ExecContext(f.ctx, `UPDATE invoices SET status='REJECTED' WHERE id=?`, rejected.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// On 5 October the return due next is September's.
+	f.setClock(pkTime(t, "2026-10-05 09:00"))
+	c, _ := f.svc.Store.GetCompany(f.ctx, f.cid)
+	tie, err := f.svc.Tie(f.ctx, c, c.Environment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	two := decimal.NewFromInt(2)
+	if tie.Period != "2026-09" || tie.PeriodLabel != "September 2026" || !strings.HasPrefix(tie.FilingDue, "2026-10-") || tie.DaysLeft < 10 ||
+		tie.Accepted != 2 || tie.Issued != 3 || !tie.AnnexC.Equal(a.Totals.ValueExclST.Mul(two)) || !tie.AnnexCTax.Equal(a.Totals.SalesTax.Mul(two)) ||
+		!tie.Books.Equal(tie.AnnexC.Add(rejected.Totals.ValueExclST)) {
+		t.Fatalf("tie %+v", tie)
+	}
+	edges := map[string]TieEdge{}
+	for _, e := range tie.Edges {
+		edges[e.ID] = e
+	}
+	if len(edges) != 3 || edges["books-fbr"].Count != 0 || edges["fbr-annexc"].Count != 1 || !edges["fbr-annexc"].Value.Equal(rejected.Totals.ValueExclST) ||
+		edges["books-annexc"].Count != 1 || !strings.Contains(edges["books-annexc"].Link, "from=2026-09-01&to=2026-09-30") {
+		t.Fatalf("edges %+v", tie.Edges)
+	}
+	// Rejected invoices and drafts are open checks; the simulator note is not counted.
+	if tie.ChecksTotal != 5 || tie.ChecksOpen != 2 {
+		t.Fatalf("checks %d/%d", tie.ChecksOpen, tie.ChecksTotal)
 	}
 }

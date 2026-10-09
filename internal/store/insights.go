@@ -75,6 +75,36 @@ func (s *Store) PeriodStatusCounts(ctx context.Context, companyID int64, env dom
 	return out, rows.Err()
 }
 
+// StatusTotal is the number and value of a company's documents in one
+// status.
+type StatusTotal struct {
+	Count    int
+	Value    decimal.Decimal // value excluding sales tax
+	SalesTax decimal.Decimal
+}
+
+// PeriodStatusTotals totals the documents dated from..to (inclusive) by
+// status, in one environment.
+func (s *Store) PeriodStatusTotals(ctx context.Context, companyID int64, env domain.Environment, from, to string) (map[string]StatusTotal, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT status, COUNT(*), COALESCE(SUM(total_value_excl_st),0), COALESCE(SUM(total_sales_tax),0) FROM invoices
+		WHERE company_id=? AND environment=? AND invoice_date>=? AND invoice_date<=? GROUP BY status`, companyID, string(env), from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]StatusTotal{}
+	for rows.Next() {
+		var status string
+		var n int
+		var v, st int64
+		if err := rows.Scan(&status, &n, &v, &st); err != nil {
+			return nil, err
+		}
+		out[status] = StatusTotal{Count: n, Value: Rupees(v), SalesTax: Rupees(st)}
+	}
+	return out, rows.Err()
+}
+
 // IncidentsBetween returns a company's incidents that started before `to`
 // and had not ended before `from` (RFC 3339 timestamps).
 func (s *Store) IncidentsBetween(ctx context.Context, companyID int64, from, to string) ([]*Incident, error) {

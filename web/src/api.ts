@@ -28,7 +28,29 @@ export function onUnauthorized(fn: Listener) {
   unauthorizedListeners.push(fn)
 }
 
+// Requests in flight, for the activity line under the top bar.
+let inflight = 0
+const busyListeners = new Set<(busy: boolean) => void>()
+export function onBusy(fn: (busy: boolean) => void): () => void {
+  busyListeners.add(fn)
+  return () => busyListeners.delete(fn)
+}
+function track(delta: number) {
+  const was = inflight > 0
+  inflight = Math.max(0, inflight + delta)
+  if (was !== inflight > 0) busyListeners.forEach((f) => f(inflight > 0))
+}
+
 async function request<T>(method: string, path: string, body?: unknown, raw?: { contentType: string; data: BodyInit }): Promise<T> {
+  track(1)
+  try {
+    return await send<T>(method, path, body, raw)
+  } finally {
+    track(-1)
+  }
+}
+
+async function send<T>(method: string, path: string, body?: unknown, raw?: { contentType: string; data: BodyInit }): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken
   let payload: BodyInit | undefined
