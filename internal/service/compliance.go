@@ -326,6 +326,14 @@ func (s *Service) Tie(ctx context.Context, c *store.Company, env domain.Environm
 	if err != nil {
 		return nil, err
 	}
+	return s.tieFor(ctx, c, env, rev)
+}
+
+// tieFor works out the tie of a reviewed period.
+func (s *Service) tieFor(ctx context.Context, c *store.Company, env domain.Environment, rev *PeriodReview) (*PeriodTie, error) {
+	if env == "" {
+		env = c.Environment
+	}
 	totals, err := s.Store.PeriodStatusTotals(ctx, c.ID, env, rev.From, rev.To)
 	if err != nil {
 		return nil, err

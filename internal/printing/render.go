@@ -123,6 +123,17 @@ func amt(d decimal.Decimal) string { return tax.FormatAmount(d) }
 
 // Render writes the printable invoice HTML.
 func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error {
+	v := prepare(c, inv, &o)
+	name := "invoice_a4.html"
+	if o.Format == "thermal" || (o.Format == "" && c.PrintSettings.PaperSize == "thermal80") {
+		name = "invoice_thermal.html"
+	}
+	return templates.ExecuteTemplate(w, name, v)
+}
+
+// prepare works out everything printed on an invoice, for the HTML and
+// PDF renderers alike.
+func prepare(c *store.Company, inv *store.Invoice, o *Options) *view {
 	if o.Now.IsZero() {
 		o.Now = time.Now()
 	}
@@ -280,12 +291,7 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 			v.Sheets = append(v.Sheets, sheet{view: &v, CopyLabel: label})
 		}
 	}
-
-	name := "invoice_a4.html"
-	if o.Format == "thermal" || (o.Format == "" && c.PrintSettings.PaperSize == "thermal80") {
-		name = "invoice_thermal.html"
-	}
-	return templates.ExecuteTemplate(w, name, &v)
+	return &v
 }
 
 // fedNote lists a line's federal excise duty particulars (rule

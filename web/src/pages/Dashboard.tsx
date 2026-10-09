@@ -11,6 +11,7 @@ import {
   CircleCheck,
   Database,
   FilePlus2,
+  FileText,
   ListChecks,
   Receipt,
   ShieldCheck,
@@ -119,6 +120,11 @@ export default function Dashboard() {
             <Link className="btn" to="/invoices?status=REJECTED,UNCERTAIN,QUEUED">
               <CircleAlert size={16} /> Review {plural(st.needsAttention, 'item')}
             </Link>
+          )}
+          {tie && (
+            <a className="btn hide-mobile" href={`/api/v1${cp}/compliance/pack?period=${tie.period}`} title={`Download the ${tie.periodLabel} report pack (PDF)`}>
+              <FileText size={16} /> Report pack
+            </a>
           )}
           {s.can('invoice.write') && (
             <>

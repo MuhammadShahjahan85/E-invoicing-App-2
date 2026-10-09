@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"einvoicing/internal/domain"
+	"einvoicing/internal/pdf"
 	"einvoicing/internal/store"
 	"einvoicing/internal/tax"
 
@@ -164,5 +165,23 @@ func TestPeriodTie(t *testing.T) {
 	// Rejected invoices and drafts are open checks; the simulator note is not counted.
 	if tie.ChecksTotal != 5 || tie.ChecksOpen != 2 {
 		t.Fatalf("checks %d/%d", tie.ChecksOpen, tie.ChecksTotal)
+	}
+}
+
+func TestTableGridNetsDebitNotes(t *testing.T) {
+	tbl := TaxSummaryTable([]store.TaxSummaryRow{
+		{DocType: "Sale Invoice", SaleType: domain.STStandard, Rate: "18%", Invoices: 3, ValueExclST: tax.MustD("1000"), SalesTax: tax.MustD("180")},
+		{DocType: "Debit Note", SaleType: domain.STStandard, Rate: "18%", Invoices: 1, ValueExclST: tax.MustD("100"), SalesTax: tax.MustD("18")},
+	})
+	g := tbl.Grid()
+	if len(g.Rows) != 2 || g.Totals == nil || g.Totals[0] != "Net of debit notes" {
+		t.Fatalf("grid %+v", g)
+	}
+	// Columns: Doc Type, Sale Type, Rate, Invoices, Lines, Value excl ST, ...
+	if g.Totals[3] != "4" || g.Totals[5] != "900.00" || g.Totals[7] != "162.00" || !g.Cols[5].Right || g.Cols[1].Right {
+		t.Fatalf("totals %q", g.Totals)
+	}
+	if b, err := tbl.PDF(pdf.Meta{Company: "Seller"}, "Report", "Test"); err != nil || len(b) < 1000 {
+		t.Fatalf("pdf: %v", err)
 	}
 }

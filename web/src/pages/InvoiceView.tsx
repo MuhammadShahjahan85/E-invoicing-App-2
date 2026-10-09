@@ -3,7 +3,8 @@
 
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Copy, FileMinus, Printer, ReceiptText, Share2 } from 'lucide-react'
+import { ClipboardCopy, Copy, FileDown, FileMinus, MessageCircle, Printer, ReceiptText, Share2 } from 'lucide-react'
+import { usePopover } from '../components/Popover'
 import { api, ApiError, errorMessage } from '../api'
 import { Confirm, ErrorBox, Field, IssueList, Modal, StatusBadge, useLoad, PageSpinner } from '../components/ui'
 import { dateFmt, dateTimeFmt, envLabels, hoursSince, money, qty } from '../format'
@@ -96,22 +97,45 @@ export default function InvoiceView() {
     ]
       .filter(Boolean)
       .join('\n')
-  const share = async () => {
-    const text = shareText()
-    const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> }
-    if (nav.share) {
-      try {
-        await nav.share({ title: `Invoice ${inv.internalNo}`, text })
-        return
-      } catch {
-        return // cancelled by the user
-      }
-    }
+  const pdfUrl = `/api/v1${cp}/invoices/${inv.id}/pdf`
+  const copyDetails = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(shareText())
       toast('ok', 'Invoice details copied — paste them into WhatsApp or an e-mail')
     } catch {
       toast('err', 'Copying is not allowed by this browser')
+    }
+  }
+  const whatsapp = () => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(shareText()), '_blank', 'noopener')
+  }
+  /** sharePDF hands the invoice PDF to the phone's share sheet (WhatsApp, e-mail…), or downloads it. */
+  const sharePDF = async () => {
+    setBusy('share')
+    try {
+      const res = await fetch(pdfUrl, { credentials: 'same-origin' })
+      if (!res.ok) throw new Error('The PDF could not be prepared (' + res.status + ')')
+      const file = new File([await res.blob()], `${inv.internalNo}.pdf`, { type: 'application/pdf' })
+      const n = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+      if (n.canShare?.({ files: [file] }) && n.share) {
+        try {
+          await n.share({ files: [file], title: `Invoice ${inv.internalNo}`, text: shareText() })
+        } catch {
+          // cancelled by the user
+        }
+      } else {
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(file)
+        a.download = file.name
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+        toast('info', 'PDF downloaded — attach it in WhatsApp or your e-mail')
+      }
+      reload()
+    } catch (e) {
+      setActionError(e)
+    } finally {
+      setBusy('')
     }
   }
   const duplicate = async () => {
@@ -207,10 +231,11 @@ export default function InvoiceView() {
               {inv.offlineSince ? 'Print provisional copy' : 'Preview'}
             </a>
           )}
+          <a className="btn" href={pdfUrl} download onClick={() => setTimeout(reload, 1500)} title="Download the invoice as a PDF document">
+            <FileDown size={16} /> PDF
+          </a>
           {(inv.status === 'ACCEPTED' || inv.status === 'CANCELLED') && (
-            <button className="btn" onClick={share} title="Share the invoice details and FBR number (WhatsApp, e-mail) or copy them">
-              <Share2 size={16} /> Share
-            </button>
+            <ShareMenu busy={busy === 'share'} onPDF={sharePDF} onWhatsApp={whatsapp} onCopy={copyDetails} />
           )}
           {inv.docType === 'Sale Invoice' && s.can('invoice.write') && (
             <button className="btn" disabled={!!busy} onClick={duplicate} title="Create a new draft with the same buyer and lines">
@@ -749,5 +774,40 @@ function ResolveModal({ inv, onClose, onDone }: { inv: Invoice; onClose: () => v
         </Field>
       </div>
     </Modal>
+  )
+}
+
+/** ShareMenu offers the ways to send an invoice to a buyer. */
+function ShareMenu({ busy, onPDF, onWhatsApp, onCopy }: { busy: boolean; onPDF: () => void; onWhatsApp: () => void; onCopy: () => void }) {
+  const pop = usePopover()
+  const pick = (fn: () => void) => () => {
+    pop.setOpen(false)
+    fn()
+  }
+  return (
+    <div className="pop-anchor" ref={pop.ref}>
+      <button className="btn" aria-haspopup="menu" aria-expanded={pop.open} disabled={busy} onClick={() => pop.setOpen(!pop.open)}>
+        <Share2 size={16} /> {busy ? 'Preparing…' : 'Share'}
+      </button>
+      {pop.open && (
+        <div className="popover" role="menu" style={{ width: 300 }}>
+          <div className="menu-list">
+            <button role="menuitem" onClick={pick(onPDF)}>
+              <FileDown size={16} /> Share the PDF
+              <span className="small faint" style={{ marginLeft: 'auto' }}>
+                phone
+              </span>
+            </button>
+            <button role="menuitem" onClick={pick(onWhatsApp)}>
+              <MessageCircle size={16} /> Send details on WhatsApp
+            </button>
+            <button role="menuitem" onClick={pick(onCopy)}>
+              <ClipboardCopy size={16} /> Copy details
+            </button>
+          </div>
+          <div className="popover-foot">The details include the FBR invoice number, so the buyer can match it with Annexure-A on IRIS.</div>
+        </div>
+      )}
+    </div>
   )
 }

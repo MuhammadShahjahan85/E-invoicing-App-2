@@ -366,6 +366,10 @@ type Table struct {
 	Title   string
 	Headers []string
 	Rows    [][]any
+	// PDFCols picks the columns printed in the PDF (all when nil): wide
+	// exports keep every column in CSV and Excel but only the essential
+	// ones fit on a page.
+	PDFCols []int
 }
 
 // CSV renders the table as CSV (UTF-8 with BOM so Excel opens it correctly).
@@ -427,7 +431,7 @@ func (t *Table) XLSX() ([]byte, error) {
 
 // RegisterTable builds the sales register export (Annexure-C style columns).
 func RegisterTable(lines []store.RegisterLine) *Table {
-	t := &Table{Title: "Sales register", Headers: []string{"Doc Type", "Invoice No", "FBR Invoice No", "Date", "Ref FBR Invoice No",
+	t := &Table{Title: "Sales register", PDFCols: []int{1, 2, 3, 5, 6, 11, 12, 14, 15, 17, 19, 21, 25}, Headers: []string{"Doc Type", "Invoice No", "FBR Invoice No", "Date", "Ref FBR Invoice No",
 		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Origin Province", "Destination Province", "Line", "HS Code", "Description",
 		"Sale Type", "Rate", "Quantity", "UoM", "Value excl ST", "Fixed/Retail Value", "Sales Tax", "Extra Tax", "Further Tax", "FED",
 		"ST Withheld", "Discount", "Total Value", "SRO/Schedule", "SRO Item S.No"}}
@@ -474,7 +478,7 @@ func CustomerTable(rows []store.CustomerRow) *Table {
 // AnnexCTable builds the Annex-C reconciliation export: every document
 // reported to FBR in the period, to be matched with Annexure-C of the return.
 func AnnexCTable(rows []store.AnnexCRow) *Table {
-	t := &Table{Title: "Annex-C reconciliation", Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
+	t := &Table{Title: "Annex-C reconciliation", PDFCols: []int{0, 1, 2, 3, 5, 6, 9, 10, 11, 14, 15, 16}, Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
 		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Destination Province", "Value excl ST", "Sales Tax", "Further Tax", "Extra Tax", "FED",
 		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annex-C"}}
 	for _, r := range rows {

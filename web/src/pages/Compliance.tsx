@@ -6,7 +6,7 @@
 
 import { Link, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
-import { CalendarCheck2, CalendarClock, CircleCheck, ClipboardList, Download, ExternalLink, FileSpreadsheet, Link2, TriangleAlert } from 'lucide-react'
+import { CalendarCheck2, CalendarClock, CircleCheck, ClipboardList, Download, ExternalLink, FileSpreadsheet, FileText, Link2, TriangleAlert } from 'lucide-react'
 import { api, errorMessage, qs } from '../api'
 import { Empty, ErrorBox, Field, Modal, Spinner, useLoad } from '../components/ui'
 import { DeadlineList, HBarList } from '../components/Charts'
@@ -56,6 +56,15 @@ export default function Compliance() {
               </option>
             ))}
           </select>
+          {data && (
+            <a
+              className="btn btn-primary"
+              href={`/api/v1${cp}/compliance/pack${qs({ period: data.period, env: data.environment })}`}
+              title="One PDF with the period's figures, the books–FBR–Annexure-C tie, the checklist, tax by rate, every document reported to FBR and a sign-off block"
+            >
+              <FileText size={16} /> Report pack (PDF)
+            </a>
+          )}
         </div>
       </div>
       {loading && !data ? (
@@ -205,7 +214,14 @@ function PeriodView({ r, onChanged }: { r: PeriodReview; onChanged: () => void }
               href={`/api/v1${cp}/reports/annex-c${qs({ from: r.from, to: r.to, env: r.environment, format: 'xlsx' })}`}
               title="Every document with an FBR invoice number in the period, to match with Annex-C before filing"
             >
-              <Download size={14} /> Annex-C reconciliation
+              <Download size={14} /> Annex-C (Excel)
+            </a>
+            <a
+              className="btn btn-sm"
+              href={`/api/v1${cp}/reports/annex-c${qs({ from: r.from, to: r.to, env: r.environment, format: 'pdf' })}`}
+              title="The same listing as a PDF"
+            >
+              <FileText size={14} /> PDF
             </a>
             <Link to={`/reports`} className="small">
               Sales register & exports <ExternalLink size={12} />

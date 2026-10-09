@@ -5,6 +5,7 @@ package printing
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -111,5 +112,42 @@ func TestRenderWatermarks(t *testing.T) {
 	_, inv = sampleInvoice()
 	if out := render(t, c, inv, Options{Format: "thermal"}); !strings.Contains(out, inv.FBRInvoiceNumber) || !strings.Contains(out, `viewBox="0 0 25 25"`) {
 		t.Error("thermal receipt must carry the FBR number and QR code")
+	}
+}
+
+func TestRenderPDF(t *testing.T) {
+	c, inv := sampleInvoice()
+	c.STRN, c.City, c.Phone, c.Email = "32-77-8761-234-56", "Karachi", "021-111-222-333", "accounts@seller.pk"
+	c.SoftwareRegNo = "DI-SW-2026-0042"
+	inv.FBRDated = "2026-10-06 11:42:10"
+	inv.Notes = "Delivered at Port Qasim warehouse; payment within 30 days."
+	inv.Signature = "c2lnbmF0dXJlLWJ5dGVzLWZvci10ZXN0aW5nLW9ubHktMDEyMzQ1Njc4OQ=="
+	inv.SealHash = "9f2c4e1ab37d55aa0c1d2e3f4a5b6c7d"
+	for i := 2; i <= 14; i++ {
+		inv.Items = append(inv.Items, &store.InvoiceItem{LineNo: i, HSCode: "3102.1000", Description: "Urea fertilizer, 50 kg bags — Engro brand",
+			UoM: "KG", Quantity: tax.MustD("50"), UnitPrice: tax.MustD("120"), ValueExclST: tax.MustD("6000"), SaleType: domain.STReduced,
+			Rate: "5%", SalesTax: tax.MustD("300"), TotalValue: tax.MustD("6300"), SROScheduleNo: "Eighth Schedule", SROItemSerialNo: "12"})
+	}
+	var b bytes.Buffer
+	if err := RenderPDF(&b, c, inv, Options{FBRLogo: DefaultFBRLogo, FBRLogoMime: DefaultFBRLogoMime, SigningKey: "AB12-CD34"}); err != nil {
+		t.Fatal(err)
+	}
+	out := b.Bytes()
+	if !bytes.HasPrefix(out, []byte("%PDF-")) || len(out) < 5000 {
+		t.Fatalf("not a PDF (%d bytes)", len(out))
+	}
+	if p := os.Getenv("PDF_SAMPLE"); p != "" {
+		_ = os.WriteFile(p, out, 0o644)
+	}
+
+	// Drafts carry the not-reported watermark; two copies make two pages.
+	inv.Status, inv.FBRInvoiceNumber = domain.StatusDraft, ""
+	c.PrintSettings.Copies = 2
+	b.Reset()
+	if err := RenderPDF(&b, c, inv, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if n := bytes.Count(b.Bytes(), []byte("/Type /Page\n")) + bytes.Count(b.Bytes(), []byte("/Type /Page ")); n < 2 {
+		t.Errorf("%d pages for two copies", n)
 	}
 }
