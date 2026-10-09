@@ -69,6 +69,9 @@ import StockTransfers from './pages/StockTransfers'
 import { BrandMark } from './components/Brand'
 import { AlertsBell, AlertsProvider, GlobalSearch, StatusChip, ThemeToggle, UserMenu, useAlerts } from './components/Header'
 import { usePopover } from './components/Popover'
+import { usePrefs } from './prefs'
+import { urdu } from './urdu'
+import { ShortcutsHelp, useShortcuts } from './components/Shortcuts'
 
 interface Me {
   user: User
@@ -176,6 +179,8 @@ function Shell() {
   const [navOpen, setNavOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(readCollapsed)
+  const prefs = usePrefs()
+  const shortcuts = useShortcuts()
   useEffect(() => {
     setNavOpen(false)
     setSearchOpen(false)
@@ -221,7 +226,14 @@ function Shell() {
               <span className="tb-crumb">
                 {c.name} · {page.section}
               </span>
-              <span className="tb-h">{page.title}</span>
+              <span className="tb-h">
+                {page.title}
+                {prefs.urdu && urdu[page.title] && (
+                  <span className="tb-ur" lang="ur">
+                    {urdu[page.title]}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="spacer" />
             <span className="tb-chip" title="Today's date in Pakistan (PKT)">
@@ -247,7 +259,7 @@ function Shell() {
               </div>
             </div>
           )}
-          <main className="content">
+          <main className="content" key={prefs.grouping}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/invoices" element={<Invoices />} />
@@ -278,6 +290,7 @@ function Shell() {
           </main>
         </div>
         <TabBar onMenu={() => setNavOpen(true)} />
+        {shortcuts.open && <ShortcutsHelp onClose={() => shortcuts.setOpen(false)} />}
       </div>
     </AlertsProvider>
   )
@@ -415,6 +428,7 @@ function coInitials(name: string) {
 
 function Sidebar({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
   const s = useSession()
+  const prefs = usePrefs()
   const c = s.company!
   const { alerts } = useAlerts()
   const attention = alerts.filter((a) => a.id === 'rejected' || a.id === 'uncertain' || a.id === 'pending').length
@@ -446,7 +460,16 @@ function Sidebar({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: ()
           if (items.length === 0) return null
           return (
             <div key={i}>
-              {sec.title && <div className="nav-section">{sec.title}</div>}
+              {sec.title && (
+                <div className="nav-section">
+                  {sec.title}
+                  {prefs.urdu && urdu[sec.title] && (
+                    <span className="nav-ur" lang="ur">
+                      {urdu[sec.title]}
+                    </span>
+                  )}
+                </div>
+              )}
               {items.map((it) => {
                 const Ic = it.icon
                 return (

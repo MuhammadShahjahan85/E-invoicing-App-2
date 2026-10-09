@@ -3,11 +3,16 @@
 
 // Formatting helpers (amounts in PKR, Pakistan time).
 
-const amountFmt = new Intl.NumberFormat('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const qtyFmt = new Intl.NumberFormat('en-PK', { maximumFractionDigits: 4 })
+import { getPrefs } from './prefs'
+
+// Amounts use international grouping (1,234,567.00) or, by preference,
+// the lakh and crore grouping used in Pakistan (12,34,567.00).
+const amountFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const amountFmtPK = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const qtyFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 })
 
 export function money(n: number | null | undefined): string {
-  return amountFmt.format(Number(n ?? 0))
+  return (getPrefs().grouping === 'pk' ? amountFmtPK : amountFmt).format(Number(n ?? 0))
 }
 
 /**

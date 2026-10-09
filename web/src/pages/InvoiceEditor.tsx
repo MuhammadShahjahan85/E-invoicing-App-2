@@ -8,6 +8,7 @@ import { api, ApiError, errorMessage } from '../api'
 import { ErrorBox, Field, HSCodeInput, IssueList, PageSpinner } from '../components/ui'
 import { dateFmt, money, num, todayPK } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
+import { provinceFromAddress } from '../pkcities'
 import type { BuyerStatus, Customer, Invoice, InvoiceItem, Issue, Paged, Product, RateRef, SaleType } from '../types'
 
 interface Line extends InvoiceItem {
@@ -606,8 +607,19 @@ function BuyerCard({ buyer, setBuyer, provinces, cp }: { buyer: Buyer; setBuyer:
               ))}
             </select>
           </Field>
-          <Field label="Address" span={2}>
-            <input value={buyer.address} onChange={(e) => set('address', e.target.value)} />
+          <Field
+            label="Address"
+            span={2}
+            hint={!buyer.province && provinceFromAddress(buyer.address) ? `Looks like ${provinceFromAddress(buyer.address)} — the province is filled in when you leave this field` : undefined}
+          >
+            <input
+              value={buyer.address}
+              onChange={(e) => set('address', e.target.value)}
+              onBlur={() => {
+                const p = provinceFromAddress(buyer.address)
+                if (!buyer.province && p && provinces.includes(p)) set('province', p)
+              }}
+            />
           </Field>
           <Field label="Withholding agent?" hint="Sales tax withheld at source by the buyer">
             <select value={buyer.withholdingMode} onChange={(e) => set('withholdingMode', e.target.value)}>

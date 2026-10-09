@@ -1108,5 +1108,30 @@ a.legend-row:hover { text-decoration: none; background: var(--surface-2); }
 .faq p { margin: 0 0 12px; font-size: 13.5px; color: var(--text-2); }
 .faq .faq-app { background: var(--primary-soft); color: var(--text); padding: 9px 13px; border-radius: 10px; }
 
+/* Urdu captions beside English names */
+.tb-ur { font-family: var(--font-urdu); font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 10px; line-height: 1; vertical-align: middle; letter-spacing: 0; }
+/* In the top bar the caption only fits on wide screens. */
+@media (max-width: 1599px) { .tb-h .tb-ur { display: none; } }
+.nav-ur { font-family: var(--font-urdu); font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--sidebar-muted); margin-left: 8px; opacity: 0.9; }
+.app.collapsed .nav-ur { display: none; }
+.ur { font-family: var(--font-urdu); direction: rtl; letter-spacing: 0; }
+.switch { margin-left: auto; width: 32px; height: 18px; border-radius: 999px; background: var(--border-strong); position: relative; flex-shrink: 0; transition: background 0.15s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-xs); transition: transform 0.15s; }
+.switch.on { background: var(--accent); }
+.switch.on::after { transform: translateX(14px); }
+.shortcut-grid { display: grid; gap: 2px; }
+.shortcut { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.shortcut:last-child { border-bottom: none; }
+.shortcut .kbd { font-size: 12px; padding: 2px 7px; }
+.tip-card { position: relative; overflow: hidden; }
+.tip-card .card-body { display: flex; flex-direction: column; gap: 10px; min-height: 150px; }
+.tip-en { font-size: 14.5px; line-height: 1.6; color: var(--text); margin: 0; }
+.tip-ur { font-family: var(--font-urdu); direction: rtl; text-align: right; font-size: 15px; line-height: 2.2; color: var(--text-2); margin: 0; }
+.tip-nav { display: flex; align-items: center; gap: 8px; }
+.tip-dots { display: flex; gap: 5px; margin-right: auto; }
+.tip-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+.tip-dots i.on { background: var(--accent); width: 16px; border-radius: 3px; }
+.greet-ur { font-family: var(--font-urdu); font-size: 16px; color: var(--accent); margin-left: 8px; letter-spacing: 0; }
+
 /* Urdu text inside English layouts */
 .ur-line { display: block; font-family: var(--font-urdu); direction: rtl; text-align: right; font-size: 13px; line-height: 2.1; color: var(--text-3); }

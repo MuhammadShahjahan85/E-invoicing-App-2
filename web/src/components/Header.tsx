@@ -15,7 +15,9 @@ import {
   FileText,
   GraduationCap,
   Info,
+  Keyboard,
   KeyRound,
+  Languages,
   LifeBuoy,
   Library,
   LogOut,
@@ -38,6 +40,8 @@ import { applyTheme, getTheme, type Theme } from '../theme'
 import { dateFmt, money, statusLabels } from '../format'
 import type { Alert, SearchResults } from '../types'
 import { usePopover } from './Popover'
+import { setPrefs, usePrefs } from '../prefs'
+import { showShortcuts } from './Shortcuts'
 
 // ---- Alerts ----
 
@@ -458,6 +462,7 @@ const roleLabels: Record<string, string> = {
 export function UserMenu() {
   const s = useSession()
   const pop = usePopover()
+  const prefs = usePrefs()
   const [theme, setTheme] = useState<Theme>(getTheme())
   const name = s.user.fullName || s.user.username
   useEffect(() => {
@@ -503,7 +508,33 @@ export function UserMenu() {
               </button>
             </div>
           </div>
+          <div style={{ padding: '10px 16px 4px' }}>
+            <div className="small faint" style={{ marginBottom: 6 }}>
+              Amounts
+            </div>
+            <div className="seg" role="group" aria-label="Number style">
+              <button className={prefs.grouping === 'intl' ? 'on' : ''} onClick={() => setPrefs({ grouping: 'intl' })} title="International grouping">
+                1,234,567
+              </button>
+              <button className={prefs.grouping === 'pk' ? 'on' : ''} onClick={() => setPrefs({ grouping: 'pk' })} title="Lakh and crore grouping">
+                12,34,567
+              </button>
+            </div>
+          </div>
           <div className="menu-list">
+            <button onClick={() => setPrefs({ urdu: !prefs.urdu })} role="menuitemcheckbox" aria-checked={prefs.urdu}>
+              <Languages size={16} /> Urdu captions
+              <span className={'switch' + (prefs.urdu ? ' on' : '')} aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => {
+                pop.setOpen(false)
+                showShortcuts()
+              }}
+            >
+              <Keyboard size={16} /> Keyboard shortcuts <span className="kbd" style={{ marginLeft: 'auto' }}>?</span>
+            </button>
+            <div className="menu-sep" />
             <Link to="/password" onClick={() => pop.setOpen(false)}>
               <KeyRound size={16} /> Change password
             </Link>

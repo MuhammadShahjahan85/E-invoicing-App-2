@@ -1,9 +1,13 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
+  Lightbulb,
   CalendarClock,
   ChartColumnBig,
   Check,
@@ -25,6 +29,8 @@ import { ColumnChart, DeadlineList, HBarList, StatusBreakdown } from '../compone
 import { dateFmt, dateTimeFmt, envLabels, lakhCrore, money } from '../format'
 import { useCompanyPath, useSession } from '../state'
 import type { DashboardData, PeriodTie, TieEdge } from '../types'
+import { usePrefs } from '../prefs'
+import { tips } from '../urdu'
 
 const todayLong = () => new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -36,6 +42,7 @@ const plural = (n: number, one: string, many = one + 's') => `${n.toLocaleString
 
 export default function Dashboard() {
   const s = useSession()
+  const prefs = usePrefs()
   const { company } = s
   const cp = useCompanyPath()
   const { data, error, loading } = useLoad(() => api.get<DashboardData>(`${cp}/dashboard`), [cp, company?.environment])
@@ -108,7 +115,13 @@ export default function Dashboard() {
           </div>
           <h1>Sales tax overview</h1>
           <p>
-            Assalam-o-Alaikum, {firstName}. {todayLong()} — NTN/CNIC {company.ntnCnic}
+            Assalam-o-Alaikum, {firstName}.
+            {prefs.urdu && (
+              <span className="greet-ur" lang="ur">
+                السلام علیکم
+              </span>
+            )}{' '}
+            {todayLong()} — NTN/CNIC {company.ntnCnic}
             {company.strn ? ` · STRN ${company.strn}` : ''} · {company.province}
           </p>
         </div>
@@ -221,6 +234,8 @@ export default function Dashboard() {
         </section>
         {tie ? <TieCard tie={tie} /> : readiness}
       </div>
+
+      <TipCard urdu={prefs.urdu} />
 
       <div className="grid g-2-1 mt">
         {trend.length > 0 ? (
@@ -560,6 +575,56 @@ function TieCard({ tie }: { tie: PeriodTie }) {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/** TipCard shows a compliance tip of the day, in English and Urdu. */
+function TipCard({ urdu }: { urdu: boolean }) {
+  const day = Math.floor(Date.now() / 86_400_000)
+  const [i, setI] = useState(day % tips.length)
+  const t = tips[i]
+  const step = (d: number) => setI((x) => (x + d + tips.length) % tips.length)
+  return (
+    <div className="card tip-card mt">
+      <div className="card-head">
+        <h3>
+          <Lightbulb size={17} /> Tax tip
+          {urdu && (
+            <span className="tb-ur" lang="ur">
+              ٹیکس کی بات
+            </span>
+          )}
+        </h3>
+        <div className="tip-nav">
+          <span className="tip-dots" aria-hidden="true">
+            {tips.map((_, k) => (
+              <i key={k} className={k === i ? 'on' : ''} />
+            ))}
+          </span>
+          <button className="icon-btn bare" aria-label="Previous tip" onClick={() => step(-1)}>
+            <ChevronLeft size={18} />
+          </button>
+          <button className="icon-btn bare" aria-label="Next tip" onClick={() => step(1)}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+      <div className="card-body">
+        <p className="tip-en">
+          {t.en}{' '}
+          {t.to && (
+            <Link to={t.to} className="small">
+              {t.link} →
+            </Link>
+          )}
+        </p>
+        {urdu && (
+          <p className="tip-ur" lang="ur" dir="rtl">
+            {t.ur}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
