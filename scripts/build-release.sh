@@ -82,9 +82,14 @@ for os in windows linux; do
 		GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui" -o "$out/VeridianEInvoicing.exe" ./cmd/launcher
 		sign "$out/einvoice.exe" "$out/VeridianEInvoicing.exe"
 	fi
-	cp README.md LICENSE THIRD-PARTY-NOTICES.txt "$out/"
+	cp LICENSE THIRD-PARTY-NOTICES.txt "$out/"
+	if [ "$os" = "windows" ]; then cp packaging/windows/README-client.txt "$out/README.txt"; else cp README.md "$out/"; fi
+	# Client guides only: the vendor guides (licensing, architecture) stay in the repository.
 	mkdir -p "$out/docs"
-	cp docs/*.md "$out/docs/" 2>/dev/null || true
+	for d in USER-MANUAL INSTALLATION FBR-ONBOARDING-GUIDE FBR-COMPLIANCE-GUIDE MOBILE-AND-REMOTE-ACCESS ERP-INTEGRATION-API; do
+		cp "docs/$d.md" "$out/docs/"
+	done
+	cp docs/Veridian-E-invoicing-Pakistan-User-Guide.pdf "$out/docs/" 2>/dev/null || true
 done
 cp packaging/linux/einvoice.service packaging/linux/install.sh dist/linux-amd64/
 

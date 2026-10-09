@@ -72,6 +72,8 @@ The installer is built with NSIS (`sudo apt install nsis` on Ubuntu, or `choco i
 
 The release script prints a loud warning if `LICENSE_PUBKEY` is empty.
 
+Client packages carry only the client guides: the user guide (PDF) and user manual, installation, FBR onboarding and compliance, mobile access and the ERP integration API. This guide and the architecture document stay with you.
+
 **Code signing (recommended).** Windows SmartScreen warns about installers from an unknown publisher ("Windows protected your PC"). Buy an OV or EV code-signing certificate in your company's name from a certificate authority such as DigiCert, Sectigo or GlobalSign. Then either add it to the Release workflow (secrets `CODESIGN_PFX_BASE64` and `CODESIGN_PASSWORD`; see `.github/workflows/release.yml`), or build locally with `CODESIGN_PFX=cert.pfx CODESIGN_PASSWORD=… sh scripts/build-release.sh` (needs `osslsigncode`). The programs and the installer are then signed and time-stamped, and Windows shows your company as the publisher.
 
 Before your first release, set your company name and support contact in `internal/brand/brand.go` (`Vendor`, `SupportContact`). They appear in the UI.
