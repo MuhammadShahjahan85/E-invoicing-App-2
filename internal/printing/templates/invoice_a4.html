@@ -54,6 +54,8 @@
   .notice { border: 1px solid #c00; color: #a00; padding: 4px 8px; margin: 6px 0; font-weight: 600; font-size: 9pt; }
   .copy { font-size: 8pt; border: 1px solid #555; padding: 1px 6px; border-radius: 3px; }
   .copy-sheet + .copy-sheet { page-break-before: always; break-before: page; }
+  .offline { border: 1px dashed #777; padding: 3px 8px; margin: 6px 0; }
+  .mono { font-family: Consolas, "Courier New", monospace; }
 </style>
 </head>
 <body>
@@ -99,13 +101,17 @@
     <table class="meta">
       <tr><td class="k">Invoice No.</td><td><b>{{.Invoice.InternalNo}}</b></td></tr>
       <tr><td class="k">Date</td><td>{{.InvoiceDate}}</td></tr>
+      {{if .TaxPeriod}}<tr><td class="k">Tax period</td><td>{{.TaxPeriod}}</td></tr>{{end}}
       {{if .Invoice.FBRDated}}<tr><td class="k">FBR Date/Time</td><td>{{.Invoice.FBRDated}}</td></tr>{{end}}
       {{if .Invoice.InvoiceRefNo}}<tr><td class="k">{{if .IsDebitNote}}Against FBR Inv.{{else}}Reference{{end}}</td><td>{{.Invoice.InvoiceRefNo}}</td></tr>{{end}}
       {{if .Invoice.ExternalRef}}<tr><td class="k">Your Ref.</td><td>{{.Invoice.ExternalRef}}</td></tr>{{end}}
+      {{if .Invoice.AdvanceRef}}<tr><td class="k">Advance adjusted</td><td>{{.Invoice.AdvanceRef}}</td></tr>{{end}}
     </table>
   </div>
+  {{if .AdvanceNote}}<div class="offline small">{{.AdvanceNote}}</div>{{end}}
 
   {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+  {{if .OfflineIssued}}<div class="offline small">{{.OfflineIssued}}</div>{{end}}
 
   <div class="parties">
     <div class="box">
@@ -121,6 +127,7 @@
       <div><b>Origination of supply:</b> {{.Invoice.SellerProvince}}</div>
       <div><b>Destination of supply:</b> {{.Invoice.BuyerProvince}}</div>
       <div><b>Document type:</b> {{.Invoice.DocType}}</div>
+      <div><b>Invoicing software:</b> {{.ProductName}}{{if .SoftwareRegNo}} · Reg. No. {{.SoftwareRegNo}}{{end}}</div>
       {{if .Invoice.WithholdingMode}}<div><b>Buyer is a sales tax withholding agent</b></div>{{end}}
       {{if .Invoice.ScenarioID}}<div class="small muted">Sandbox scenario {{.Invoice.ScenarioID}}</div>{{end}}
     </div>
@@ -146,7 +153,8 @@
       <tr>
         <td class="c">{{.No}}</td>
         <td class="desc">{{.Description}}
-          <div class="sub">{{if $.Settings.ShowHSCode}}HS {{.HSCode}} · {{end}}{{.SaleType}}{{if .SRO}} · {{.SRO}}{{end}}</div></td>
+          <div class="sub">HS {{.HSCode}} · {{.SaleType}}{{if .SRO}} · {{.SRO}}{{end}}</div>
+          {{if .FEDNote}}<div class="sub">{{.FEDNote}}</div>{{end}}</td>
         <td class="n">{{.Qty}}</td><td class="c">{{.UoM}}</td>
         {{if $.Settings.ShowUnitPrice}}<td class="n">{{.UnitPrice}}</td>{{end}}
         {{if $.Cols.Discount}}<td class="n">{{.Discount}}</td>{{end}}
@@ -177,14 +185,13 @@
       <tr><td>Value excluding sales tax</td><td class="n">{{.T.Value}}</td></tr>
       {{if .Cols.Retail}}<tr><td>Retail price excl. sales tax (Third Schedule)</td><td class="n">{{.T.Retail}}</td></tr>{{end}}
       <tr><td>Sales tax</td><td class="n">{{.T.SalesTax}}</td></tr>
-      {{if .Cols.Further}}<tr><td>Further tax</td><td class="n">{{.T.FurtherTax}}</td></tr>{{end}}
-      {{if .Cols.Extra}}<tr><td>Extra tax</td><td class="n">{{.T.ExtraTax}}</td></tr>{{end}}
-      {{if .Cols.FED}}<tr><td>Federal excise duty{{if .Cols.FEDInValue}} (included in the value above){{end}}</td><td class="n">{{.T.FED}}</td></tr>{{end}}
+      <tr><td>Further tax</td><td class="n">{{.T.FurtherTax}}</td></tr>
+      <tr><td>Extra tax</td><td class="n">{{.T.ExtraTax}}</td></tr>
+      <tr><td>{{if .Cols.FEDInValue}}Federal excise duty (included in the value above){{else}}Federal excise duty in sales tax mode{{end}}</td><td class="n">{{.T.FED}}</td></tr>
+      <tr><td>Total discount</td><td class="n">{{.T.Discount}}</td></tr>
       <tr class="grand"><td>Value inclusive of taxes</td><td class="n">{{.T.Total}}</td></tr>
-      {{if .Cols.Withheld}}
       <tr><td>Less: sales tax withheld at source</td><td class="n">({{.T.Withheld}})</td></tr>
-      <tr class="grand"><td>Amount payable</td><td class="n">{{.T.Payable}}</td></tr>
-      {{end}}
+      {{if .Cols.Withheld}}<tr class="grand"><td>Amount payable</td><td class="n">{{.T.Payable}}</td></tr>{{end}}
     </table>
   </div>
 
@@ -193,7 +200,7 @@
   <footer>
     <div class="small muted">
       {{.Settings.FooterText}}<br>
-      {{if .Invoice.SealHash}}Integrity seal: {{.ShortSeal}} · {{end}}Printed {{.PrintedAt}} · {{.ProductName}} by {{.Developer}}
+      {{if .Signature}}<b>Digital signature:</b> <span class="mono">{{.Signature}}</span>{{if .SigningKey}} (Ed25519 key {{.SigningKey}}){{end}} · {{end}}{{if .Invoice.SealHash}}Integrity seal: {{.ShortSeal}} · {{end}}Printed {{.PrintedAt}} · {{.ProductName}} by {{.Developer}}
     </div>
     {{if .Settings.ShowSignature}}<div class="sign">Authorised signature</div>{{end}}
   </footer>

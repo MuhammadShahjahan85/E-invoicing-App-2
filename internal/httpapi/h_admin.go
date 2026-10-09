@@ -144,7 +144,7 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 
 func (s *Server) handleAuditVerify(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	// The full integrity check (audit chain plus invoice seals) opens a
-	// tampering incident when it finds a problem (Rule 150R).
+	// tampering incident when it finds a problem (rule 150XA(c)).
 	rep, err := s.Svc.CheckIntegrity(r.Context())
 	if err != nil {
 		s.fail(w, err)
@@ -319,14 +319,15 @@ td{padding:2px 8px 2px 0;vertical-align:top} .blank{display:inline-block;min-wid
 <script nonce="{{.Nonce}}">document.getElementById('print-btn').addEventListener('click', function () { window.print(); });</script>
 <p>Date: {{.Today}}</p>
 <p>To,<br>The Commissioner Inland Revenue,<br><span class="blank"></span> (Zone / RTO / LTO / CTO)<br>Federal Board of Revenue</p>
-<p>Copy to: Chief (IR Operations), FBR, Islamabad; Digital Invoicing Help Desk, PRAL.</p>
-<p><b>Subject: Intimation of operational failure / disruption of the electronic invoicing system under rule 150R of the Sales Tax Rules, 2006</b></p>
+<p>Copy to: Chief (IR Operations), Federal Board of Revenue, Islamabad; Digital Invoicing support, PRAL (dicrm.pral.com.pk).</p>
+<p><b>Subject: Intimation of operational failure / disruption of the electronic invoicing system under rule 150XA of the Sales Tax Rules, 2006</b></p>
 <p>Respected Sir/Madam,</p>
-<p>In compliance with rule 150R of the Sales Tax Rules, 2006, we hereby report the following disruption of our electronic invoicing system integrated with the Board's Digital Invoicing System:</p>
+<p>In compliance with clauses (c) and (d) of rule 150XA of the Sales Tax Rules, 2006, we hereby report to the Board and the Commissioner the following disruption of our electronic invoicing system integrated with the Board's Digital Invoicing System:</p>
 <table>
 <tr><td>Registered person</td><td><b>{{.Company.Name}}</b></td></tr>
 <tr><td>NTN / CNIC</td><td>{{.Company.NTNCNIC}}{{if .Company.STRN}} &nbsp; STRN: {{.Company.STRN}}{{end}}</td></tr>
 <tr><td>Address</td><td>{{.Company.Address}}{{if .Company.City}}, {{.Company.City}}{{end}}</td></tr>
+<tr><td>Invoicing software</td><td>{{.Product}}{{if .Company.SoftwareRegNo}} (software registration no. {{.Company.SoftwareRegNo}}){{end}}</td></tr>
 <tr><td>Nature of incident</td><td>{{.Kind}}</td></tr>
 <tr><td>Started</td><td>{{.Started}}</td></tr>
 <tr><td>Ended</td><td>{{if .Ended}}{{.Ended}}{{else}}Continuing at the time of this letter{{end}}</td></tr>
@@ -337,7 +338,7 @@ td{padding:2px 8px 2px 0;vertical-align:top} .blank{display:inline-block;min-wid
 <tr><th>Invoice No.</th><th>Date</th><th>Status</th><th>FBR Invoice No.</th></tr>
 {{range .Invoices}}<tr><td>{{.InternalNo}}</td><td>{{.InvoiceDate}}</td><td>{{.Status}}</td><td>{{.FBRInvoiceNumber}}</td></tr>{{end}}
 </table>{{end}}
-<p>All invoices issued during the disruption were recorded in our system and are being / have been transmitted to the Board's computerized system upon restoration. We shall extend full cooperation for any verification.</p>
+<p>All invoices issued during the disruption were recorded in our system, are identified as issued in the offline mode and are being / have been uploaded to the Board's computerized system within 24 hours of restoration as required by rule 150XC. We shall extend full cooperation for any verification.</p>
 <p>Yours faithfully,</p>
 <p><br><span class="blank"></span><br>Authorised signatory<br>{{.Company.Name}}<br>{{.Company.Phone}} {{.Company.Email}}</p>
 </body></html>`))
@@ -381,7 +382,7 @@ func (s *Server) handleIncidentLetter(w http.ResponseWriter, r *http.Request, rc
 		kind = inc.Kind
 	}
 	nonce := security.RandomToken(18)
-	data := map[string]any{"Company": c, "Incident": inc, "Kind": kind, "Started": fmtPKT(inc.StartedAt), "Ended": "", "Nonce": nonce,
+	data := map[string]any{"Company": c, "Incident": inc, "Kind": kind, "Started": fmtPKT(inc.StartedAt), "Ended": "", "Nonce": nonce, "Product": brand.ProductName,
 		"Today": time.Now().In(service.PKT).Format("02-Jan-2006"), "Invoices": invs}
 	if inc.EndedAt != "" {
 		data["Ended"] = fmtPKT(inc.EndedAt)

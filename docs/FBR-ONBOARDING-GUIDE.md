@@ -24,9 +24,19 @@ On IRIS, open **Digital Invoicing** and submit the integration request:
 
 1. Choose **PRAL** as the integrator. PRAL integration is free.
 2. Veridian E-invoicing Pakistan is the client's own e-invoicing system. It calls FBR's DI API directly with the client's security token, so no third party sees the data.
-3. If the client prefers a licensed integrator, that integrator issues the credentials instead (**Verify** the current list on fbr.gov.pk).
+3. If the client prefers another licensed integrator, that integrator handles the request and the IP whitelisting instead. FBR's list (October 2026) is under **Help → Documents & integrators** and on fbr.gov.pk.
 
-Provide the technical details IRIS asks for, including the static public IP to be whitelisted.
+Then enter the technical details and the IP addresses (PRAL Digital Invoicing User Manual v1.5). **Settings → FBR integration → Registration on IRIS** shows exactly what to type, with copy buttons:
+
+| IRIS field | Value |
+|---|---|
+| Technical contact person, mobile, e-mail | The client's or your own contact |
+| ERP / System Provider | Veridian Partners Consultancy Private Limited — Veridian E-invoicing Pakistan |
+| Software Type | On Premises |
+| Software Version | The version shown on the page (Help → Support) |
+| CRM user ID and password | The e-mail to be used on PRAL's support portal, dicrm.pral.com.pk |
+| Business Nature / Sector | As in Settings → Company; IRIS takes one sector for sandbox testing |
+| IP whitelisting | Hosting server company (ISP or data centre), country, and 1–3 static public IPs. **Find this server's public IP** on the same page shows the address the server's traffic comes from. PRAL accepts or rejects it within about two working hours. |
 
 ### Step 2 — Business activity and sector
 
@@ -82,7 +92,10 @@ From now on, every invoice saved with **Save & submit to FBR** is reported in re
 ### Step 8 — Go-live checklist
 
 - [ ] Invoice prefixes and print settings (logo, copies, terms) configured.
-- [ ] Official FBR Digital Invoicing logo uploaded (Settings → System).
+- [ ] The FBR Digital Invoicing logo prints on invoices (built in; replace it under Settings → System only if FBR issues a new one).
+- [ ] Software registration number recorded (Settings → FBR integration) and the **"Integrated with FBR" signboard** printed and displayed at each outlet (rule 150R(11)).
+- [ ] FED-liable products carry the FED particulars (type, rate as printed, Schedule/SRO and serial) — rule 150R(13)(aa)–(ff).
+- [ ] If goods move to the client's own warehouses, staff trained on **Stock transfer notes** (STGO 25 of 2026).
 - [ ] Customers (with FBR check) and products (HS code, UoM, sale type, rate, SRO) set up or imported.
 - [ ] User accounts with the right roles; no shared logins.
 - [ ] Printers tested (A4 and/or 80 mm thermal).
@@ -100,7 +113,11 @@ From now on, every invoice saved with **Save & submit to FBR** is reported in re
 | **Needs reconciliation** | FBR may have recorded the invoice, but no definite answer was received. Search for it on IRIS, then use **Reconcile with IRIS**: record the FBR number if found, otherwise resubmit or return it to draft. Never re-enter it as a new invoice — that could report the sale twice. |
 | Goods returned, or value reduced after supply (e.g. post-sale discount) | Raise a **Debit note** from the accepted invoice. It carries the original FBR number and cannot exceed the original invoice's value or sales tax (FBR errors 0036/0067). It reduces output tax in the period. For an upward price revision, issue a supplementary sale invoice for the difference. |
 | Invoice issued in error | Within **72 hours**: cancel it on IRIS, then **Cancel invoice** in the product with the reason and IRIS reference. After 72 hours: obtain the Commissioner's prior approval and enter its reference (STGO 01 of 2026). |
-| System failure, power failure, tampering, prolonged outage | Report to the Commissioner within **24 hours** (rule 150R). Open **Incident register**, print the letter (it lists invoices issued during the incident), send it, and record the date and reference. |
+| System failure, power failure, tampering, prolonged outage | Report to FBR and the Commissioner within **24 hours** (rule 150XA(c)/(d)). Open **Incident register**, print the letter (it lists invoices issued during the incident), send it, and record the date and reference. Invoices issued offline must reach FBR within 24 hours of restoration (rule 150XC). |
+| Payment received before supply | Issue an **advance receipt invoice** (tick the box on the invoice); on delivery invoice the balance and note the advance invoice (section 23(1), Finance Act 2026). |
+| Goods sent to the client's own warehouse (same STRN) | **Stock transfer note**, not an invoice (STGO 25 of 2026); record the receipt when the warehouse signs. |
+| FBR extends the return filing date | **Tax periods & returns → Record an FBR extension** with the notification's reference. |
+| Before filing the return | Download the **Annex-C reconciliation** and match every FBR number with Annex-C (rule 150XD(2)); check the period's closings show **Chain intact**. |
 | Token expiring | Generate a new production token on IRIS and save it before expiry. |
 | Monthly return | **Reports → Sales register** reconciles with Annexure-C. The tax summary and monthly summary support the return. |
 
@@ -118,12 +135,7 @@ Veridian E-invoicing Pakistan supports this path completely (Scenarios page, san
 
 ### 4.2 Becoming an FBR licensed integrator (optional)
 
-If you want to operate as an integrator yourself, apply under the licensing regime. Reported elements (**Verify** with the latest STGO/notification):
-
-- application to the Board, with documentation of technical capacity, security controls and business standing;
-- a licensing committee decides within 7 days;
-- the licence is valid for 5 years;
-- integrators must meet FBR's service, security and data-handling conditions.
+If you want to operate as an integrator yourself, apply under rules 150XE–150XQ of the Sales Tax Rules (Chapter XIV, SRO 69(I)/2025) through FBR's licensing committee; FBR publishes expressions of interest on its Digital Invoicing pages. The rules cover the application (150XH), the procedure for grant (150XI), the licensee's rights (150XJ), technical support (150XL), cancellation (150XN) and fees (150XO). Eight integrators are licensed as of October 2026, including PRAL, which provides integration free of cost under rule 150XF.
 
 The product can be used either way: as the client's own system under PRAL integration (the default), or as part of your services as a licensed integrator.
 

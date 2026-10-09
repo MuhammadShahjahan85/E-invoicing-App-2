@@ -165,6 +165,12 @@ func (s *Server) handleGetInvoice(w http.ResponseWriter, r *http.Request, rc *re
 		return
 	}
 	resp := map[string]any{"invoice": inv, "sealValid": inv.SealHash == "" || service.VerifySeal(inv)}
+	if inv.Signature != "" {
+		resp["signatureValid"] = s.Svc.SignatureValid(r.Context(), inv)
+		if k, err := s.Svc.SigningKey(r.Context()); err == nil {
+			resp["signingKey"] = k.Fingerprint
+		}
+	}
 	if t := service.IssuedAt(inv); !t.IsZero() {
 		resp["issuedAt"] = t.UTC().Format(time.RFC3339)
 	}
@@ -352,8 +358,14 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	q := r.URL.Query()
 	nonce := security.RandomToken(18)
 	var buf bytes.Buffer
+	var keyFP string
+	if inv.Signature != "" {
+		if k, err := s.Svc.SigningKey(ctx); err == nil {
+			keyFP = k.Fingerprint
+		}
+	}
 	err = printing.Render(&buf, c, inv, printing.Options{Format: q.Get("format"), AutoPrint: q.Get("autoprint") == "1", ShowToolbar: q.Get("toolbar") != "0",
-		CompanyLogo: logo, CompanyMime: mime, FBRLogo: fbrLogo, FBRLogoMime: fbrMime, Nonce: nonce})
+		CompanyLogo: logo, CompanyMime: mime, FBRLogo: fbrLogo, FBRLogoMime: fbrMime, Nonce: nonce, SigningKey: keyFP})
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -539,6 +551,13 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request, rc *reqCtx
 			rows = []store.PeriodRow{}
 		}
 		data, table = rows, service.MonthlyTable(rows)
+	case "annex-c":
+		rows, err := s.Svc.Store.AnnexCReconciliation(ctx, f)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		data, table = rows, service.AnnexCTable(rows)
 	case "customers":
 		rows, err := s.Svc.Store.CustomerSummary(ctx, f)
 		if err != nil {

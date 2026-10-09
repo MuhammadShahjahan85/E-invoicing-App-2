@@ -318,6 +318,12 @@ export function DeadlineList({ deadlines }: { deadlines: ReturnDeadline[] }) {
             <div className="dl-sub">
               {d.periodLabel} · due {longDate(d.due)}
             </div>
+            {d.originalDue && (
+              <div className="dl-sub" title={d.reference}>
+                Extended by FBR from {longDate(d.originalDue)}
+                {d.reference ? ` — ${d.reference}` : ''}
+              </div>
+            )}
           </div>
           <Countdown days={d.daysLeft} />
         </div>

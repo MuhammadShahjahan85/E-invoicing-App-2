@@ -490,6 +490,10 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .table tfoot td { font-weight: 700; background: var(--surface-2); border-top: 1px solid var(--border-strong); }
 .table .cell-title { font-weight: 600; }
+/* Label/value tables (e.g. IRIS registration details). */
+.kv-table th { width: 36%; white-space: normal; vertical-align: top; text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--text-2); background: none; border-bottom: 1px solid var(--border); }
+.kv-table td { padding: 9px 12px; }
+.kv-table tr:last-child th { border-bottom: none; }
 .table .cell-sub { font-size: 12px; color: var(--text-3); }
 .lines-table input, .lines-table select { padding: 6px 7px; font-size: 13px; min-height: 34px; border-radius: 7px; }
 .lines-table td { padding: 6px 5px; }
@@ -806,3 +810,14 @@ a.legend-row:hover { text-decoration: none; background: var(--surface-2); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 .spin { animation: spin 0.8s linear infinite; }
+
+/* FAQs (Help → FBR FAQs) */
+.faq-list { border-top: 1px solid var(--border); }
+.faq { border-bottom: 1px solid var(--border); padding: 0 18px; }
+.faq:last-child { border-bottom: none; }
+.faq summary { cursor: pointer; padding: 13px 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--text-3); font-weight: 400; font-size: 18px; line-height: 1; }
+.faq[open] summary::after { content: '\2013'; }
+.faq p { margin: 0 0 12px; font-size: 13.5px; color: var(--text-2); }
+.faq .faq-app { background: var(--primary-soft); color: var(--text); padding: 8px 12px; border-radius: 8px; }

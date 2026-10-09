@@ -65,7 +65,7 @@ export default function Audit() {
               ? ` Invoice seals: ${verify.problems.length} problem(s) — ${verify.problems.slice(0, 5).join('; ')}.`
               : ` Seals of ${verify.invoicesChecked} accepted invoices verified.`)}
           {(!verify.intact || !!verify.problems?.length) && (
-            <div className="small">A tampering incident has been opened in the incident register; Rule 150R requires it to be reported to the Commissioner within 24 hours.</div>
+            <div className="small">A tampering incident has been opened in the incident register; rule 150XA(c) requires it to be reported to FBR and the Commissioner within 24 hours.</div>
           )}
         </div>
       )}

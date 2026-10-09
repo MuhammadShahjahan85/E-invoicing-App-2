@@ -223,7 +223,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request, rc *req
 	out := map[string]any{
 		"environment": env, "stats": d, "connection": s.Svc.Connection(c.ID, env), "scenarios": scen,
 		"openIncidents": openIncidents, "unreportedIncidents": unreported, "tokenWarning": tokenWarn,
-		"license": s.License.Status(r.Context()), "deadlines": s.Svc.CompanyDeadlines(c),
+		"license": s.License.Status(r.Context()), "deadlines": s.Svc.CompanyDeadlines(r.Context(), c),
 	}
 	if recent, _, err := s.Svc.Store.ListInvoices(r.Context(), c.ID, store.InvoiceFilter{Environment: env, Limit: 6}); err == nil {
 		if recent == nil {

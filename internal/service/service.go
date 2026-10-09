@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,6 +70,13 @@ type Service struct {
 
 	notifyMu      sync.Mutex // one notification run at a time
 	lastNotifyRun time.Time
+
+	signMu       sync.Mutex // guards signKey
+	signKey      ed25519.PrivateKey
+	lastSignWarn time.Time // worker only: last "signing failed" log line
+
+	closeMu        sync.Mutex // one closing run at a time
+	lastClosingRun time.Time
 }
 
 // New builds the service.

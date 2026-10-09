@@ -33,6 +33,11 @@ const blankLine = (st?: SaleType): Line => ({
   fedRate: 0,
   sroScheduleNo: '',
   sroItemSerialNo: '',
+  fedType: '',
+  fedRateText: '',
+  fedUnitPrice: 0,
+  fedSro: '',
+  fedSroSerial: '',
 })
 
 interface Buyer {
@@ -72,6 +77,11 @@ function toPayloadItem(l: Line) {
     salesTax: l.salesTaxOverride ?? null,
     sroScheduleNo: l.sroScheduleNo,
     sroItemSerialNo: l.sroItemSerialNo,
+    fedType: l.fedType ?? '',
+    fedRateText: l.fedRateText ?? '',
+    fedUnitPrice: Number(l.fedUnitPrice) || 0,
+    fedSro: l.fedSro ?? '',
+    fedSroSerial: l.fedSroSerial ?? '',
   }
 }
 
@@ -96,6 +106,8 @@ export default function InvoiceEditor() {
   const [scenarioId, setScenarioId] = useState('SN001')
   const [notes, setNotes] = useState('')
   const [externalRef, setExternalRef] = useState('')
+  const [advanceReceipt, setAdvanceReceipt] = useState(false)
+  const [advanceRef, setAdvanceRef] = useState('')
   const [lines, setLines] = useState<Line[]>([blankLine(saleTypes[0])])
   const [computed, setComputed] = useState<Invoice | null>(null)
   const [computeError, setComputeError] = useState('')
@@ -135,6 +147,8 @@ export default function InvoiceEditor() {
         setScenarioId(invoice.scenarioId || 'SN001')
         setNotes(invoice.notes)
         setExternalRef(invoice.externalRef)
+        setAdvanceReceipt(!!invoice.advanceReceipt)
+        setAdvanceRef(invoice.advanceRef ?? '')
         setLines((invoice.items ?? []).map((it) => ({ ...it, key: keySeq++ })))
       })
       .catch(setLoadError)
@@ -152,9 +166,11 @@ export default function InvoiceEditor() {
       scenarioId: env === 'sandbox' ? scenarioId : '',
       notes,
       externalRef,
+      advanceReceipt: docType === 'Sale Invoice' && advanceReceipt,
+      advanceRef: docType === 'Sale Invoice' && !advanceReceipt ? advanceRef : '',
       items: lines.map(toPayloadItem),
     }),
-    [docType, date, buyer, invoiceRefNo, scenarioId, notes, externalRef, lines, env],
+    [docType, date, buyer, invoiceRefNo, scenarioId, notes, externalRef, advanceReceipt, advanceRef, lines, env],
   )
 
   // Track whether the user has changed anything yet.
@@ -317,6 +333,24 @@ export default function InvoiceEditor() {
             <Field label="Notes (printed)" span={2}>
               <input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Field>
+            {docType === 'Sale Invoice' && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="check">
+                  <input type="checkbox" checked={advanceReceipt} onChange={(e) => setAdvanceReceipt(e.target.checked)} /> Advance receipt invoice — payment
+                  received before the goods or services are supplied
+                </label>
+                <div className="small muted">
+                  {advanceReceipt
+                    ? 'Enter the advance received (excluding sales tax) as the value. Sales tax is due at the time of supply — delivery or payment, whichever is earlier (sections 2(44) and 23(1)). On delivery, invoice only the balance and mention this invoice.'
+                    : 'Leave unticked for a normal invoice.'}
+                </div>
+              </div>
+            )}
+            {docType === 'Sale Invoice' && !advanceReceipt && (
+              <Field label="Advance receipt invoices adjusted (optional)" hint="FBR numbers of earlier advance receipt invoices this supply settles" span={2}>
+                <input value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} />
+              </Field>
+            )}
           </div>
         </div>
         <BuyerCard buyer={buyer} setBuyer={setBuyer} provinces={provinces} cp={cp} />
@@ -655,6 +689,10 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
       furtherTaxMode: p.furtherTaxMode,
       extraTaxRate: p.extraTaxRate,
       fedRate: p.fedRate,
+      fedType: p.fedType ?? '',
+      fedRateText: p.fedRateText ?? '',
+      fedSro: p.fedSro ?? '',
+      fedSroSerial: p.fedSroSerial ?? '',
     })
     setPq('')
     setOpen(false)
@@ -699,7 +737,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
             )}
           </div>
           <button className="btn-link small" onClick={() => update({ showMore: !l.showMore })}>
-            {l.showMore ? '▾ fewer details' : '▸ SRO, retail price, further/extra tax, discount…'}
+            {l.showMore ? '▾ fewer details' : '▸ SRO, retail price, discount, further/extra tax, FED…'}
           </button>
           {c?.warnings?.map((w, i) => (
             <div key={i} className="small" style={{ color: 'var(--warning)' }}>
@@ -811,6 +849,37 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
               <Field label="FED rate % (charged separately)">
                 <input type="number" step="any" min="0" value={l.fedRate} onChange={(e) => update({ fedRate: num(e.target.value) })} />
               </Field>
+              <Field label="FED amount" hint="For a specific (per unit) duty; overrides the rate">
+                <input type="number" step="any" min="0" value={l.fedOverride ?? ''} onChange={(e) => update({ fedOverride: optNum(e.target.value) })} />
+              </Field>
+              {(Number(l.fedRate) > 0 || l.fedOverride != null || (c?.fed ?? 0) > 0 || !!l.fedType || /FED in ST Mode/.test(l.saleType)) && (
+                <>
+                  <div className="small" style={{ gridColumn: '1 / -1' }}>
+                    <b>Federal excise duty particulars</b> — printed on the invoice as rule 150R(13)(aa)–(ff) requires (SRO 1666(I)/2026).
+                  </div>
+                  <Field label="FED type">
+                    <input list={`fedtypes-${l.key}`} value={l.fedType ?? ''} onChange={(e) => update({ fedType: e.target.value })} />
+                    <datalist id={`fedtypes-${l.key}`}>
+                      <option value="Ad valorem" />
+                      <option value="Ad valorem on retail price" />
+                      <option value="Specific (per unit)" />
+                      <option value="In sales tax mode" />
+                    </datalist>
+                  </Field>
+                  <Field label="FED rate as printed" hint="e.g. Rs 4 per kg; blank prints the % rate">
+                    <input value={l.fedRateText ?? ''} onChange={(e) => update({ fedRateText: e.target.value })} />
+                  </Field>
+                  <Field label="Price per unit for FED">
+                    <input type="number" step="any" min="0" value={l.fedUnitPrice ?? 0} onChange={(e) => update({ fedUnitPrice: num(e.target.value) })} />
+                  </Field>
+                  <Field label="FED Schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
+                    <input value={l.fedSro ?? ''} onChange={(e) => update({ fedSro: e.target.value })} />
+                  </Field>
+                  <Field label="FED serial no.">
+                    <input value={l.fedSroSerial ?? ''} onChange={(e) => update({ fedSroSerial: e.target.value })} />
+                  </Field>
+                </>
+              )}
               <Field label="Value override" hint="Value excl. ST from your ERP">
                 <input type="number" step="any" value={l.valueOverride ?? ''} onChange={(e) => update({ valueOverride: optNum(e.target.value) })} />
               </Field>

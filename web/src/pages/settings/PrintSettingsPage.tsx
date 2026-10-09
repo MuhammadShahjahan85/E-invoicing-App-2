@@ -98,8 +98,8 @@ export default function PrintSettingsPage() {
             <label className="check">
               <input type="checkbox" checked={p.showSignature} onChange={(e) => set('showSignature', e.target.checked)} /> Signature / stamp boxes
             </label>
-            <label className="check">
-              <input type="checkbox" checked={p.showHsCode} onChange={(e) => set('showHsCode', e.target.checked)} /> HS code column
+            <label className="check" title="Rule 150R(13)(x) of the Sales Tax Rules requires the HS code on every electronic invoice">
+              <input type="checkbox" checked disabled /> HS code (always printed — rule 150R(13))
             </label>
             <label className="check">
               <input type="checkbox" checked={p.showUnitPrice} onChange={(e) => set('showUnitPrice', e.target.checked)} /> Unit price column

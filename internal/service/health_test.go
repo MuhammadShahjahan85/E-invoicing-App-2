@@ -47,7 +47,7 @@ func TestHealthPostingOutageNotMaskedByOtherCalls(t *testing.T) {
 	}
 }
 
-// Only production drives Rule 150R incidents: a healthy sandbox must not
+// Only production drives rule 150XA incidents: a healthy sandbox must not
 // close the production outage incident, and an isolated failure opens none.
 func TestOutageIncidentKeyedToProduction(t *testing.T) {
 	f := setup(t)

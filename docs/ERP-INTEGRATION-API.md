@@ -27,7 +27,7 @@ An administrator creates keys under **Settings → ERP API keys**. The key is sh
 
 | Allowed | Not allowed |
 |---|---|
-| Read masters and invoices; create and update customers and products; create, update, validate and submit invoices; read reports | Cancellations, debit notes and reconciliation; company settings and FBR tokens; users and system settings — these stay with authorised users in the web UI |
+| Read masters and invoices; create and update customers and products; create, update, validate and submit invoices; create stock transfer notes and record their receipt; read reports and closings | Cancellations (of invoices and stock transfer notes), debit notes and reconciliation; company settings, return filing extensions and FBR tokens; users and system settings — these stay with authorised users in the web UI |
 
 Revoking a key takes effect immediately.
 
@@ -40,7 +40,7 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | POST | `/invoices` | Create an invoice (optionally submit to FBR at once) |
 | POST | `/invoices/compute` | Calculate taxes and validation issues without saving |
 | GET | `/invoices` | List invoices. Query: `status` (comma-separated), `docType`, `from`, `to` (YYYY-MM-DD), `q`, `env`, `limit` (default 50), `offset` |
-| GET | `/invoices/{id}` | Invoice detail: `{ "invoice": {...}, "sealValid": true, "original": {...}?, "debitNotes": {...}? }` |
+| GET | `/invoices/{id}` | Invoice detail: `{ "invoice": {...}, "sealValid": true, "signatureValid": true?, "signingKey": "XXXX-XXXX-XXXX-XXXX"?, "original": {...}?, "debitNotes": {...}? }`. `invoice.signature` is the Base64 Ed25519 digital signature recorded on acceptance (rule 150R(4)(b)) |
 | GET | `/invoice-by-ref/{externalRef}` | Find an invoice by your ERP reference. Optional `?env=` |
 | PUT | `/invoices/{id}` | Replace the content of a Draft, Validated or Rejected invoice |
 | DELETE | `/invoices/{id}` | Delete a draft that was never reported |
@@ -61,7 +61,13 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | GET | `/ref/rates?saleType=&date=` | Rates allowed by FBR for a sale type on a date |
 | GET | `/ref/sro-schedules?rateId=&date=`, `/ref/sro-items?sroId=&date=` | SRO references |
 | GET | `/ref/hs-uom?hsCode=` | UoM expected by FBR for an HS code |
-| GET | `/reports/{register\|tax-summary\|monthly\|customers}` | Reports. Query: `from`, `to`, `env`, `format=csv\|xlsx` |
+| GET | `/reports/{register\|tax-summary\|monthly\|customers\|annex-c}` | Reports. Query: `from`, `to`, `env`, `format=csv\|xlsx`. `annex-c` lists every document with an FBR number in the period, including cancelled ones, for matching with Annex-C (rule 150XD(2)) |
+| GET | `/closings` | Day, week and month closings (rule 150R(4)(f)). Query: `kind=day\|week\|month` (all when omitted), `limit`, `env`. Response: `{ "closings": [...], "checked": 12, "chainOk": true }` |
+| GET | `/return-extensions` | FBR filing-date extensions recorded for the company |
+| GET / POST | `/stock-transfers` | List stock transfer notes (`from`, `to`, `status=DISPATCHED\|RECEIVED\|CANCELLED`, `q`, `limit`, `offset`) / create a note (§3.4) |
+| GET | `/stock-transfers/{id}` | Note with its lines |
+| POST | `/stock-transfers/{id}/receive` | `{ "receivedBy": "Name, designation", "receivedAt": "2026-10-09T16:30" }` (time optional, Pakistan time) |
+| GET | `/stock-transfers/{id}/print` | Printable note (despatch and warehouse copies) |
 
 ## 3. Creating an invoice
 
@@ -108,6 +114,8 @@ All paths are relative to `/api/v1/companies/{cid}`.
 | `refInvoiceId` | number | No | Internal id of the original invoice (debit notes) |
 | `scenarioId` | string | Sandbox only | `SN001`–`SN028`; ignored outside the sandbox |
 | `notes` | string | No | Printed on the invoice |
+| `advanceReceipt` | boolean | No | `true` for an **advance receipt invoice**: payment received before the supply (s.23(1) and s.2(44)). Reported like a sale invoice and printed as "ADVANCE RECEIPT INVOICE". Sale invoices only. |
+| `advanceRef` | string | No | On a final invoice: the FBR numbers of the advance receipt invoices it adjusts (printed) |
 | `submit` | boolean | No | `true` = report to FBR immediately after saving |
 | `environment` | string | No | Normally omitted. Invoices always use the company's working environment (Settings → FBR integration). If sent, it must equal that environment, otherwise 422. |
 | `items` | array | Yes | At least one line |
@@ -133,6 +141,7 @@ Optional override fields replace the tax engine's calculation. Use them when you
 | `furtherTax`, `salesTax`, `extraTax`, `fed`, `stWithheld` | number | *Overrides* |
 | `extraTaxRate`, `fedRate` | number | Percentages |
 | `sroScheduleNo`, `sroItemSerialNo` | string | Required for SRO-based sale types (reduced rate, exempt, etc.) |
+| `fedType`, `fedRateText`, `fedUnitPrice`, `fedSro`, `fedSroSerial` | string / number | Federal excise duty particulars of rule 150R(13)(aa)–(ff) (SRO 1666(I)/2026): FED type (e.g. `"Ad valorem"`, `"Specific (per unit)"`), the rate as printed when it is not a percentage (e.g. `"Rs 4 per kg"`), the price per unit for FED, and the FED Schedule/SRO reference and serial number. Printed on the invoice, not sent to FBR (the DI API has no fields for them). Blanks are taken from the product |
 
 ### 3.3 Sending an FBR-format payload unchanged
 
@@ -143,6 +152,32 @@ If your ERP already produces FBR's DI JSON, send it in `fbrPayload`. The amounts
 ```
 
 The seller fields are always taken from the company profile.
+
+### 3.4 Stock transfer notes
+
+Goods moved to the company's own warehouse under the **same STRN** are not a supply and are not reported to FBR; Sales Tax General Order 25 of 2026 requires a stock transfer note instead.
+
+```http
+POST /api/v1/companies/1/stock-transfers
+X-API-Key: eik_…
+Content-Type: application/json
+
+{
+  "dispatchedAt": "2026-10-09T10:15",
+  "toName": "Own warehouse, Port Qasim",
+  "toAddress": "Plot 7, Port Qasim, Karachi",
+  "vehicleNo": "JX-1234",
+  "driverCnic": "4210112345671",
+  "authorisedBy": "Store manager",
+  "sameStrn": true,
+  "items": [
+    { "productId": 12, "quantity": 500, "valueAtCost": 100000 },
+    { "description": "Empty bags", "quantity": 1000, "uom": "Numbers, pieces, units", "valueAtCost": 2500 }
+  ]
+}
+```
+
+`sameStrn` must be `true` (otherwise 422: issue a sales tax invoice). `fromName` / `fromAddress` default to the company. Lines take `productId` (or describe the goods with `description`, `hsCode`, `uom`); `quantity` must be positive. The response is the note with its number (`STN-000001`, …) and status `DISPATCHED`.
 
 ## 4. Responses
 

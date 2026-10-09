@@ -87,6 +87,23 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/companies/{cid}/reports/{kind}", s.perm(PermReports, s.handleReport))
 	m.HandleFunc("GET /api/v1/companies/{cid}/calls", s.perm(PermReports, s.handleCalls))
 
+	// Chapter XIV requirements: closings (rule 150R(4)(f)), return filing
+	// extensions, Stock Transfer Notes (STGO 25 of 2026), the "Integrated
+	// with FBR" signboard (rule 150R(11)) and the invoice signing key.
+	m.HandleFunc("GET /api/v1/companies/{cid}/closings", s.perm(PermReports, s.handleClosings))
+	m.HandleFunc("GET /api/v1/companies/{cid}/return-extensions", s.perm(PermRead, s.handleListExtensions))
+	m.HandleFunc("PUT /api/v1/companies/{cid}/return-extensions/{period}", s.perm(PermCompanyWrite, s.handleSetExtension))
+	m.HandleFunc("DELETE /api/v1/companies/{cid}/return-extensions/{period}", s.perm(PermCompanyWrite, s.handleDeleteExtension))
+	m.HandleFunc("GET /api/v1/companies/{cid}/stock-transfers", s.perm(PermRead, s.handleListTransfers))
+	m.HandleFunc("POST /api/v1/companies/{cid}/stock-transfers", s.perm(PermInvoiceWrite, s.handleCreateTransfer))
+	m.HandleFunc("GET /api/v1/companies/{cid}/stock-transfers/{id}", s.perm(PermRead, s.handleGetTransfer))
+	m.HandleFunc("POST /api/v1/companies/{cid}/stock-transfers/{id}/receive", s.perm(PermInvoiceWrite, s.handleReceiveTransfer))
+	m.HandleFunc("POST /api/v1/companies/{cid}/stock-transfers/{id}/cancel", s.perm(PermInvoiceManage, s.handleCancelTransfer))
+	m.HandleFunc("GET /api/v1/companies/{cid}/stock-transfers/{id}/print", s.perm(PermRead, s.handlePrintTransfer))
+	m.HandleFunc("GET /api/v1/companies/{cid}/signboard", s.perm(PermRead, s.handleSignboard))
+	m.HandleFunc("GET /api/v1/system/signing-key", s.perm(PermSelf, s.handleSigningKey))
+	m.HandleFunc("GET /api/v1/system/public-ip", s.perm(PermCompanyWrite, s.handlePublicIP))
+
 	// Incidents.
 	m.HandleFunc("GET /api/v1/companies/{cid}/incidents", s.perm(PermRead, s.handleListIncidents))
 	m.HandleFunc("POST /api/v1/companies/{cid}/incidents", s.perm(PermIncidents, s.handleSaveIncident))

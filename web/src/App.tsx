@@ -26,6 +26,7 @@ import {
   Server,
   ShieldAlert,
   Smartphone,
+  Truck,
   Upload,
   UserCog,
   Users as UsersIcon,
@@ -59,6 +60,7 @@ import SystemPage from './pages/settings/SystemPage'
 import MobileAccess from './pages/MobileAccess'
 import ReferenceLibrary from './pages/ReferenceLibrary'
 import Compliance from './pages/Compliance'
+import StockTransfers from './pages/StockTransfers'
 import { BrandMark } from './components/Brand'
 import { AlertsBell, AlertsProvider, GlobalSearch, UserMenu, useAlerts } from './components/Header'
 
@@ -227,6 +229,7 @@ function Shell() {
               <Route path="/invoices/:id" element={<InvoiceView />} />
               <Route path="/invoices/:id/edit" element={<InvoiceEditor />} />
               <Route path="/import" element={<ImportPage />} />
+              <Route path="/stock-transfers" element={<StockTransfers />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/products" element={<Products />} />
               <Route path="/library" element={<ReferenceLibrary />} />
@@ -286,6 +289,7 @@ function Sidebar() {
         { to: '/invoices/new', label: 'New invoice', icon: FilePlus2, perm: 'invoice.write' },
         { to: '/invoices', label: 'Invoices', icon: FileText, end: true, badge: attention },
         { to: '/import', label: 'Import (CSV / Excel)', icon: Upload, perm: 'invoice.write' },
+        { to: '/stock-transfers', label: 'Stock transfer notes', icon: Truck },
       ],
     },
     {

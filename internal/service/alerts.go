@@ -87,7 +87,7 @@ func (s *Service) companyAlerts(ctx context.Context, c *store.Company, env domai
 	}
 	if _, unreported, err := s.Store.IncidentCounts(ctx, c.ID); err == nil && unreported > 0 {
 		add("incidents", "warning", fmt.Sprintf("%d incident(s) not reported to FBR", unreported),
-			"Rule 150R requires operational failures to be reported to FBR within 24 hours. Record the report reference in the incident register.",
+			"Rule 150XA(c) requires operational failures, disruptions and tampering to be reported to FBR and the Commissioner within 24 hours. Record the report reference in the incident register.",
 			"/incidents")
 	}
 	if env == domain.EnvProduction && c.ProductionTokenExpiry != "" {
@@ -96,7 +96,7 @@ func (s *Service) companyAlerts(ctx context.Context, c *store.Company, env domai
 				"Generate a new token on IRIS and save it under FBR integration before it expires.", "/settings/fbr")
 		}
 	}
-	for _, dl := range s.CompanyDeadlines(c) {
+	for _, dl := range s.CompanyDeadlines(ctx, c) {
 		if dl.DaysLeft < 0 || dl.DaysLeft > 5 {
 			continue
 		}

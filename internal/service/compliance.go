@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"einvoicing/internal/domain"
@@ -22,6 +23,43 @@ type ReturnDeadline struct {
 	Kind        string `json:"kind"`        // "payment" or "filing"
 	Due         string `json:"due"`         // YYYY-MM-DD
 	DaysLeft    int    `json:"daysLeft"`    // negative once overdue
+	// OriginalDue and Reference are set when FBR extended the filing date.
+	OriginalDue string `json:"originalDue,omitempty"`
+	Reference   string `json:"reference,omitempty"`
+}
+
+// applyExtension moves the filing deadline of a period to the date FBR
+// extended it to. Payment dates are not changed: FBR's extension orders keep
+// the condition that tax is deposited by the original due date.
+func applyExtension(dls []ReturnDeadline, ext *store.ReturnExtension, today time.Time) []ReturnDeadline {
+	if ext == nil {
+		return dls
+	}
+	due, err := time.ParseInLocation("2006-01-02", ext.FilingDate, PKT)
+	if err != nil {
+		return dls
+	}
+	for i := range dls {
+		if dls[i].Kind == "filing" && dls[i].Period == ext.Period {
+			dls[i].OriginalDue, dls[i].Reference = dls[i].Due, ext.Reference
+			dls[i].Due = due.Format("2006-01-02")
+			dls[i].DaysLeft = int(math.Round(due.Sub(dayStart(today)).Hours() / 24))
+		}
+	}
+	sort.SliceStable(dls, func(i, j int) bool { return dls[i].Due < dls[j].Due })
+	return dls
+}
+
+// periodDeadlines returns a company's deadlines for a period, with any
+// filing extension recorded for it.
+func (s *Service) periodDeadlines(ctx context.Context, c *store.Company, p time.Time) []ReturnDeadline {
+	pd, fd := returnDays(c)
+	dls := PeriodDeadlines(p, pd, fd, s.Now())
+	ext, err := s.Store.ReturnExtensionFor(ctx, c.ID, p.Format("2006-01"))
+	if err != nil {
+		return dls
+	}
+	return applyExtension(dls, ext, s.Now())
 }
 
 func dayStart(t time.Time) time.Time {
@@ -81,10 +119,51 @@ func UpcomingDeadlines(today time.Time, paymentDay, filingDay int) []ReturnDeadl
 	return PeriodDeadlines(time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, PKT), paymentDay, filingDay, t)
 }
 
-// CompanyDeadlines returns the upcoming return deadlines of a company.
-func (s *Service) CompanyDeadlines(c *store.Company) []ReturnDeadline {
-	p, f := returnDays(c)
-	return UpcomingDeadlines(s.Now(), p, f)
+// CompanyDeadlines returns the upcoming return deadlines of a company: last
+// month's until its last deadline (including any FBR extension) has passed,
+// then this month's.
+func (s *Service) CompanyDeadlines(ctx context.Context, c *store.Company) []ReturnDeadline {
+	t := dayStart(s.Now())
+	prev := time.Date(t.Year(), t.Month()-1, 1, 0, 0, 0, 0, PKT)
+	dls := s.periodDeadlines(ctx, c, prev)
+	if len(dls) > 0 && t.Format("2006-01-02") <= dls[len(dls)-1].Due {
+		return dls
+	}
+	return s.periodDeadlines(ctx, c, time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, PKT))
+}
+
+// SetReturnExtension records the filing date FBR extended for a tax period.
+func (s *Service) SetReturnExtension(ctx context.Context, a Actor, companyID int64, in store.ReturnExtension) (*store.ReturnExtension, error) {
+	p, err := time.ParseInLocation("2006-01", strings.TrimSpace(in.Period), PKT)
+	if err != nil {
+		return nil, Invalid("tax period must be YYYY-MM")
+	}
+	due, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(in.FilingDate), PKT)
+	if err != nil {
+		return nil, Invalid("the extended filing date must be YYYY-MM-DD")
+	}
+	if !due.After(p.AddDate(0, 1, -1)) {
+		return nil, Invalid("the extended filing date must be after the end of the tax period")
+	}
+	ref := strings.TrimSpace(in.Reference)
+	if ref == "" {
+		return nil, Invalid("enter the reference of FBR's extension order or circular (number and date)")
+	}
+	e := store.ReturnExtension{Period: p.Format("2006-01"), FilingDate: due.Format("2006-01-02"), Reference: truncate(ref, 300)}
+	if err := s.Store.SetReturnExtension(ctx, companyID, e, a.UserID); err != nil {
+		return nil, err
+	}
+	s.Audit(ctx, a, companyID, "return.extension", "company", fmt.Sprint(companyID), map[string]any{"period": e.Period, "filingDate": e.FilingDate, "reference": e.Reference})
+	return s.Store.ReturnExtensionFor(ctx, companyID, e.Period)
+}
+
+// DeleteReturnExtension removes a recorded extension.
+func (s *Service) DeleteReturnExtension(ctx context.Context, a Actor, companyID int64, period string) error {
+	if err := s.Store.DeleteReturnExtension(ctx, companyID, period); err != nil {
+		return err
+	}
+	s.Audit(ctx, a, companyID, "return.extension_removed", "company", fmt.Sprint(companyID), map[string]any{"period": period})
+	return nil
 }
 
 // PeriodReview summarises one tax period for the monthly return: what was
@@ -124,7 +203,7 @@ func (s *Service) ReviewPeriod(ctx context.Context, c *store.Company, env domain
 	}
 	var p time.Time
 	if period == "" {
-		p, _ = time.ParseInLocation("2006-01", s.CompanyDeadlines(c)[0].Period, PKT)
+		p, _ = time.ParseInLocation("2006-01", s.CompanyDeadlines(ctx, c)[0].Period, PKT)
 	} else {
 		var err error
 		p, err = time.ParseInLocation("2006-01", period, PKT)
@@ -134,9 +213,8 @@ func (s *Service) ReviewPeriod(ctx context.Context, c *store.Company, env domain
 	}
 	from := p.Format("2006-01-02")
 	to := p.AddDate(0, 1, -1).Format("2006-01-02")
-	pd, fd := returnDays(c)
 	r := &PeriodReview{Period: p.Format("2006-01"), PeriodLabel: p.Format("January 2006"), From: from, To: to, Environment: env,
-		Deadlines: PeriodDeadlines(p, pd, fd, s.Now()), Counts: map[string]int{}}
+		Deadlines: s.periodDeadlines(ctx, c, p), Counts: map[string]int{}}
 	f := store.ReportFilter{CompanyID: c.ID, Environment: env, From: from, To: to}
 	monthly, err := s.Store.MonthlySummary(ctx, f)
 	if err != nil {
@@ -198,7 +276,7 @@ func (s *Service) ReviewPeriod(ctx context.Context, c *store.Company, env domain
 			Detail: plural(r.Counts[string(domain.StatusDraft)]+r.Counts[string(domain.StatusValidated)], "draft is", "drafts are") +
 				" dated in this period. An invoice must be issued and reported at the time of supply; issue or delete them.",
 			Link: link("DRAFT,VALIDATED")},
-		{ID: "incidents", OK: unreportedIncidents == 0, Title: "Operational failures reported to FBR (rule 150R)",
+		{ID: "incidents", OK: unreportedIncidents == 0, Title: "Operational failures reported to FBR (rule 150XA)",
 			Detail: plural(unreportedIncidents, "incident in this period is", "incidents in this period are") + " not marked as reported. " +
 				"Report operational failures to FBR within 24 hours and record the reference.", Link: "/incidents"},
 	}
@@ -243,7 +321,8 @@ func (s *Service) DuplicateInvoice(ctx context.Context, a Actor, companyID, id i
 			Quantity: it.Quantity, UnitPrice: it.UnitPrice, DiscountPercent: it.DiscountPercent, DiscountAmount: it.DiscountAmount,
 			Value: it.ValueOverride, SaleType: it.SaleType, Rate: it.Rate, RetailPrice: it.RetailPrice, RetailValue: it.RetailValueOverride,
 			FurtherTaxMode: it.FurtherTaxMode, ExtraTaxRate: it.ExtraTaxRate, FEDRate: it.FEDRate,
-			SROScheduleNo: it.SROScheduleNo, SROItemSerialNo: it.SROItemSerialNo})
+			SROScheduleNo: it.SROScheduleNo, SROItemSerialNo: it.SROItemSerialNo,
+			FEDType: it.FEDType, FEDRateText: it.FEDRateText, FEDUnitPrice: it.FEDUnitPrice, FEDSRO: it.FEDSRO, FEDSROSerial: it.FEDSROSerial})
 	}
 	inv, err := s.CreateInvoice(ctx, a, companyID, in)
 	if err != nil {

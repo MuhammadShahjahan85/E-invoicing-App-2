@@ -326,3 +326,65 @@ func (s *Store) GetDashboard(ctx context.Context, companyID int64, env domain.En
 	}
 	return d, nil
 }
+
+// AnnexCRow is one document reported to FBR in a tax period. Rule 150XD(2) of
+// the Sales Tax Rules (as amended by SRO 1666(I)/2026) lets FBR recover tax
+// on any invoice transmitted with an FBR number but not accounted for in
+// Annex-C or the return, so every reported document must be matched.
+type AnnexCRow struct {
+	FBRInvoiceNumber  string          `json:"fbrInvoiceNumber"`
+	InvoiceDate       string          `json:"invoiceDate"`
+	DocType           string          `json:"docType"`
+	InternalNo        string          `json:"internalNo"`
+	InvoiceRefNo      string          `json:"invoiceRefNo"`
+	BuyerNTNCNIC      string          `json:"buyerNtnCnic"`
+	BuyerName         string          `json:"buyerName"`
+	BuyerRegistration string          `json:"buyerRegistrationType"`
+	BuyerProvince     string          `json:"buyerProvince"`
+	ValueExclST       decimal.Decimal `json:"valueExclST"`
+	SalesTax          decimal.Decimal `json:"salesTax"`
+	FurtherTax        decimal.Decimal `json:"furtherTax"`
+	ExtraTax          decimal.Decimal `json:"extraTax"`
+	FED               decimal.Decimal `json:"fed"`
+	STWithheld        decimal.Decimal `json:"stWithheld"`
+	TotalValue        decimal.Decimal `json:"totalValue"`
+	Status            string          `json:"status"` // ACCEPTED or CANCELLED
+	CancelReference   string          `json:"cancelReference"`
+	OfflineMode       bool            `json:"offlineMode"`
+}
+
+// AnnexCReconciliation returns the documents reported to FBR (including
+// those later cancelled) dated in the period, in date order.
+func (s *Store) AnnexCReconciliation(ctx context.Context, f ReportFilter) ([]AnnexCRow, error) {
+	args := []any{f.CompanyID, string(f.Environment)}
+	w := `company_id=? AND environment=? AND status IN ('ACCEPTED','CANCELLED') AND fbr_invoice_number<>''`
+	if f.From != "" {
+		w += ` AND invoice_date>=?`
+		args = append(args, f.From)
+	}
+	if f.To != "" {
+		w += ` AND invoice_date<=?`
+		args = append(args, f.To)
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT fbr_invoice_number, invoice_date, doc_type, internal_no, invoice_ref_no, buyer_ntn_cnic, buyer_name,
+		buyer_registration_type, buyer_province, total_value_excl_st, total_sales_tax, total_further_tax, total_extra_tax, total_fed,
+		total_st_withheld, total_value, status, cancel_reference, offline_since<>''
+		FROM invoices WHERE `+w+` ORDER BY invoice_date, accepted_at, id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AnnexCRow{}
+	for rows.Next() {
+		var r AnnexCRow
+		var v, st, ft, et, fed, wh, tv int64
+		if err := rows.Scan(&r.FBRInvoiceNumber, &r.InvoiceDate, &r.DocType, &r.InternalNo, &r.InvoiceRefNo, &r.BuyerNTNCNIC, &r.BuyerName,
+			&r.BuyerRegistration, &r.BuyerProvince, &v, &st, &ft, &et, &fed, &wh, &tv, &r.Status, &r.CancelReference, &r.OfflineMode); err != nil {
+			return nil, err
+		}
+		r.ValueExclST, r.SalesTax, r.FurtherTax, r.ExtraTax = Rupees(v), Rupees(st), Rupees(ft), Rupees(et)
+		r.FED, r.STWithheld, r.TotalValue = Rupees(fed), Rupees(wh), Rupees(tv)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

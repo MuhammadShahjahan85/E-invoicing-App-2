@@ -42,11 +42,11 @@ The red number counts what needs action now; a blue dot means there is only info
 | Notification | What to do |
 |---|---|
 | FBR not reachable / token rejected | Check the internet connection or the token under **FBR integration**. Invoices are queued meanwhile. |
-| Invoices not yet reported to FBR | Shown in red after 24 hours: invoices issued during an outage must be uploaded within 24 hours of the connection being restored. |
+| Invoices not yet reported to FBR | Shown in red after 24 hours: invoices issued during an outage are marked as issued in the offline mode and must be uploaded within 24 hours of the connection being restored (rule 150XC). |
 | Invoices rejected by FBR | Correct the errors and resubmit. |
 | Submissions need reconciliation | Check the invoice on IRIS and record the outcome. |
 | Draft invoices not yet issued | Issue them when the supply is made, or delete them. |
-| Incidents not reported to FBR | Rule 150R: report within 24 hours and record the reference. |
+| Incidents not reported to FBR | Rule 150XA(c): report to FBR and the Commissioner within 24 hours and record the reference. |
 | Pay sales tax / file the return in *n* days | Review the period on **Tax periods & returns**. |
 | FBR reference data not downloaded / out of date | Download it under **FBR reference library → Data sync**. |
 | Token or licence expiring, no recent backup | Renew, or check the backups (administrators). |
@@ -100,6 +100,7 @@ Sales figures by month, buyer and HS code are shown to roles that can see report
 | Printed retail price | Third Schedule goods: the price printed on the pack, which includes sales tax. Tax = printed price × rate ÷ (100 + rate), e.g. Rs 118 → Rs 18 at 18% |
 | Further tax | *Automatic* (unregistered buyers), *Always* or *Never* |
 | Extra tax / FED rate | Only where applicable |
+| FED type, FED rate as printed, FED Schedule / SRO, FED serial no. | For goods or services subject to federal excise duty. They are copied to each invoice line and printed, as rule 150R(13)(aa)–(ff) requires since SRO 1666(I)/2026. For a specific duty (rupees per unit), enter the rate as it should be printed, e.g. *Rs 4 per kg*, and the amount on the invoice line. |
 
 ## 4. Creating a sales tax invoice
 
@@ -107,9 +108,9 @@ Sales figures by month, buyer and HS code are shown to roles that can see report
 
 ![Invoice editor](images/invoice-editor.png)
 
-1. **Document:** type (*Sale Invoice* or *Debit Note*) and invoice date (today; report at the time of supply). Optionally add your reference, such as an order or ERP number; it prevents duplicates.
+1. **Document:** type (*Sale Invoice* or *Debit Note*) and invoice date (today; report at the time of supply). Optionally add your reference, such as an order or ERP number; it prevents duplicates. Tick **Advance receipt invoice** when you have received payment before supplying (see *Special cases*).
 2. **Buyer:** search the customer master, or type the buyer's details for a one-off sale (e.g. *Walk-in customer*, Unregistered). **Check with FBR** next to the NTN/CNIC asks FBR's Active Taxpayer List and registration type and sets *Registered* or *Unregistered* for you; a buyer picked from the master shows the status on file.
-3. **Lines:** type to search products, or enter a description, then set HS code, UoM, quantity, price, sale type and rate. If FBR prescribes a different unit for the HS code, the unit is flagged with **Use** to apply FBR's unit. Click **▸ SRO, retail price, further/extra tax, discount…** for the extra fields, including **Pick SRO / schedule from FBR** and **Pick serial no. from FBR**.
+3. **Lines:** type to search products, or enter a description, then set HS code, UoM, quantity, price, sale type and rate. If FBR prescribes a different unit for the HS code, the unit is flagged with **Use** to apply FBR's unit. Click **▸ SRO, retail price, discount, further/extra tax, FED…** for the extra fields, including **Pick SRO / schedule from FBR** and **Pick serial no. from FBR**.
 4. Taxes and totals are **calculated live** as you type:
    - value excluding tax, sales tax, further tax, extra tax, FED, withholding, total and amount payable;
    - warnings appear under the line; FBR's checks are listed at the top once you start entering the invoice. Put each product on one line: FBR may treat the same product on two lines as a duplicate, and the system warns about it.
@@ -127,7 +128,8 @@ After submission:
 |---|---|
 | Unregistered buyer | Further tax at 4% is added automatically to taxable lines (not to exempt or zero-rated lines). If your company is a **manufacturer or importer**, record the buyer's CNIC or NTN: section 23(1)(b) requires it and the system warns when it is missing. Other sellers are warned above Rs 100,000. |
 | Third Schedule goods | Enter the retail price printed on the pack per unit (it includes sales tax). The system reports the retail value excluding sales tax to FBR and charges 18% on it, i.e. printed price × 18 ÷ 118 |
-| Goods with federal excise duty | Set the FED rate (or amount) on the product. FED is part of the value of supply, so sales tax and further tax are charged on value + FED (section 2(46)) |
+| Goods with federal excise duty | Set the FED rate (or, for a specific duty, the FED amount on the line). FED is part of the value of supply, so sales tax and further tax are charged on value + FED (section 2(46)). Enter the **FED particulars** — type, rate as printed, price per unit, FED Schedule/SRO and serial no. — in the line details or once on the product; they are printed under the line (rule 150R(13)(aa)–(ff)). The system warns when they are missing. |
+| Advance received before supply | Sales tax is due at the time of supply — delivery or payment, whichever is earlier (section 2(44)) — and since the Finance Act 2026 section 23(1) requires an invoice with an FBR number for an advance receipt. Tick **Advance receipt invoice** and enter the advance (excluding sales tax) as the value. It is reported to FBR and printed as an **ADVANCE RECEIPT INVOICE**. On delivery, invoice only the balance and enter the advance invoice's FBR number under **Advance receipt invoices adjusted**. |
 | Reduced rate / exempt / zero-rated | Choose the sale type and rate, and enter the SRO schedule and serial number |
 | Withholding agent buyer | Set on the customer; *Amount payable* is reduced by the withheld tax |
 | Discounts | Enter an amount or percentage in the line details |
@@ -158,7 +160,13 @@ On an accepted invoice, click **Print A4** or **Print receipt (80 mm)**. The pri
 - seller and buyer particulars;
 - the lines with HS codes, rates and taxes;
 - amount in words;
-- the **FBR invoice number**, **QR code** and **FBR Digital Invoicing logo**.
+- the **FBR invoice number**, **QR code** and **FBR Digital Invoicing logo** (the official logo is built in);
+- the tax period, the HS code of each line, the total discount and the tax withheld;
+- the **software registration number** (Settings → FBR integration) and the **digital signature** with the signing key's fingerprint (rule 150R(4)(b));
+- FED particulars under each line subject to federal excise duty;
+- for invoices issued while FBR was unreachable, a note that the invoice was issued in offline mode and when FBR received it (rule 150XC).
+
+![Advance receipt invoice with FED particulars](images/advance-receipt-invoice.png)
 
 ![Printed invoice](images/print-a4.png)
 
@@ -219,6 +227,8 @@ On an accepted invoice, **Share** opens the phone's share sheet (WhatsApp, e-mai
 
 Re-importing a file never duplicates invoices whose `invoice_ref` already exists.
 
+Optional columns at the end of the template: `advance_receipt` (*yes* for an advance receipt invoice), `advance_ref` (on a final invoice, the advance invoices adjusted), and `fed_type`, `fed_rate_text`, `fed_unit_price`, `fed_sro`, `fed_sro_serial` for the FED particulars. Older files without these columns still import.
+
 ## 11. Reports
 
 ![Reports](images/reports.png)
@@ -229,6 +239,7 @@ Re-importing a file never duplicates invoices whose `invoice_ref` already exists
 - **Tax summary by sale type & rate**;
 - **Monthly summary (tax periods):** sale invoices, debit notes, net sales tax, tax withheld by buyers;
 - **Buyer-wise summary**;
+- **Annex-C reconciliation:** every document that received an FBR invoice number in the period, including those cancelled later, with the buyer, the tax amounts and whether it was issued offline. Since SRO 1666(I)/2026 (rule 150XD(2)), tax is recovered on any invoice reported with an FBR number but not accounted for in Annex-C or the return, so match each line before filing. The same file answers FBR's electronic scrutiny intimations (SRO 1655(I)/2026);
 - **FBR API log:** every request and response exchanged with FBR (security tokens are never logged).
 
 Choose the period and environment, then **Download CSV** or **Download Excel**.
@@ -239,13 +250,31 @@ Choose the period and environment, then **Download CSV** or **Download Excel**.
 
 **FBR & compliance → Tax periods & returns** (roles that can see reports). Invoices reported through Digital Invoicing populate Annexure-C of the monthly sales tax return on IRIS, so review each tax period before filing:
 
-- **Due dates** with a countdown: by default tax is paid by the 15th and the return filed by the 18th of the following month. Change the days under **Settings → Company → Sales tax return calendar** if your sector has other dates; FBR sometimes extends the dates, so check its announcements.
+- **Due dates** with a countdown: by default tax is paid by the 15th and the return filed by the 18th of the following month. Change the days under **Settings → Company → Sales tax return calendar** if your sector has other dates. When FBR extends the filing date for a period (by notification or circular), click **Record an FBR extension**, enter the new date and FBR's reference: reminders and the checklist then use it, and the original date is shown alongside. The payment date does not move — FBR's extensions are normally conditional on the tax being paid on time.
 - **Period-close checklist:** every issued invoice reported; no rejected invoices left uncorrected; no submissions awaiting reconciliation; no unissued drafts dated in the period; incidents reported. **Review** opens the matching invoices.
 - The period's value of supplies, sales tax, further tax, debit notes, net sales tax and tax withheld by buyers.
 - **Supplies by sale type and rate** — the figures that feed Annexure-C — and the largest buyers and HS codes.
 - Incidents that overlapped the period.
+- **Annex-C reconciliation** download for the period.
+- **Day, week and month closings** (rule 150R(4)(f)): the system records a closing automatically within an hour after each day, week (Monday to Sunday) and month ends — documents issued, reported, not reported and cancelled, the values and tax reported, and the first and last FBR numbers. Closings are chained by hash and cannot be changed; **Chain intact** shows they have not been tampered with.
 
-## 11b. FBR reference library
+![Day, week and month closings](images/closings.png)
+
+## 11b. Stock transfer notes
+
+**Sales → Stock transfer notes.** Goods moved from your factory to your own warehouse registered under the **same STRN** are not a supply, so no invoice is reported to FBR. Sales Tax General Order 25 of 2026 requires each consignment to travel with a serially numbered stock transfer note instead.
+
+1. Click **New transfer note**. Enter the dispatch date and time, the receiving warehouse and its address, the vehicle number, the driver's CNIC and who authorised the dispatch.
+2. Add the goods: search products (the HS code and unit are filled in) or describe them, with quantity and value at cost.
+3. Tick the confirmation that the warehouse is registered under your own STRN — if it has a separate STRN, the movement is a taxable supply and needs a sales tax invoice.
+4. **Save and print** numbers the note (STN-000001, STN-000002 …) and prints a despatch copy and a warehouse copy.
+5. When the goods arrive, click **Received** and record who signed the warehouse copy, and when. A note issued in error can be **cancelled** with a reason; it stays in the register so the series has no gaps.
+
+**Register (CSV)** downloads the notes for the monthly reconciliation with your stock records. Notes are kept for six years like invoices.
+
+![Stock transfer notes](images/stock-transfers.png)
+
+## 11c. FBR reference library
 
 ![FBR reference library](images/library-rates.png)
 
@@ -277,15 +306,15 @@ Used once per company before going live (see [FBR-ONBOARDING-GUIDE.md](FBR-ONBOA
 
 ## 13. Incident register
 
-Rule 150R requires reporting failures, disruptions or tampering of the e-invoicing system to the Commissioner **within 24 hours**.
+Rule 150XA(c) and (d) require reporting any operational failure, damage, disruption or tampering of the e-invoicing system — and any inoperative hardware or software, with reasons and evidence — to FBR and the Commissioner **within 24 hours**.
 
 - Recorded automatically:
   - loss of FBR connectivity and token failures;
   - **unexpected stops** of the system itself (crash or power failure longer than 10 minutes) for companies in production. A normal shutdown of the server or Windows service is not reported;
-  - **tampering**: every day, and whenever **Verify** is clicked on the Audit trail page, the system checks the audit trail and the seal of every accepted invoice. Any change made outside the application opens a tampering incident.
+  - **tampering**: every day, and whenever **Verify** is clicked on the Audit trail page, the system checks the audit trail, the seal and digital signature of every accepted invoice, the signing key and the chain of closings. Any change made outside the application opens a tampering incident.
 - Record other incidents with **+ Record incident** (hardware/software failure, suspected tampering).
 - If an automatically recorded stop was planned (for example the server was switched off without stopping the service), edit the incident and enter a reference such as "Planned shutdown — not reportable" so it no longer shows as unreported.
-- **Letter** prints the intimation to the Commissioner with the list of affected invoices.
+- **Letter** prints the intimation to the Commissioner, copied to FBR and PRAL, with the list of affected invoices and the software registration number.
 - After sending it, edit the incident and enter the date and reference. Incidents not reported within 24 hours are flagged **overdue**.
 
 ## 14. Audit trail
@@ -313,12 +342,24 @@ On a phone, the bar at the bottom of the screen opens **Home**, **Invoices**, a 
 | Page | Purpose |
 |---|---|
 | Company | Seller particulars, business activity and sector, invoice prefixes, further-tax rate, withholding fraction, validate-before-post, sales tax return due days. **+ Add another company** for multi-company installations. |
-| FBR integration | Working environment (training simulator / FBR sandbox / FBR production), sandbox and production tokens with expiry, **Test connection**, reference data download, go-live requirements |
+| FBR integration | Working environment (training simulator / FBR sandbox / FBR production), sandbox and production tokens with expiry, **Test connection**, reference data download, go-live requirements. **Registration on IRIS** lists the exact technical details to enter on IRIS (system provider, software type, version, business nature, sector), finds this server's public IP for PRAL's IP whitelisting and keeps the **software registration number**. **“Integrated with FBR” signboard** prints the signboard each outlet must display (rule 150R(11)). |
 | Invoice printing | Default format, amount-in-words style, columns, copies, terms, footer, company logo |
 | Users & roles | Create users, assign roles and companies, reset passwords, deactivate leavers |
 | ERP API keys | Keys for ERP/POS integration ([ERP-INTEGRATION-API.md](ERP-INTEGRATION-API.md)) |
-| System & licence | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information, **e-mail notifications** |
-| Help & error codes | FBR error codes with fixes, compliance rules, sale types and rates |
+| System & licence | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information, the **digital signature key** (fingerprint and public key for auditors), **e-mail notifications** |
+| Help & error codes | All 108 FBR error codes in FBR's words with fixes, compliance rules, a summary of FBR's FAQs, the official documents and the licensed integrators, sale types and rates |
+
+### Registration on IRIS and the signboard
+
+**Settings → FBR integration** shows the technical details to enter on IRIS, finds this server's public IP for whitelisting, keeps the software registration number and prints the "Integrated with FBR" signboard.
+
+![Registration on IRIS](images/iris-registration.png)
+
+![Integrated with FBR signboard](images/signboard.png)
+
+**Help & error codes → Documents & integrators** links FBR's official notifications and technical documents and lists the licensed integrators.
+
+![Help — documents and integrators](images/help-documents.png)
 
 ### E-mail notifications
 

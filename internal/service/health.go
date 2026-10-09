@@ -15,8 +15,8 @@ import (
 	"einvoicing/internal/store"
 )
 
-// healthTracker watches FBR exchanges to detect outages. Rule 150R of the
-// Sales Tax Rules, 2006 obliges the integrated person to report any
+// healthTracker watches FBR exchanges to detect outages. Rule 150XA(c) of
+// the Sales Tax Rules, 2006 obliges the integrated person to report any
 // operational failure or disruption of the e-invoicing system to the Board
 // and the Commissioner within twenty-four hours; detected outages are logged
 // as incidents so the operator can generate that report.
@@ -189,7 +189,7 @@ func (s *Service) requeueRecovered(ctx context.Context) {
 }
 
 // checkIncidents opens or closes auto-detected incidents from the health
-// state. Only production matters for Rule 150R: sandbox and simulator states
+// state. Only production matters for rule 150XA: sandbox and simulator states
 // neither open nor close the taxpayer's incidents.
 func (s *Service) checkIncidents(ctx context.Context) {
 	for _, st := range s.health.snapshot() {

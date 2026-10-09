@@ -44,8 +44,9 @@ export default function Incidents() {
         <div>
           <h1>Incident register</h1>
           <p>
-            Rule 150R of the Sales Tax Rules, 2006 requires a registered person to report any failure, disruption or tampering of the electronic invoicing system
-            to the Commissioner within 24 hours. Connection and token failures are detected automatically.
+            Rule 150XA(c) and (d) of the Sales Tax Rules, 2006 require the integrated person to report any operational failure, damage, disruption or tampering
+            of the electronic invoicing system, and any inoperative hardware or software with reasons and evidence, to FBR and the Commissioner within 24 hours.
+            Connection and token failures, unexpected stops and tampering are detected automatically.
           </p>
         </div>
         <div className="actions">

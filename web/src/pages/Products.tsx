@@ -29,6 +29,10 @@ const blank: Partial<Product> = {
   furtherTaxMode: 'auto',
   extraTaxRate: 0,
   fedRate: 0,
+  fedType: '',
+  fedRateText: '',
+  fedSro: '',
+  fedSroSerial: '',
   active: true,
 }
 
@@ -340,8 +344,30 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Partial<Product>;
             <input type="number" step="0.01" min="0" value={p.extraTaxRate ?? 0} onChange={(e) => set('extraTaxRate', Number(e.target.value))} />
           </Field>
         )}
-        <Field label="FED rate % (FED in sales tax mode)">
+        <Field label="FED rate %" hint="Ad valorem federal excise duty; it forms part of the value of supply unless the sale type is FED in sales tax mode">
           <input type="number" step="0.01" min="0" value={p.fedRate ?? 0} onChange={(e) => set('fedRate', Number(e.target.value))} />
+        </Field>
+        <div className="small" style={{ gridColumn: '1 / -1' }}>
+          <b>Federal excise duty particulars</b> — for goods or services subject to FED; printed on invoices as rule 150R(13)(aa)–(ff) requires (SRO
+          1666(I)/2026).
+        </div>
+        <Field label="FED type">
+          <input list="product-fed-types" value={p.fedType ?? ''} onChange={(e) => set('fedType', e.target.value)} />
+          <datalist id="product-fed-types">
+            <option value="Ad valorem" />
+            <option value="Ad valorem on retail price" />
+            <option value="Specific (per unit)" />
+            <option value="In sales tax mode" />
+          </datalist>
+        </Field>
+        <Field label="FED rate as printed" hint="e.g. Rs 4 per kg; blank prints the % rate">
+          <input value={p.fedRateText ?? ''} onChange={(e) => set('fedRateText', e.target.value)} />
+        </Field>
+        <Field label="FED Schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
+          <input value={p.fedSro ?? ''} onChange={(e) => set('fedSro', e.target.value)} />
+        </Field>
+        <Field label="FED serial no.">
+          <input value={p.fedSroSerial ?? ''} onChange={(e) => set('fedSroSerial', e.target.value)} />
         </Field>
         {p.id && (
           <label className="check">

@@ -2,7 +2,7 @@
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useEffect, useState } from 'react'
-import { Mail, Send } from 'lucide-react'
+import { Download, FileSignature, Mail, Send } from 'lucide-react'
 import { api, errorMessage } from '../../api'
 import { ErrorBox, Field, Spinner, useLoad } from '../../components/ui'
 import { dateFmt, dateTimeFmt } from '../../format'
@@ -191,6 +191,8 @@ export default function SystemPage() {
         </div>
       </div>
 
+      <SigningKeyCard />
+
       <div className="card mt">
         <div className="card-head">
           <h3>Backups</h3>
@@ -201,7 +203,7 @@ export default function SystemPage() {
         <div className="card-body small muted">
           A consistent copy of the database is written automatically every night to <span className="mono">{backups.data?.dir}</span>. Copy backups to another disk or
           cloud storage regularly: records must be kept for six years (rule 150S). Also keep a safe copy of <span className="mono">master.key</span> from the data folder —
-          without it the saved FBR tokens cannot be decrypted (invoices remain readable).
+          without it the saved FBR tokens and the invoice signing key cannot be opened (invoices remain readable).
         </div>
         <ErrorBox error={backups.error} />
         <div className="table-wrap">
@@ -241,6 +243,43 @@ export default function SystemPage() {
 
       <EmailNotifications />
     </>
+  )
+}
+
+/** SigningKeyCard shows the key that signs invoices (rule 150R(4)(b)). */
+function SigningKeyCard() {
+  const { data, error } = useLoad(() => api.get<{ algorithm: string; fingerprint: string; publicKey: string }>('/system/signing-key'), [])
+  return (
+    <div className="card card-pad mt">
+      <h3>
+        <FileSignature size={17} /> Digital signature of invoices
+      </h3>
+      <p className="small muted">
+        Rule 150R(4)(b) of the Sales Tax Rules, 2006 requires the invoicing system to create a digital signature and record it on each sales tax invoice. Every
+        invoice accepted by FBR is signed with this installation's key over its FBR invoice number and tamper-evident seal; the signature and the key's
+        fingerprint are printed on the invoice. The private key never leaves this server and is stored encrypted with master.key.
+      </p>
+      <ErrorBox error={error} />
+      {data ? (
+        <dl className="kv">
+          <dt>Algorithm</dt>
+          <dd>{data.algorithm}</dd>
+          <dt>Key fingerprint</dt>
+          <dd className="mono">{data.fingerprint}</dd>
+        </dl>
+      ) : (
+        !error && <Spinner />
+      )}
+      <div className="row mt">
+        <a className="btn btn-sm" href="/api/v1/system/signing-key?format=pem">
+          <Download size={14} /> Download public key (PEM)
+        </a>
+      </div>
+      <p className="small faint mt">
+        Give the public key to your auditor or the tax department to verify signatures independently. The signed message is{' '}
+        <span className="mono">veridian-di-signature-v1|&lt;FBR invoice number&gt;|&lt;seal&gt;</span> and the signature is Base64-encoded Ed25519.
+      </p>
+    </div>
   )
 }
 

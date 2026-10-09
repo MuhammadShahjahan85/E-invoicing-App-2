@@ -62,6 +62,7 @@ export interface Company {
   validateBeforePost: boolean
   returnPaymentDay: number
   returnFilingDay: number
+  softwareRegNo: string
   hasLogo: boolean
   printSettings: PrintSettings
   active: boolean
@@ -104,6 +105,10 @@ export interface Product {
   furtherTaxMode: string
   extraTaxRate: number
   fedRate: number
+  fedType: string
+  fedRateText: string
+  fedSro: string
+  fedSroSerial: string
   active: boolean
 }
 
@@ -161,6 +166,11 @@ export interface InvoiceItem {
   salesTaxOverride?: number | null
   sroScheduleNo: string
   sroItemSerialNo: string
+  fedType?: string
+  fedRateText?: string
+  fedUnitPrice?: number
+  fedSro?: string
+  fedSroSerial?: string
   gross?: number
   discount?: number
   valueExclST?: number
@@ -217,6 +227,9 @@ export interface Invoice {
   sealHash: string
   prevSealHash: string
   offlineSince: string
+  signature: string
+  advanceReceipt: boolean
+  advanceRef: string
   printCount: number
   cancelledAt: string
   cancelReason: string
@@ -372,6 +385,8 @@ export interface ReturnDeadline {
   kind: 'payment' | 'filing'
   due: string
   daysLeft: number
+  originalDue?: string
+  reference?: string
 }
 
 export interface PeriodRow {
@@ -554,4 +569,86 @@ export interface HSCode {
 export interface Paged<T> {
   items: T[]
   total: number
+}
+
+export interface StockTransferItem {
+  lineNo: number
+  productId?: number
+  description: string
+  hsCode: string
+  quantity: number
+  uom: string
+  valueAtCost: number
+}
+
+export interface StockTransfer {
+  id: number
+  companyId: number
+  seq: number
+  number: string
+  dispatchedAt: string
+  fromName: string
+  fromAddress: string
+  toName: string
+  toAddress: string
+  vehicleNo: string
+  driverCnic: string
+  authorisedBy: string
+  receivedBy: string
+  receivedAt: string
+  notes: string
+  status: 'DISPATCHED' | 'RECEIVED' | 'CANCELLED'
+  cancelReason: string
+  totalValue: number
+  createdAt: string
+  updatedAt: string
+  items?: StockTransferItem[]
+  itemCount: number
+}
+
+export interface ClosingTotals {
+  count: number
+  valueExclST: number
+  salesTax: number
+  furtherTax: number
+  extraTax: number
+  fed: number
+  stWithheld: number
+  totalValue: number
+}
+
+export interface Closing {
+  id: number
+  companyId: number
+  environment: Env
+  kind: 'day' | 'week' | 'month'
+  periodKey: string
+  periodStart: string
+  periodEnd: string
+  summary: {
+    documents: number
+    reported: number
+    cancelled: number
+    pending: number
+    unreconciled: number
+    rejected: number
+    drafts: number
+    sales: ClosingTotals
+    debitNotes: ClosingTotals
+    firstNo: string
+    lastNo: string
+    firstFbrNo: string
+    lastFbrNo: string
+    offlineMode: number
+  }
+  hash: string
+  prevHash: string
+  createdAt: string
+}
+
+export interface ReturnExtension {
+  period: string
+  filingDate: string
+  reference: string
+  createdAt: string
 }
