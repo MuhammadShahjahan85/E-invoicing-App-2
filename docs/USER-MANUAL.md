@@ -6,9 +6,12 @@ This manual is for accountants, billing staff and managers who issue sales-tax i
 
 ## 1. Getting started
 
-### Logging in
+### Opening the system and logging in
 
-Open the address given by your administrator, e.g. `https://server:8443/`, and sign in. After five wrong passwords the account is locked for 15 minutes. If an administrator set or reset your password, you must choose a new one at first login: 8 or more characters, with letters and digits.
+- **On the computer where it is installed:** double-click the **Veridian E-invoicing Pakistan** icon on the desktop, or open it from the Start menu. It opens in a window of its own; no command window or browser tabs are involved.
+- **On other computers and phones in the office:** open the address given by your administrator, e.g. `https://server:8443/`, in Chrome or Edge. Browsers can install it as an app with its own icon (see *Mobile app & access*).
+
+Sign in. After five wrong passwords the account is locked for 15 minutes. If an administrator set or reset your password, you must choose a new one at first login: 8 or more characters, with letters and digits.
 
 ### Roles
 

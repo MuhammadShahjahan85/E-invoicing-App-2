@@ -131,6 +131,33 @@ func Load(dataDir string) (Config, error) {
 		}
 	}
 	cfg.DataDir = dataDir
+	cfg.complete()
+	return cfg, nil
+}
+
+// Read reads <dataDir>/config.json like Load but never creates or changes
+// anything; without the file it returns the defaults. The desktop launcher
+// uses it to find the server's address.
+func Read(dataDir string) (Config, error) {
+	cfg := Default()
+	cfg.DataDir = dataDir
+	b, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return cfg, err
+	default:
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			return cfg, errors.New("config.json is invalid: " + err.Error())
+		}
+	}
+	cfg.DataDir = dataDir
+	cfg.complete()
+	return cfg, nil
+}
+
+// complete fills in defaults and applies environment overrides.
+func (cfg *Config) complete() {
 	cfg.FBR.Endpoints = cfg.FBR.Endpoints.Merge(fbr.DefaultEndpoints())
 	if v := os.Getenv("EINV_LISTEN"); v != "" {
 		cfg.Listen = v
@@ -141,7 +168,6 @@ func Load(dataDir string) (Config, error) {
 	if cfg.FBR.TimeoutSeconds <= 0 {
 		cfg.FBR.TimeoutSeconds = 30
 	}
-	return cfg, nil
 }
 
 // CACertPath is the local certificate authority created for HTTPS

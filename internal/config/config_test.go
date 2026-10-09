@@ -66,3 +66,32 @@ func TestListenOverrideAppliesOnFirstStart(t *testing.T) {
 		t.Fatal("environment override saved to config.json")
 	}
 }
+
+func TestReadNeverWrites(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	cfg, err := Read(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Listen != Default().Listen || !cfg.TLS.Enabled {
+		t.Fatalf("defaults: %+v", cfg)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatal("Read created the data directory")
+	}
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"listen":"0.0.0.0:9443","tls":{"enabled":false}}`), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, err = Read(dir); err != nil || cfg.Listen != "0.0.0.0:9443" || cfg.TLS.Enabled {
+		t.Fatalf("read: %+v %v", cfg, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"listen":`), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(dir); err == nil {
+		t.Fatal("invalid config.json accepted")
+	}
+}

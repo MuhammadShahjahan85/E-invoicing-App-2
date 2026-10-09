@@ -139,7 +139,7 @@ make release VERSION=1.0.0 LICENSE_PUBKEY=<base64 key>      # Windows + Linux bi
 make web                                                    # rebuild the web UI (needs Node.js 18+)
 ```
 
-Windows installer: compile `packaging/windows/einvoice-suite.iss` with Inno Setup 6 after `make release`. See [docs/LICENSING-AND-SALES.md](docs/LICENSING-AND-SALES.md) for generating the licence key pair and issuing client licences.
+`make release` also builds the Windows installer `dist/VeridianEInvoicingPakistan-Setup-<version>.exe` when NSIS (`makensis`) is installed; the GitHub **Release** workflow always builds it. See [docs/LICENSING-AND-SALES.md](docs/LICENSING-AND-SALES.md) for generating the licence key pair and issuing client licences.
 
 ## Documentation
 

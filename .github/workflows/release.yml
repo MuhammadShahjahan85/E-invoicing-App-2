@@ -1,11 +1,16 @@
 name: Release
 
-# Builds client-ready binaries with your licence public key embedded, plus the Windows installer.
+# Builds client-ready binaries with your licence public key embedded, plus the Windows installer
+# (VeridianEInvoicingPakistan-Setup-<version>.exe).
 #
 # One-time setup:
 #   1. Create your vendor key pair on your own PC:  licensegen keygen   (keep vendor-private.key secret!)
 #   2. GitHub → Settings → Secrets and variables → Actions → Variables → New repository variable
 #        Name: LICENSE_PUBKEY   Value: the public key printed by keygen
+#   3. Optional, recommended: a code-signing certificate, so that Windows shows your company as the
+#      publisher instead of "Unknown publisher". Add two repository secrets:
+#        CODESIGN_PFX_BASE64   the .pfx file in base64 (PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx")))
+#        CODESIGN_PASSWORD     its password
 # Then run this workflow from the Actions tab ("Run workflow"), or push a tag like v1.0.0.
 
 on:
@@ -55,14 +60,41 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nsis osslsigncode
+          go install github.com/tc-hib/go-winres@v0.3.3
+
       - name: Test
         run: go test ./...
 
-      - name: Build release binaries
+      - name: Prepare code signing
+        env:
+          CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+        run: |
+          if [ -n "$CODESIGN_PFX_BASE64" ]; then
+            echo "$CODESIGN_PFX_BASE64" | base64 -d > "$RUNNER_TEMP/codesign.pfx"
+            echo "CODESIGN_PFX=$RUNNER_TEMP/codesign.pfx" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No code-signing certificate: Windows will show the installer's publisher as unknown."
+          fi
+
+      - name: Build release binaries and installer
         env:
           VERSION: ${{ steps.ver.outputs.version }}
           LICENSE_PUBKEY: ${{ vars.LICENSE_PUBKEY }}
+          CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
         run: sh scripts/build-release.sh
+
+      - name: Remove signing certificate
+        if: always()
+        run: rm -f "$RUNNER_TEMP/codesign.pfx"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/VeridianEInvoicingPakistan-Setup-*.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -79,36 +111,9 @@ jobs:
           name: vendor-tools-keep-private
           path: dist/vendor-tools
 
-  installer:
-    needs: build
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-amd64
-          path: dist/windows-amd64
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
-
-      - name: Build installer
-        shell: pwsh
-        run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ needs.build.outputs.version }}" packaging\windows\einvoice-suite.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: dist/VeridianEInvoicingPakistan-Setup-*.exe
-
   publish:
     if: github.ref_type == 'tag'
-    needs: [build, installer]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

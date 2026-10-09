@@ -7,7 +7,7 @@ Veridian E-invoicing Pakistan is a single program (`einvoice.exe` on Windows, `e
 - the background worker that reports invoices to FBR;
 - an offline FBR simulator.
 
-Users work in a web browser on any computer in the office network.
+On Windows it runs in the background as a Windows service. The desktop icon opens it in a window of its own (`VeridianEInvoicing.exe`, the desktop launcher), so nobody needs a command window. Other computers and phones in the office use it in a web browser.
 
 ---
 
@@ -28,17 +28,30 @@ Users work in a web browser on any computer in the office network.
 
 ### 2.1 Using the installer (recommended)
 
-1. Run `VeridianEInvoicingPakistan-Setup-<version>.exe` as Administrator.
-2. Keep **"Allow other computers on the office network…"** ticked if other PCs will use the system. This adds a Windows Firewall rule for TCP 8443.
-3. Finish. The installer:
+1. Double-click `VeridianEInvoicingPakistan-Setup-<version>.exe` and allow it to make changes (it needs administrator rights).
+   If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. This appears for installers that are not code-signed; see §11.
+2. Read and accept the licence.
+3. Choose the components. The recommended choices suit most offices:
+
+   | Component | What it does |
+   |---|---|
+   | **Veridian E-invoicing Pakistan** (always) | The program, the background service and the guides |
+   | **Trust the security certificate** | Edge and Chrome on this computer open the app without a certificate warning (§5) |
+   | **Desktop icon** | An icon that opens the app in its own window |
+   | **Office network access** | A Windows Firewall rule that lets computers and phones on the local network reach the app (TCP 8443, local subnet only) |
+
+4. Keep the suggested folder (`C:\Program Files\Veridian E-invoicing Pakistan`) and click **Install**. Setup:
+   - prepares the data folder `C:\ProgramData\VeridianEInvoicingPakistan` and its HTTPS certificates;
    - registers and starts the Windows service **VeridianEInvoicingPakistan** (automatic start, restarts on failure);
-   - opens `https://localhost:8443/`.
-4. The browser warns about the certificate once (see §5). Continue, then complete the **setup wizard**:
+   - adds the Start menu entries **Veridian E-invoicing Pakistan** and **Help and error codes**, and the entry in **Settings → Apps**.
+5. On the last page, keep **Open Veridian E-invoicing Pakistan now** ticked and click **Finish**. Complete the **setup wizard**:
    - administrator account;
    - business name, NTN/CNIC, province and address exactly as on IRIS;
    - business activity and sector.
 
-Data is stored in `C:\ProgramData\VeridianEInvoicingPakistan`.
+From then on, open the app with the **desktop icon** or from the **Start menu**. The icon starts the service if it is not running and opens the app in a window of its own (Microsoft Edge or Google Chrome "app" window, without tabs or an address bar). If neither browser is installed, it opens in the default browser.
+
+**Silent installation** (for IT staff): `VeridianEInvoicingPakistan-Setup-<version>.exe /S` installs all recommended components. Add `/D=<folder>` (last, without quotes) to choose the program folder.
 
 ### 2.2 Manual installation
 
@@ -46,14 +59,21 @@ Open Command Prompt **as Administrator**:
 
 ```bat
 mkdir "C:\Program Files\Veridian E-invoicing Pakistan"
-copy einvoice.exe "C:\Program Files\Veridian E-invoicing Pakistan\"
+copy einvoice.exe VeridianEInvoicing.exe "C:\Program Files\Veridian E-invoicing Pakistan\"
 cd "C:\Program Files\Veridian E-invoicing Pakistan"
+einvoice.exe tls init
+einvoice.exe tls trust
 einvoice.exe service install
 einvoice.exe service start
-netsh advfirewall firewall add rule name="Veridian E-invoicing Pakistan" dir=in action=allow protocol=TCP localport=8443
+einvoice.exe firewall allow
 ```
 
-`service install` accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\VeridianEInvoicingPakistan`.
+- `tls init` creates the data folder and HTTPS certificates; `tls trust` makes this computer's browsers trust them.
+- `service install` registers the service (or updates it after an upgrade) and lets signed-in users start it from the desktop icon.
+- `firewall allow` lets computers on the local network reach the configured port.
+- Each command accepts `--data <folder>` to use a different data folder. The default is `%ProgramData%\VeridianEInvoicingPakistan`.
+
+Create a shortcut to `VeridianEInvoicing.exe` on the desktop to open the app without a command window.
 
 To try the program without installing a service, run `einvoice.exe serve` in a console. Its data folder is `%ProgramData%\VeridianEInvoicingPakistan`, or the folder given with `--data`.
 
@@ -65,7 +85,7 @@ einvoice.exe service start
 einvoice.exe service uninstall
 ```
 
-The service can also be managed from `services.msc` ("Veridian E-invoicing Pakistan (FBR Digital Invoicing)").
+The service can also be managed from `services.msc` ("Veridian E-invoicing Pakistan (FBR Digital Invoicing)"). Signed-in users may start it (the desktop icon does so when needed); stopping, changing or removing it needs an administrator.
 
 ## 3. Linux installation (systemd)
 
@@ -104,7 +124,7 @@ All state lives in the `/data` volume. Back up that volume.
 
 On first start the server creates its own **certificate authority** (`<data>/tls/ca.pem`, valid 10 years). It uses it to issue the server certificate (`<data>/tls/cert.pem`). That certificate covers `localhost`, the computer name, every IP address of the server and any names listed in `tls.hosts`. It lasts 800 days, is renewed automatically before expiry, and is re-issued when the server's addresses change.
 
-Browsers warn until a device trusts the CA. To remove the warning (and to install the app on phones):
+Browsers warn until a device trusts the CA. On the server computer the installer trusts it for you (component **Trust the security certificate**; manually: `einvoice tls trust`). For the other devices (and to install the app on phones):
 
 - **Trust the CA on each device (recommended):** download it from **Mobile app & access → Download certificate** (or `https://<server>:8443/api/v1/system/ca.crt`) and install it as a trusted root. Steps for Windows, macOS, Android and iPhone are in [MOBILE-AND-REMOTE-ACCESS.md](MOBILE-AND-REMOTE-ACCESS.md). Distribute only `ca.pem`; keep `ca-key.pem` secret.
 - **Use the company's own certificate:** set `tls.certFile` and `tls.keyFile` in `config.json` to PEM files, then restart the service.
@@ -142,6 +162,9 @@ The file is created in the data folder on first start. Restart the service after
 - `einvoice backup [--data DIR] [--out FILE]`
 - `einvoice reset-password --user NAME --password NEW [--data DIR]`
 - `einvoice mock-fbr [--listen 127.0.0.1:9090]` — offline FBR simulator for ERP developers
+- `einvoice service install|uninstall|start|stop [--data DIR]` — Windows service (as Administrator)
+- `einvoice tls init|trust|untrust [--data DIR]` — create the HTTPS certificates; add or remove the local CA in the Windows trusted root store
+- `einvoice firewall allow|remove [--data DIR]` — Windows Firewall rule for the local network
 - `einvoice version`
 
 ## 7. Data folder
@@ -154,6 +177,8 @@ The file is created in the data folder on first start. Restart the service after
 | `tls/` | Local certificate authority (`ca.pem`, `ca-key.pem` — keep the key secret) and the server certificate (`cert.pem`, `key.pem`) |
 | `logs/einvoice.log` | Application log |
 | `backups/` | Automatic and manual backups (`einvoice-<kind>-<YYYYMMDD-HHMMSS>.db`) |
+
+On Windows the installer restricts the folder to Windows itself (SYSTEM) and administrators; other users can read only `config.json` and `tls\ca.pem`. Open it as an administrator (Explorer asks for permission the first time).
 
 ## 8. Backups and restore
 
@@ -177,7 +202,7 @@ The file is created in the data folder on first start. Restart the service after
 
 ## 10. Uninstall
 
-- Windows: Apps & Features → Veridian E-invoicing Pakistan → Uninstall. The service and firewall rule are removed. **The data folder is kept on purpose.**
+- Windows: Settings → Apps → Veridian E-invoicing Pakistan → Uninstall. The service, firewall rule, trusted certificate and shortcuts are removed. **The data folder is kept on purpose**; installing again picks it up automatically.
 - Linux: `sudo systemctl disable --now einvoice && sudo rm /etc/systemd/system/einvoice.service /opt/einvoice -r`. Keep `/var/lib/einvoice` until records are archived.
 
 ## 11. Troubleshooting
@@ -188,7 +213,10 @@ The file is created in the data folder on first start. Restart the service after
 | "FBR rejected the security token" / error 0401 | Wrong token for the environment, expired token, or a token issued for another NTN. Re-enter it under Settings → FBR integration and run **Test connection**. |
 | Production calls fail although the token is right | The server's public IP is not whitelisted. Check the static IP with your ISP and ask PRAL to whitelist it. |
 | Invoice shows **Needs reconciliation** | FBR may have recorded it, but no definite answer was received. Search IRIS, then use **Reconcile with IRIS** on the invoice. Never re-enter it as a new invoice. |
-| Browser certificate warning | Expected with the self-signed certificate; see §5. |
+| Browser certificate warning | The device does not trust the server's certificate yet; see §5. On the server computer, run `einvoice tls trust` as Administrator. |
+| "Windows protected your PC" when running Setup | Windows SmartScreen shows this for installers that are not code-signed. Click **More info → Run anyway**. Release builds signed with the company's code-signing certificate show the company as publisher instead (see LICENSING-AND-SALES.md). |
+| Desktop icon: "Windows could not start the … service" | Open `services.msc`, start **Veridian E-invoicing Pakistan (FBR Digital Invoicing)** and read `logs\einvoice.log` in the data folder. Re-running Setup repairs the installation. |
+| Desktop icon opens a normal browser tab | Neither Microsoft Edge nor Google Chrome was found; the default browser is used instead. |
 | "address already in use" in the log | Another program uses port 8443. Change `listen` in `config.json`, and the firewall rule. |
 | Wrong dates on invoices | Correct the server clock (enable automatic time synchronisation). |
 | Forgotten admin password | `einvoice reset-password --user admin --password NewPass123`. Add `--data` if the data folder is not the default. The user must change the password at next login. |

@@ -63,17 +63,16 @@ VERSION=1.0.0 LICENSE_PUBKEY=<key> sh scripts/build-release.sh
 
 This produces:
 
-- `dist/windows-amd64/einvoice.exe`;
+- `dist/VeridianEInvoicingPakistan-Setup-1.0.0.exe`, the Windows installer you give to clients;
+- `dist/windows-amd64/` with `einvoice.exe` (server) and `VeridianEInvoicing.exe` (desktop launcher);
 - `dist/linux-amd64/einvoice` with the Linux install files;
 - vendor-only `licensegen` tools in `dist/vendor-tools/`.
 
-Then build the Windows installer with Inno Setup 6:
-
-```bat
-ISCC.exe /DAppVersion=1.0.0 packaging\windows\einvoice-suite.iss
-```
+The installer is built with NSIS (`sudo apt install nsis` on Ubuntu, or `choco install nsis` on Windows with `makensis` on the PATH). `go install github.com/tc-hib/go-winres@v0.3.3` adds the icon and version details to the programs. The script skips a step whose tool is missing and says so. The GitHub **Release** workflow installs both tools and builds everything for you.
 
 The release script prints a loud warning if `LICENSE_PUBKEY` is empty.
+
+**Code signing (recommended).** Windows SmartScreen warns about installers from an unknown publisher ("Windows protected your PC"). Buy an OV or EV code-signing certificate in your company's name from a certificate authority such as DigiCert, Sectigo or GlobalSign. Then either add it to the Release workflow (secrets `CODESIGN_PFX_BASE64` and `CODESIGN_PASSWORD`; see `.github/workflows/release.yml`), or build locally with `CODESIGN_PFX=cert.pfx CODESIGN_PASSWORD=… sh scripts/build-release.sh` (needs `osslsigncode`). The programs and the installer are then signed and time-stamped, and Windows shows your company as the publisher.
 
 Before your first release, set your company name and support contact in `internal/brand/brand.go` (`Vendor`, `SupportContact`). They appear in the UI.
 
@@ -156,12 +155,12 @@ All product identity lives in `internal/brand/brand.go`:
 - `ProductName`, `ShortName`, `Vendor`, `SupportContact`;
 - `WindowsServiceName`, `WindowsServiceDisplay`.
 
-Change these, then update the matching values in `packaging/windows/einvoice-suite.iss` (`AppName`, `AppPublisher`, `ServiceName`) and rebuild. Changing `WindowsServiceName` also changes the default data folder on Windows (`%ProgramData%\<WindowsServiceName>`). Decide on it before the first installation.
+Change these, then update the matching values at the top of `packaging/windows/installer.nsi` (`APPNAME`, `COMPANY`, `SUPPORT`, `SERVICE`), the version details in `packaging/windows/winres/*.json`, and the artwork (`node packaging/windows/art/render.cjs` redraws the icon and installer pictures from `web/public/favicon.svg`), then rebuild. Changing `WindowsServiceName` also changes the default data folder on Windows (`%ProgramData%\<WindowsServiceName>`). Decide on it before the first installation.
 
 ## 8. Release and update process
 
 1. Update the code (FBR changes, fixes), run `make test`, and update the docs.
-2. Tag a version, e.g. `v1.1.0`. Build with `make release VERSION=1.1.0 LICENSE_PUBKEY=…` and compile the installer.
+2. Tag a version, e.g. `v1.1.0`. Pushing the tag runs the Release workflow, which builds the installer; or build locally with `make release VERSION=1.1.0 LICENSE_PUBKEY=…`.
 3. Test the upgrade on a copy of a client database: restore a backup on a test machine, run the new version, then check invoices, reports and **Verify integrity**.
 4. Distribute the installer. Clients take a backup, then run the installer (data is kept; migrations run automatically).
 

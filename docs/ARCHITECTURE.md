@@ -198,7 +198,8 @@ Run all with `make test` (or `GOTOOLCHAIN=local go test ./...`).
 - `web/`: `npm ci && npm run build` writes `internal/webui/dist`. The built bundle is committed so that `go build` works without Node.js.
 - Go 1.24: `go build ./cmd/einvoice`. Release builds inject the version, build date and licence public key via `-ldflags -X` (see `Makefile`, `scripts/build-release.sh`).
 - Packaging:
-  - `packaging/windows/einvoice-suite.iss` (Inno Setup);
+  - `packaging/windows/installer.nsi` (NSIS installer: service, certificate trust, firewall rule, shortcuts, uninstaller), with its artwork in `packaging/windows/assets` and the program resources (icon, version, manifest) in `packaging/windows/winres`;
+  - `cmd/launcher`: the desktop launcher `VeridianEInvoicing.exe` (Windows GUI program, no console). It reads the listen address from `config.json`, starts the service when needed and opens the app in an Edge or Chrome app window;
   - `packaging/linux/` (systemd unit and installer);
   - `Dockerfile`.
 

@@ -17,3 +17,5 @@ vendor-private.key
 Thumbs.db
 .idea/
 .vscode/
+# Windows resources made by go-winres during release builds
+*.syso
