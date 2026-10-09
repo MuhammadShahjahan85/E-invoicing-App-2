@@ -58,6 +58,13 @@ type ItemInput struct {
 	SalesTax        *decimal.Decimal `json:"salesTax"`
 	SROScheduleNo   string           `json:"sroScheduleNo"`
 	SROItemSerialNo string           `json:"sroItemSerialNo"`
+	// Federal excise duty particulars (rule 150R(13)(aa)-(ff)); blanks
+	// are taken from the product.
+	FEDType      string          `json:"fedType"`
+	FEDRateText  string          `json:"fedRateText"`
+	FEDUnitPrice decimal.Decimal `json:"fedUnitPrice"`
+	FEDSRO       string          `json:"fedSro"`
+	FEDSROSerial string          `json:"fedSroSerial"`
 }
 
 // InvoiceInput creates or updates an invoice.
@@ -73,7 +80,12 @@ type InvoiceInput struct {
 	ScenarioID      string             `json:"scenarioId"`
 	ExternalRef     string             `json:"externalRef"`
 	Notes           string             `json:"notes"`
-	Items           []ItemInput        `json:"items"`
+	// AdvanceReceipt marks an invoice issued for an advance received before
+	// the goods or services are supplied (section 23(1)); AdvanceRef names,
+	// on the final invoice, the advance receipt invoices it adjusts.
+	AdvanceReceipt bool        `json:"advanceReceipt"`
+	AdvanceRef     string      `json:"advanceRef"`
+	Items          []ItemInput `json:"items"`
 	// Submit asks for immediate submission to FBR after saving.
 	Submit bool `json:"submit"`
 	// Source is "ui", "api", "import" or "scenario".
@@ -103,6 +115,13 @@ func (s *Service) Build(ctx context.Context, c *store.Company, in *InvoiceInput)
 		SellerNTNCNIC: c.NTNCNIC, SellerName: c.Name, SellerProvince: c.Province, SellerAddress: c.Address,
 		InvoiceRefNo: strings.TrimSpace(in.InvoiceRefNo), RefInvoiceID: in.RefInvoiceID, ScenarioID: strings.ToUpper(strings.TrimSpace(in.ScenarioID)),
 		ExternalRef: strings.TrimSpace(in.ExternalRef), Notes: in.Notes, Source: in.Source,
+		AdvanceReceipt: in.AdvanceReceipt, AdvanceRef: truncate(cleanText(in.AdvanceRef), 300),
+	}
+	if inv.AdvanceReceipt && docType != domain.DocSaleInvoice {
+		return nil, validate.Result{}, Invalid("only a sale invoice can be an advance receipt invoice")
+	}
+	if inv.AdvanceReceipt {
+		inv.AdvanceRef = ""
 	}
 	if inv.Source == "" {
 		inv.Source = "ui"
@@ -226,6 +245,8 @@ func (s *Service) buildItem(ctx context.Context, c *store.Company, inv *store.In
 		ExtraTaxRate: in.ExtraTaxRate, ExtraTaxOverride: in.ExtraTax, FEDRate: in.FEDRate, FEDOverride: in.FED,
 		WithholdingOverride: in.STWithheld, SalesTaxOverride: in.SalesTax,
 		SROScheduleNo: strings.TrimSpace(in.SROScheduleNo), SROItemSerialNo: strings.TrimSpace(in.SROItemSerialNo),
+		FEDType: truncate(cleanText(in.FEDType), 60), FEDRateText: truncate(cleanText(in.FEDRateText), 60), FEDUnitPrice: in.FEDUnitPrice,
+		FEDSRO: truncate(cleanText(in.FEDSRO), 120), FEDSROSerial: truncate(cleanText(in.FEDSROSerial), 60),
 	}
 	// Fill blanks from the product master.
 	var p *store.Product
@@ -279,6 +300,18 @@ func (s *Service) buildItem(ctx context.Context, c *store.Company, inv *store.In
 		}
 		if it.FEDRate.IsZero() {
 			it.FEDRate = p.FEDRate
+		}
+		if it.FEDType == "" {
+			it.FEDType = p.FEDType
+		}
+		if it.FEDRateText == "" {
+			it.FEDRateText = p.FEDRateText
+		}
+		if it.FEDSRO == "" {
+			it.FEDSRO = p.FEDSRO
+		}
+		if it.FEDSROSerial == "" {
+			it.FEDSROSerial = p.FEDSROSerial
 		}
 	}
 	it.SaleType = domain.CanonicalSaleTypeName(it.SaleType)
@@ -362,6 +395,12 @@ func (s *Service) ValidateLocal(ctx context.Context, c *store.Company, inv *stor
 	for i, it := range inv.Items {
 		for _, w := range it.Warnings {
 			res.Issues = append(res.Issues, validate.Issue{Line: i + 1, Field: "computation", Severity: validate.SevWarning, Message: w})
+		}
+		// SRO 1666(I)/2026 added the federal excise duty particulars to
+		// rule 150R(13); FBR's API does not carry them, so they are printed.
+		if it.FED.IsPositive() && (it.FEDType == "" || it.FEDSRO == "" || it.FEDSROSerial == "") {
+			res.Issues = append(res.Issues, validate.Issue{Line: i + 1, Field: "fedType", Severity: validate.SevWarning,
+				Message: "Enter the federal excise duty type and the FED Schedule/SRO reference and serial number for this line: rule 150R(13)(aa)-(ff) (SRO 1666(I)/2026) requires them on the invoice."})
 		}
 	}
 	return res
@@ -711,7 +750,8 @@ func (s *Service) NewDebitNoteDraft(ctx context.Context, a Actor, companyID, ori
 			Quantity: it.Quantity, UnitPrice: it.UnitPrice, DiscountPercent: it.DiscountPercent, DiscountAmount: it.DiscountAmount,
 			Value: it.ValueOverride, SaleType: it.SaleType, Rate: it.Rate, RetailPrice: it.RetailPrice, RetailValue: it.RetailValueOverride,
 			FurtherTaxMode: it.FurtherTaxMode, ExtraTaxRate: it.ExtraTaxRate, FEDRate: it.FEDRate,
-			SROScheduleNo: it.SROScheduleNo, SROItemSerialNo: it.SROItemSerialNo})
+			SROScheduleNo: it.SROScheduleNo, SROItemSerialNo: it.SROItemSerialNo,
+			FEDType: it.FEDType, FEDRateText: it.FEDRateText, FEDUnitPrice: it.FEDUnitPrice, FEDSRO: it.FEDSRO, FEDSROSerial: it.FEDSROSerial})
 	}
 	return s.CreateInvoice(ctx, a, companyID, in)
 }

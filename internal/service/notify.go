@@ -382,7 +382,7 @@ func (s *Service) digestMail(ctx context.Context, companies []*store.Company, pk
 			row("Rejected, queued or unreconciled", fmt.Sprint(d.NeedsAttention))
 			fmt.Fprintf(&t, "  Needs attention: %d (rejected, queued or unreconciled)\n", d.NeedsAttention)
 		}
-		for _, dl := range s.CompanyDeadlines(c) {
+		for _, dl := range s.CompanyDeadlines(ctx, c) {
 			what := "Pay sales tax"
 			if dl.Kind == "filing" {
 				what = "File the return"

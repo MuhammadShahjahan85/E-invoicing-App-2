@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integrated with FBR — {{.Company.Name}}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #10261f; margin: 0; background: #fff; }
+  .toolbar { text-align: right; padding: 8px 12px; }
+  .toolbar button { font-size: 11pt; padding: 6px 14px; cursor: pointer; }
+  @media print { .toolbar { display: none; } }
+  .board { max-width: 277mm; min-height: 180mm; margin: 0 auto; border: 3mm solid #0a6b3d; border-radius: 6mm; padding: 12mm 14mm;
+           display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6mm; }
+  .board img { height: 52mm; width: auto; }
+  h1 { font-size: 46pt; letter-spacing: 1.5pt; margin: 0; color: #0a6b3d; text-transform: uppercase; }
+  .name { font-size: 22pt; font-weight: 700; margin: 0; }
+  .ids { font-size: 14pt; margin: 0; }
+  .soft { font-size: 13pt; margin: 2mm 0 0; }
+  .outlet { font-size: 13pt; margin: 0; }
+  .note { font-size: 9pt; color: #444; margin-top: 4mm; }
+</style>
+</head>
+<body>
+{{if .ShowToolbar}}<div class="toolbar"><button id="print-btn" type="button">Print</button></div>{{end}}
+<div class="board">
+  <img src="{{.FBRLogo}}" alt="FBR Digital Invoicing System">
+  <h1>Integrated with FBR</h1>
+  <p class="name">{{.Company.Name}}</p>
+  <p class="ids">NTN/CNIC {{.Company.NTNCNIC}}{{if .Company.STRN}} &nbsp;·&nbsp; STRN {{.Company.STRN}}{{end}}</p>
+  {{if .Outlet}}<p class="outlet">Outlet / point of sale: <b>{{.Outlet}}</b></p>{{end}}
+  <p class="soft">Electronic invoicing software: <b>{{.ProductName}}</b>{{if .Company.SoftwareRegNo}} &nbsp;·&nbsp; Registration No. <b>{{.Company.SoftwareRegNo}}</b>{{end}}</p>
+  <p class="note">Every invoice issued here is reported to FBR in real time and carries an FBR invoice number and QR code.<br>
+    Displayed under rule 150R(11) of the Sales Tax Rules, 2006.</p>
+</div>
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body>
+</html>

@@ -40,10 +40,15 @@
     <tr><td>Buyer:</td><td class="n">{{.Invoice.BuyerName}}</td></tr>
     {{if .Invoice.BuyerNTNCNIC}}<tr><td>NTN/CNIC:</td><td class="n">{{.Invoice.BuyerNTNCNIC}}</td></tr>{{end}}
     {{if .Invoice.InvoiceRefNo}}<tr><td>Ref:</td><td class="n">{{.Invoice.InvoiceRefNo}}</td></tr>{{end}}
+    {{if .TaxPeriod}}<tr><td>Tax period:</td><td class="n">{{.TaxPeriod}}</td></tr>{{end}}
+    {{if .Invoice.AdvanceRef}}<tr><td>Advance adj.:</td><td class="n">{{.Invoice.AdvanceRef}}</td></tr>{{end}}
   </table>
+  {{if .AdvanceNote}}<div style="font-size:7.5pt">{{.AdvanceNote}}</div>{{end}}
   <div class="hr"></div>
   {{range .Lines}}
     <div>{{.No}}. {{.Description}}</div>
+    <div style="font-size:7.5pt">HS {{.HSCode}}{{if .SRO}} · {{.SRO}}{{end}}</div>
+    {{if .FEDNote}}<div style="font-size:7.5pt">{{.FEDNote}}</div>{{end}}
     <table><tr><td>{{.Qty}} {{.UoM}}{{if $.Settings.ShowUnitPrice}} x {{.UnitPrice}}{{end}}</td><td class="n">{{.Value}}</td></tr>
       <tr><td>ST {{.Rate}}</td><td class="n">{{.SalesTax}}</td></tr>
       {{if $.Cols.Further}}<tr><td>Further tax</td><td class="n">{{.FurtherTax}}</td></tr>{{end}}
@@ -67,9 +72,11 @@
   <div class="qr">{{.QR}}</div>
   {{end}}
   {{if .Notice}}<div class="c b">{{.Notice}}</div>{{end}}
+  {{if .OfflineIssued}}<div class="c" style="font-size:7.5pt">{{.OfflineIssued}}</div>{{end}}
+  {{if .Signature}}<div class="c" style="font-size:7.5pt">Digital signature {{.Signature}}</div>{{end}}
   <div class="hr"></div>
   <div class="c">{{.Settings.FooterText}}</div>
-  <div class="c" style="font-size:7pt">{{.ProductName}} by {{.Developer}}</div>
+  <div class="c" style="font-size:7pt">{{.ProductName}}{{if .SoftwareRegNo}} · Reg. No. {{.SoftwareRegNo}}{{end}} by {{.Developer}}</div>
 </div>
 <script nonce="{{.Nonce}}">
 (function () {

@@ -28,7 +28,7 @@ func incidentsOfKind(t *testing.T, f *fixture, kind string) int {
 
 // Altering an accepted invoice directly in the database (bypassing the
 // application) is found by the integrity check and opens a tampering
-// incident for Rule 150R reporting.
+// incident for reporting under rule 150XA(c).
 func TestIntegrityCheckDetectsTampering(t *testing.T) {
 	f := setup(t)
 	sandboxCompany(t, f)

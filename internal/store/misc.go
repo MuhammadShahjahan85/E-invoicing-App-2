@@ -170,8 +170,8 @@ func (s *Store) LatestScenarioRuns(ctx context.Context, companyID int64) (map[st
 
 // Incidents ------------------------------------------------------------------------
 
-// Incident is an operational failure of the e-invoicing system. Rule 150R
-// requires the integrated person to report any operational failure, damage,
+// Incident is an operational failure of the e-invoicing system. Rule
+// 150XA(c) requires the integrated person to report any operational failure, damage,
 // disruption or tampering to the Board and the Commissioner within 24 hours.
 type Incident struct {
 	ID              int64  `json:"id"`

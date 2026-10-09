@@ -57,6 +57,8 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 		s.requeueRecovered(ctx)
 		s.processQueue(ctx)
 		s.checkIncidents(ctx)
+		s.signPending(ctx)
+		s.runClosings(ctx)
 		// E-mails can take a while (slow mail server); never hold up the queue.
 		go s.runNotifications(ctx)
 		_ = s.Store.PurgeExpiredSessions(ctx)

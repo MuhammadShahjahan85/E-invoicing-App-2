@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Copy, ExternalLink, Printer } from 'lucide-react'
 import { api, errorMessage } from '../../api'
 import { Confirm, Field, useLoad } from '../../components/ui'
 import { dateTimeFmt, envLabels } from '../../format'
@@ -184,6 +185,11 @@ export default function FBRSettings() {
         </div>
       </div>
 
+      <div className="grid g2 mt">
+        <IrisDetails company={c} canWrite={canWrite} />
+        <SignboardCard company={c} />
+      </div>
+
       {confirmEnv && (
         <Confirm
           danger={confirmEnv !== 'production'}
@@ -260,6 +266,164 @@ function TokenCard({ env, company, canWrite, onTest, testing }: { env: 'sandbox'
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CopyValue({ value }: { value: string }) {
+  const toast = useToast()
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast('ok', 'Copied')
+    } catch {
+      toast('err', 'Copy is not available here — select the text and copy it')
+    }
+  }
+  return (
+    <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+      <code style={{ whiteSpace: 'normal' }}>{value}</code>
+      <button className="icon-btn" aria-label={`Copy ${value}`} title="Copy" onClick={copy}>
+        <Copy size={14} />
+      </button>
+    </span>
+  )
+}
+
+// IrisDetails lists what to enter on IRIS (Digital Invoicing → API
+// Integration → Technical Details and IP Whitelisting, PRAL's DI user
+// manual v1.5) and keeps the software registration number FBR issues.
+function IrisDetails({ company, canWrite }: { company: Company; canWrite: boolean }) {
+  const s = useSession()
+  const toast = useToast()
+  const [regNo, setRegNo] = useState(company.softwareRegNo ?? '')
+  const [ip, setIp] = useState<{ ip: string; source: string } | null>(null)
+  const [ipError, setIpError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const provider = `${s.meta.vendor || 'Veridian Partners Consultancy Private Limited'} — ${s.meta.product || 'Veridian E-invoicing Pakistan'}`
+
+  const saveRegNo = async () => {
+    try {
+      const out = await api.put<Company>(`/companies/${company.id}`, { ...company, softwareRegNo: regNo })
+      s.updateCompany(out)
+      toast('ok', 'Software registration number saved')
+    } catch (e) {
+      toast('err', errorMessage(e))
+    }
+  }
+  const detectIp = async () => {
+    setBusy(true)
+    setIpError('')
+    try {
+      setIp(await api.get<{ ip: string; source: string }>('/system/public-ip'))
+    } catch (e) {
+      setIpError(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card card-pad">
+      <h3>Registration on IRIS</h3>
+      <p className="small muted">
+        On IRIS open <b>Digital Invoicing → API Integration</b>. Enter these technical details, then the IP whitelisting details. PRAL accepts or rejects the IP
+        addresses within about two working hours; with another licensed integrator, the integrator whitelists them.
+      </p>
+      <table className="table kv-table small">
+        <tbody>
+          <tr>
+            <th>ERP / System Provider</th>
+            <td>
+              <CopyValue value={provider} />
+            </td>
+          </tr>
+          <tr>
+            <th>Software Type</th>
+            <td>
+              <CopyValue value="On Premises" />
+            </td>
+          </tr>
+          <tr>
+            <th>Software Version</th>
+            <td>
+              <CopyValue value={s.meta.version || '1.0'} />
+            </td>
+          </tr>
+          <tr>
+            <th>Business Nature</th>
+            <td>{company.businessActivities.join(', ') || '—'}</td>
+          </tr>
+          <tr>
+            <th>Sector (one only)</th>
+            <td>{company.sectors[0] || '—'}</td>
+          </tr>
+          <tr>
+            <th>CRM user ID</th>
+            <td>
+              The e-mail address you will use on PRAL's support portal,{' '}
+              <a href="https://dicrm.pral.com.pk" target="_blank" rel="noopener noreferrer">
+                dicrm.pral.com.pk <ExternalLink size={11} />
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <th>IP address (1 to 3)</th>
+            <td>
+              {ip ? (
+                <>
+                  <CopyValue value={ip.ip} />
+                  <div className="faint">as seen by {ip.source}</div>
+                </>
+              ) : (
+                canWrite && (
+                  <button className="btn btn-sm" onClick={detectIp} disabled={busy} title="Asks a public IP service which address this server's internet traffic comes from">
+                    {busy ? 'Checking…' : "Find this server's public IP"}
+                  </button>
+                )
+              )}
+              {ipError && <div style={{ color: 'var(--danger)' }}>{ipError}</div>}
+              <div className="faint">The address must be a static public IP; ask your internet provider for one.</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <Field
+        label="Software registration number"
+        hint="The registration number of this invoicing software issued on FBR's system. Rule 150R(13)(c) requires it on every invoice; it is also printed on the signboard."
+      >
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <input value={regNo} onChange={(e) => setRegNo(e.target.value)} disabled={!canWrite} maxLength={60} />
+          {canWrite && (
+            <button className="btn" disabled={regNo === (company.softwareRegNo ?? '')} onClick={saveRegNo}>
+              Save
+            </button>
+          )}
+        </div>
+      </Field>
+    </div>
+  )
+}
+
+function SignboardCard({ company }: { company: Company }) {
+  const cp = useCompanyPath()
+  const [outlet, setOutlet] = useState('')
+  return (
+    <div className="card card-pad">
+      <h3>“Integrated with FBR” signboard</h3>
+      <p className="small muted">
+        Rule 150R(11) requires a signboard bearing FBR's official logo, the text “Integrated with FBR” and the software registration number to be displayed
+        prominently at each notified outlet, point of sale or invoicing machine. Print one per outlet (A4 landscape) and display it where buyers can see it.
+      </p>
+      {!company.softwareRegNo && (
+        <div className="alert alert-warn small">Enter the software registration number first; the signboard must show it.</div>
+      )}
+      <Field label="Outlet or point of sale (optional)">
+        <input value={outlet} onChange={(e) => setOutlet(e.target.value)} placeholder="e.g. Head office sales counter" />
+      </Field>
+      <a className="btn btn-primary mt" href={`/api/v1${cp}/signboard${outlet.trim() ? '?outlet=' + encodeURIComponent(outlet.trim()) : ''}`} target="_blank" rel="noopener">
+        <Printer size={15} /> Print signboard
+      </a>
     </div>
   )
 }

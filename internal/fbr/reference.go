@@ -6,6 +6,7 @@ package fbr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -336,6 +337,13 @@ func (c *Client) SROItems(ctx context.Context, date time.Time, sroID int) ([]SRO
 
 func (c *Client) distPost(ctx context.Context, op, path string, body any) (row, string, error) {
 	raw, _, err := c.do(ctx, op, http.MethodPost, c.url(c.Endpoints.DistPath+path, nil), body)
+	// The specification lists statl and Get_Reg_Type as GET methods with a
+	// JSON body, while the gateway has answered POST; use GET if POST is
+	// refused as a method.
+	var ce *CallError
+	if errors.As(err, &ce) && ce.HTTPStatus == http.StatusMethodNotAllowed {
+		raw, _, err = c.do(ctx, op, http.MethodGet, c.url(c.Endpoints.DistPath+path, nil), body)
+	}
 	if err != nil {
 		return nil, string(raw), err
 	}

@@ -109,6 +109,10 @@ type Context struct {
 	SellerActivities []string
 }
 
+// NoteWindowDays is how long after the original invoice FBR accepts a debit
+// or credit note (DI API v1.12, error 0034).
+const NoteWindowDays = 180
+
 // placeholderRegNos are dummy registration numbers seen in FBR's samples and
 // commonly keyed in to get past a mandatory field.
 var placeholderRegNos = map[string]bool{"1000000000000": true, "1234567890123": true, "1000000000078": true}
@@ -141,7 +145,10 @@ var (
 	reHSCode   = regexp.MustCompile(`^\d{4}\.\d{4}$`)
 	reScenario = regexp.MustCompile(`^SN\d{3}$`)
 	reDate     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	reFBRInvNo = regexp.MustCompile(`^[0-9A-Za-z]{5,}DI[0-9]{6,}$`)
+	// reFBRInvNo is FBR's DI invoice number: the seller's 7-digit NTN or
+	// 13-digit CNIC, "DI" and 13 digits (22 or 28 characters; DI API v1.12,
+	// invoiceRefNo).
+	reFBRInvNo = regexp.MustCompile(`^(\d{7}|\d{13})DI\d{13}$`)
 	reNTNCheck = regexp.MustCompile(`^(\d{7})-(\d)$`)
 )
 
@@ -232,7 +239,7 @@ func Payload(p *fbr.InvoicePayload, ctx Context) Result {
 	if p.BuyerRegistrationType == "" {
 		r.add(0, "buyerRegistrationType", "0012", SevError, "Buyer registration type is required.")
 	} else if !regType.Valid() {
-		r.add(0, "buyerRegistrationType", "0012", SevError, "Buyer registration type %q is not valid; use 'Registered' or 'Unregistered'.", p.BuyerRegistrationType)
+		r.add(0, "buyerRegistrationType", "0053", SevError, "Buyer registration type %q is not valid; use 'Registered' or 'Unregistered'.", p.BuyerRegistrationType)
 	}
 	if p.BuyerNTNCNIC == "" {
 		if regType == domain.Registered {
@@ -259,13 +266,19 @@ func Payload(p *fbr.InvoicePayload, ctx Context) Result {
 	// Debit note reference
 	if dt == domain.DocDebitNote {
 		if strings.TrimSpace(p.InvoiceRefNo) == "" {
-			r.add(0, "invoiceRefNo", "0041", SevError, "A debit note must reference the FBR invoice number of the original invoice.")
+			r.add(0, "invoiceRefNo", "0026", SevError, "A debit note must reference the FBR invoice number of the original invoice.")
 		} else if !reFBRInvNo.MatchString(p.InvoiceRefNo) {
-			r.add(0, "invoiceRefNo", "0039", SevWarning, "%q does not look like an FBR DI invoice number (e.g. 7000007DI1747119701593).", p.InvoiceRefNo)
+			r.add(0, "invoiceRefNo", "0057", SevWarning, "%q does not look like an FBR invoice number: 22 characters for an NTN (7 digits, DI, 13 digits, e.g. 7000007DI1747119701593) or 28 for a CNIC.", p.InvoiceRefNo)
 		}
 		if o := ctx.Original; o != nil {
 			if o.Date != "" && p.InvoiceDate != "" && p.InvoiceDate < o.Date {
 				r.add(0, "invoiceDate", "0035", SevError, "Debit note date %s is earlier than the original invoice date %s.", p.InvoiceDate, o.Date)
+			}
+			if od, err1 := time.Parse("2006-01-02", o.Date); err1 == nil {
+				if nd, err2 := time.Parse("2006-01-02", p.InvoiceDate); err2 == nil && nd.After(od.AddDate(0, 0, NoteWindowDays)) {
+					r.add(0, "invoiceDate", "0034", SevError, "Debit note dated %s is more than %d days after the original invoice (%s). FBR accepts debit and credit notes only within %d days of the original invoice date.",
+						p.InvoiceDate, NoteWindowDays, o.Date, NoteWindowDays)
+				}
 			}
 			if o.BuyerNTNCNIC != "" && p.BuyerNTNCNIC != o.BuyerNTNCNIC {
 				r.add(0, "buyerNTNCNIC", "", SevWarning, "Buyer differs from the original invoice buyer (%s).", o.BuyerNTNCNIC)
@@ -353,15 +366,18 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 		r.add(n, "hsCode", "0052", SevWarning, "HS code %q is not in FBR's PCT format NNNN.NNNN (e.g. 0101.2100).", it.HSCode)
 	}
 	if strings.TrimSpace(it.ProductDescription) == "" {
-		r.add(n, "productDescription", "0024", SevError, "Product description is required.")
+		r.add(n, "productDescription", "", SevError, "Product description is required.")
 	}
 	if strings.TrimSpace(it.UoM) == "" {
-		r.add(n, "uoM", "0023", SevError, "Unit of measure is required.")
+		r.add(n, "uoM", "0099", SevError, "Unit of measure is required.")
 	} else if ctx.KnownUOMs != nil && !ctx.KnownUOMs[it.UoM] {
-		r.add(n, "uoM", "0023", SevWarning, "UoM %q is not in FBR's list (UoM values are case sensitive).", it.UoM)
+		r.add(n, "uoM", "0099", SevWarning, "UoM %q is not in FBR's list (UoM values are case sensitive).", it.UoM)
 	}
 	if st.Name == domain.STPotassiumChlor && it.UoM != "" && it.UoM != "KG" {
-		r.add(n, "uoM", "0165", SevError, "Potassium chlorate must be invoiced in KG.")
+		r.add(n, "uoM", "0097", SevError, "Potassium chlorate must be invoiced in KG.")
+	}
+	if strings.HasPrefix(it.HSCode, "2716") && it.UoM != "" && !strings.EqualFold(it.UoM, "KWH") {
+		r.add(n, "uoM", "0096", SevWarning, "Electricity (HS 2716) must be invoiced in KWH.")
 	}
 
 	rate := tax.ParseRate(it.Rate)
@@ -386,18 +402,18 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 		}
 	}
 	if it.Quantity.Value.IsNegative() {
-		r.add(n, "quantity", "0022", SevError, "Quantity cannot be negative.")
+		r.add(n, "quantity", "0300", SevError, "Quantity cannot be negative.")
 	} else if it.Quantity.Value.IsZero() {
-		r.add(n, "quantity", "0022", SevWarning, "Quantity is zero.")
+		r.add(n, "quantity", "0098", SevWarning, "Quantity is zero.")
 	}
 	neg("valueSalesExcludingST", it.ValueSalesExcludingST, "0021")
-	neg("salesTaxApplicable", it.SalesTaxApplicable, "0027")
-	neg("furtherTax", it.FurtherTax, "0028")
-	neg("extraTax", it.ExtraTax, "0029")
-	neg("fedPayable", it.FEDPayable, "0030")
-	neg("discount", it.Discount, "0031")
+	neg("salesTaxApplicable", it.SalesTaxApplicable, "0023")
+	neg("furtherTax", it.FurtherTax, "0080")
+	neg("extraTax", it.ExtraTax, "0095")
+	neg("fedPayable", it.FEDPayable, "0089")
+	neg("discount", it.Discount, "0300")
 	neg("salesTaxWithheldAtSource", it.SalesTaxWithheldAtSource, "0055")
-	neg("fixedNotifiedValueOrRetailPrice", it.FixedNotifiedValueOrRetailPrice, "0026")
+	neg("fixedNotifiedValueOrRetailPrice", it.FixedNotifiedValueOrRetailPrice, "0090")
 
 	// Sales tax consistency (FBR: "Provided sales tax amount does not match
 	// the calculated sales tax amount").
@@ -406,7 +422,7 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 		if known && st.Basis == domain.BasisRetailPrice {
 			base = it.FixedNotifiedValueOrRetailPrice.Value
 			if base.IsZero() {
-				r.add(n, "fixedNotifiedValueOrRetailPrice", "0175", SevError, "Third Schedule goods require the printed retail price.")
+				r.add(n, "fixedNotifiedValueOrRetailPrice", "0090", SevError, "Third Schedule goods require the printed retail price.")
 			}
 		} else {
 			base = it.ValueSalesExcludingST.Value
@@ -417,8 +433,24 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 		}
 		diff := it.SalesTaxApplicable.Value.Sub(expected).Abs()
 		if diff.GreaterThan(decimal.NewFromFloat(0.01)) {
-			r.add(n, "salesTaxApplicable", "0027", SevWarning, "Sales tax %s does not match %s × %s = %s; FBR rejects mismatched amounts.",
+			// FBR's codes for a recalculated tax that does not agree.
+			code := "0104"
+			switch {
+			case known && st.Basis == domain.BasisRetailPrice:
+				code = "0102"
+			case known && st.Name == domain.STPotassiumChlor:
+				code = "0103"
+			case rate.Percent.IsZero() && !rate.PerUnit.IsZero():
+				code = "0105"
+			}
+			r.add(n, "salesTaxApplicable", code, SevWarning, "Sales tax %s does not match %s × %s = %s; FBR rejects mismatched amounts.",
 				it.SalesTaxApplicable.Value.StringFixed(2), base.StringFixed(2), it.Rate, expected.StringFixed(2))
+		}
+		// DI API v1.12, error 0079: a 5% rate is not accepted when the value
+		// of sales exceeds Rs 20,000 (electricity supplied to retailers).
+		if known && st.Name == domain.STElectricityRetl && rate.Percent.Equal(decimal.NewFromInt(5)) && rate.PerUnit.IsZero() &&
+			it.ValueSalesExcludingST.Value.GreaterThan(decimal.NewFromInt(20000)) {
+			r.add(n, "rate", "0079", SevWarning, "FBR does not accept 5%% when the value of sales exceeds Rs 20,000 (error 0079); use the rate FBR lists for this amount.")
 		}
 	}
 
@@ -436,19 +468,22 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 		r.add(n, "sroItemSerialNo", "0078", SevWarning, "SRO/Schedule given without an item serial number.")
 	}
 
+	if known && st.Name == domain.STCottonGinners && regType == domain.Unregistered {
+		r.add(n, "saleType", "0100", SevError, "Cotton ginner supplies are allowed only to registered buyers.")
+	}
 	if known && st.ExtraTaxMustBeEmpty && !it.ExtraTax.Empty {
 		r.add(n, "extraTax", "0091", SevError, "Extra tax must be empty (not 0) for this sale type.")
 	}
 
 	if regType == domain.Registered && it.FurtherTax.Value.IsPositive() {
-		r.add(n, "furtherTax", "0028", SevWarning, "Further tax is charged only on supplies to unregistered buyers.")
+		r.add(n, "furtherTax", "", SevWarning, "Further tax is charged only on supplies to unregistered buyers.")
 	}
 	if it.SalesTaxWithheldAtSource.Value.IsPositive() {
 		if regType == domain.Unregistered {
 			r.add(n, "salesTaxWithheldAtSource", "0070", SevWarning, "Sales tax withholding is not normally allowed for an unregistered buyer.")
 		}
 		if it.SalesTaxWithheldAtSource.Value.GreaterThan(it.SalesTaxApplicable.Value) {
-			r.add(n, "salesTaxWithheldAtSource", "0055", SevError, "Sales tax withheld exceeds the sales tax on the line.")
+			r.add(n, "salesTaxWithheldAtSource", "0008", SevError, "Sales tax withheld exceeds the sales tax on the line.")
 		} else if !it.SalesTaxWithheldAtSource.Value.Equal(it.SalesTaxApplicable.Value) {
 			r.add(n, "salesTaxWithheldAtSource", "0008", SevWarning, "FBR expects sales tax withheld at source to be zero or equal to the sales tax.")
 		}
@@ -457,6 +492,6 @@ func validateItem(r *Result, n int, it *fbr.ItemPayload, regType domain.Registra
 	// totalValues consistency (informational).
 	want := tax.R2(tax.Sum(it.ValueSalesExcludingST.Value, it.SalesTaxApplicable.Value, it.FurtherTax.Value, it.ExtraTax.Value, it.FEDPayable.Value))
 	if it.TotalValues.Value.IsPositive() && it.TotalValues.Value.Sub(want).Abs().GreaterThan(decimal.NewFromInt(1)) {
-		r.add(n, "totalValues", "0025", SevWarning, "Total value %s differs from value + taxes = %s.", it.TotalValues.Value.StringFixed(2), want.StringFixed(2))
+		r.add(n, "totalValues", "", SevWarning, "Total value %s differs from value + taxes = %s.", it.TotalValues.Value.StringFixed(2), want.StringFixed(2))
 	}
 }

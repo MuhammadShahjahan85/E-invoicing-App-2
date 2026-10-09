@@ -170,20 +170,28 @@ type Product struct {
 	FurtherTaxMode string          `json:"furtherTaxMode"`
 	ExtraTaxRate   decimal.Decimal `json:"extraTaxRate"`
 	FEDRate        decimal.Decimal `json:"fedRate"`
-	Active         bool            `json:"active"`
-	CreatedAt      string          `json:"createdAt"`
-	UpdatedAt      string          `json:"updatedAt"`
+	// Defaults for the federal excise duty particulars of rule
+	// 150R(13)(aa)-(ff).
+	FEDType      string `json:"fedType"`
+	FEDRateText  string `json:"fedRateText"`
+	FEDSRO       string `json:"fedSro"`
+	FEDSROSerial string `json:"fedSroSerial"`
+	Active       bool   `json:"active"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 
 const productCols = `id, company_id, code, description, hs_code, uom, sale_type, rate, sro_schedule_no, sro_item_serial_no,
-	unit_price, retail_price, further_tax_mode, extra_tax_rate, fed_rate, active, created_at, updated_at`
+	unit_price, retail_price, further_tax_mode, extra_tax_rate, fed_rate, active, created_at, updated_at,
+	fed_type, fed_rate_text, fed_sro, fed_sro_serial`
 
 func scanProduct(row interface{ Scan(...any) error }) (*Product, error) {
 	var p Product
 	var up, rp, etr, fed string
 	var active int
 	err := row.Scan(&p.ID, &p.CompanyID, &p.Code, &p.Description, &p.HSCode, &p.UoM, &p.SaleType, &p.Rate, &p.SROScheduleNo, &p.SROItemSerialNo,
-		&up, &rp, &p.FurtherTaxMode, &etr, &fed, &active, &p.CreatedAt, &p.UpdatedAt)
+		&up, &rp, &p.FurtherTaxMode, &etr, &fed, &active, &p.CreatedAt, &p.UpdatedAt,
+		&p.FEDType, &p.FEDRateText, &p.FEDSRO, &p.FEDSROSerial)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -247,10 +255,12 @@ func (s *Store) SaveProduct(ctx context.Context, p *Product) error {
 	}
 	if p.ID == 0 {
 		res, err := s.DB.ExecContext(ctx, `INSERT INTO products(company_id, code, description, hs_code, uom, sale_type, rate, sro_schedule_no,
-			sro_item_serial_no, unit_price, retail_price, further_tax_mode, extra_tax_rate, fed_rate, active, created_at, updated_at)
-			VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			sro_item_serial_no, unit_price, retail_price, further_tax_mode, extra_tax_rate, fed_rate, active, created_at, updated_at,
+			fed_type, fed_rate_text, fed_sro, fed_sro_serial)
+			VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			p.CompanyID, p.Code, p.Description, p.HSCode, p.UoM, p.SaleType, p.Rate, p.SROScheduleNo, p.SROItemSerialNo,
-			p.UnitPrice.String(), p.RetailPrice.String(), p.FurtherTaxMode, p.ExtraTaxRate.String(), p.FEDRate.String(), b2i(p.Active), t, t)
+			p.UnitPrice.String(), p.RetailPrice.String(), p.FurtherTaxMode, p.ExtraTaxRate.String(), p.FEDRate.String(), b2i(p.Active), t, t,
+			p.FEDType, p.FEDRateText, p.FEDSRO, p.FEDSROSerial)
 		if err != nil {
 			return err
 		}
@@ -259,10 +269,12 @@ func (s *Store) SaveProduct(ctx context.Context, p *Product) error {
 		return nil
 	}
 	res, err := s.DB.ExecContext(ctx, `UPDATE products SET code=?, description=?, hs_code=?, uom=?, sale_type=?, rate=?, sro_schedule_no=?,
-		sro_item_serial_no=?, unit_price=?, retail_price=?, further_tax_mode=?, extra_tax_rate=?, fed_rate=?, active=?, updated_at=?
+		sro_item_serial_no=?, unit_price=?, retail_price=?, further_tax_mode=?, extra_tax_rate=?, fed_rate=?, active=?, updated_at=?,
+		fed_type=?, fed_rate_text=?, fed_sro=?, fed_sro_serial=?
 		WHERE id=? AND company_id=?`,
 		p.Code, p.Description, p.HSCode, p.UoM, p.SaleType, p.Rate, p.SROScheduleNo, p.SROItemSerialNo,
-		p.UnitPrice.String(), p.RetailPrice.String(), p.FurtherTaxMode, p.ExtraTaxRate.String(), p.FEDRate.String(), b2i(p.Active), t, p.ID, p.CompanyID)
+		p.UnitPrice.String(), p.RetailPrice.String(), p.FurtherTaxMode, p.ExtraTaxRate.String(), p.FEDRate.String(), b2i(p.Active), t,
+		p.FEDType, p.FEDRateText, p.FEDSRO, p.FEDSROSerial, p.ID, p.CompanyID)
 	if err != nil {
 		return err
 	}

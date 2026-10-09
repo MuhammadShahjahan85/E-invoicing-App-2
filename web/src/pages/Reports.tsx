@@ -9,13 +9,14 @@ import { dateFmt, dateTimeFmt, envLabels, money, monthStartPK, qty, todayPK } fr
 import { useCompanyPath, useSession } from '../state'
 import type { FBRCall, Paged } from '../types'
 
-type Kind = 'register' | 'tax-summary' | 'monthly' | 'customers' | 'calls'
+type Kind = 'register' | 'tax-summary' | 'monthly' | 'customers' | 'annex-c' | 'calls'
 
 const titles: Record<Kind, string> = {
   register: 'Sales register (line level)',
   'tax-summary': 'Tax summary by sale type & rate',
   monthly: 'Monthly summary (tax periods)',
   customers: 'Buyer-wise summary',
+  'annex-c': 'Annex-C reconciliation',
   calls: 'FBR API log',
 }
 
@@ -205,6 +206,85 @@ function ReportTable({ kind, params }: { kind: Exclude<Kind, 'calls'>; params: s
           </table>
         </div>
         <p className="small muted card-body">Debit notes are listed separately; they adjust (reduce) the output tax of the referenced sale invoices.</p>
+      </div>
+    )
+  }
+
+  if (kind === 'annex-c') {
+    const active = data.filter((r) => r.status === 'ACCEPTED')
+    const total = (k: string) => active.reduce((a, r) => a + Number(r[k] ?? 0), 0)
+    return (
+      <div className="card">
+        <p className="small muted card-body">
+          Every document that received an FBR invoice number in the period, including those cancelled later. Rule 150XD(2) (as amended by SRO 1666(I)/2026)
+          lets FBR recover tax on any invoice transmitted with an FBR number but not accounted for in Annex-C or the return, unless it was cancelled through
+          the approved mechanism. Match each line with Annex-C on IRIS before filing.
+        </p>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>FBR invoice no.</th>
+                <th>Date</th>
+                <th>Document</th>
+                <th>Buyer</th>
+                <th className="num">Value excl. ST</th>
+                <th className="num">Sales tax</th>
+                <th className="num">Further</th>
+                <th className="num">Extra</th>
+                <th className="num">FED</th>
+                <th className="num">Withheld</th>
+                <th className="num">Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r, i) => (
+                <tr key={i} className={r.status === 'CANCELLED' ? 'faint' : undefined}>
+                  <td className="mono small">{r.fbrInvoiceNumber}</td>
+                  <td className="nowrap">{dateFmt(r.invoiceDate)}</td>
+                  <td className="nowrap small">
+                    {r.internalNo}
+                    <div className="faint">
+                      {r.docType}
+                      {r.invoiceRefNo && <> · against {r.invoiceRefNo}</>}
+                    </div>
+                  </td>
+                  <td>
+                    {r.buyerName}
+                    <div className="small faint">
+                      {r.buyerNtnCnic || '—'} · {r.buyerRegistrationType}
+                    </div>
+                  </td>
+                  <td className="num">{money(r.valueExclST)}</td>
+                  <td className="num">{money(r.salesTax)}</td>
+                  <td className="num">{money(r.furtherTax)}</td>
+                  <td className="num">{money(r.extraTax)}</td>
+                  <td className="num">{money(r.fed)}</td>
+                  <td className="num">{money(r.stWithheld)}</td>
+                  <td className="num">{money(r.totalValue)}</td>
+                  <td className="small">
+                    {r.status === 'CANCELLED' ? <span className="badge b-gray">Cancelled {r.cancelReference}</span> : <span className="badge b-green">Reported</span>}
+                    {r.offlineMode && <div className="faint">offline mode</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4}>Reported, not cancelled ({active.length})</td>
+                <td className="num">{money(total('valueExclST'))}</td>
+                <td className="num">{money(total('salesTax'))}</td>
+                <td className="num">{money(total('furtherTax'))}</td>
+                <td className="num">{money(total('extraTax'))}</td>
+                <td className="num">{money(total('fed'))}</td>
+                <td className="num">{money(total('stWithheld'))}</td>
+                <td className="num">{money(total('totalValue'))}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     )
   }

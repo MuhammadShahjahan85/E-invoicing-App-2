@@ -13,6 +13,8 @@ import type { AuditEntry, FBRCall, Invoice, Paged } from '../types'
 interface Detail {
   invoice: Invoice
   sealValid: boolean
+  signatureValid?: boolean
+  signingKey?: string
   issuedAt?: string
   original?: { id: number; internalNo: string; fbrInvoiceNumber: string }
   debitNotes?: { value: number; salesTax: number }
@@ -149,6 +151,13 @@ export default function InvoiceView() {
             {dateFmt(inv.invoiceDate)} · {envLabels[inv.environment]} · source {inv.source}
             {inv.externalRef && <> · ERP ref {inv.externalRef}</>}
             {inv.scenarioId && <> · scenario {inv.scenarioId}</>}
+            {inv.advanceReceipt && (
+              <>
+                {' '}
+                · <span className="badge b-blue">Advance receipt invoice</span>
+              </>
+            )}
+            {inv.advanceRef && <> · adjusts advance {inv.advanceRef}</>}
           </p>
         </div>
         <div className="actions">
@@ -226,8 +235,8 @@ export default function InvoiceView() {
 
       {inv.status === 'QUEUED' && (
         <div className="alert alert-warn">
-          <b>Not yet reported to FBR.</b> The invoice is sent automatically as soon as FBR responds; invoices issued offline must be uploaded within 24 hours of the
-          connection being restored. A provisional copy can be printed now; print the final copy (with the FBR number and QR code) once it is accepted.{' '}
+          <b>Not yet reported to FBR.</b> The invoice is sent automatically as soon as FBR responds; invoices issued offline are marked as issued in the offline mode and must be uploaded within 24 hours of the
+          connection being restored (rule 150XC). A provisional copy can be printed now; print the final copy (with the FBR number and QR code) once it is accepted.{' '}
           {inv.lastError} {inv.nextAttemptAt && <>Next automatic attempt: {dateTimeFmt(inv.nextAttemptAt)}.</>}
         </div>
       )}
@@ -241,7 +250,7 @@ export default function InvoiceView() {
       {inv.offlineSince && inv.status !== 'QUEUED' && inv.status !== 'ACCEPTED' && inv.status !== 'CANCELLED' && (
         <div className="alert alert-warn">
           Issued while FBR was unreachable ({dateTimeFmt(inv.offlineSince)}) and not yet accepted by FBR. It must be reported within 24 hours of the connection being
-          restored — correct it if needed and submit it again.
+          restored (rule 150XC) — correct it if needed and submit it again.
         </div>
       )}
       {inv.status === 'REJECTED' && inv.lastError && <div className="alert alert-error">{inv.lastError}</div>}
@@ -298,6 +307,18 @@ export default function InvoiceView() {
                 <dd>{inv.fbrDated}</dd>
                 <dt>Integrity</dt>
                 <dd>{data.sealValid ? <span className="badge b-green">Seal verified</span> : <span className="badge b-red">Seal mismatch</span>}</dd>
+                <dt>Signature</dt>
+                <dd>
+                  {!inv.signature ? (
+                    <span className="muted small">Being recorded</span>
+                  ) : data.signatureValid ? (
+                    <span className="badge b-green" title={`Ed25519, key ${data.signingKey ?? ''} — rule 150R(4)(b)`}>
+                      Digitally signed
+                    </span>
+                  ) : (
+                    <span className="badge b-red">Signature mismatch</span>
+                  )}
+                </dd>
                 <dt>Printed</dt>
                 <dd>{inv.printCount} time(s)</dd>
                 {inv.status === 'ACCEPTED' && (
@@ -433,6 +454,14 @@ function Lines({ inv }: { inv: Invoice }) {
                   </div>
                 )}
                 {!!it.retailValue && <div className="small faint">Retail value {money(it.retailValue)}</div>}
+                {(!!it.fedType || !!it.fedSro) && (
+                  <div className="small faint">
+                    FED {it.fedType}
+                    {it.fedRateText ? ` · ${it.fedRateText}` : it.fedRate ? ` · ${it.fedRate}%` : ''}
+                    {it.fedSro && ` · ${it.fedSro}`}
+                    {it.fedSroSerial && ` S.No ${it.fedSroSerial}`}
+                  </div>
+                )}
               </td>
               <td className="mono">{it.hsCode}</td>
               <td className="small">

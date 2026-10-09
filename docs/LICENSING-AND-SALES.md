@@ -143,7 +143,8 @@ Typical editions:
   - server hardware and OS, antivirus;
   - **off-site backups and six-year retention**;
   - accuracy of master data (HS codes, rates, SROs);
-  - sending Rule 150R letters.
+  - sending rule 150XA incident letters;
+  - displaying the "Integrated with FBR" signboard at each outlet.
 - Data ownership: all data stays on the client's premises and belongs to the client. Describe your access during support.
 - Limitation of liability: tax treatment decisions remain the client's responsibility; the software implements FBR's published rules.
 - Licence terms: no copying to other NTNs, no reverse engineering, transfer rules.

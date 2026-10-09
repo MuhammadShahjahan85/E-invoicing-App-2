@@ -112,7 +112,7 @@ export default function Dashboard() {
           <CircleAlert size={18} />
           <div className="alert-body">
             <b>{st.pendingUpload} invoice(s) not yet reported to FBR</b> (oldest issued {dateTimeFmt(st.oldestPending)}). Invoices issued while FBR was
-            unreachable must be uploaded within 24 hours of the connection being restored. Queued invoices are sent automatically as soon as FBR responds; any
+            unreachable are marked as issued in the offline mode and must be uploaded within 24 hours of the connection being restored (rule 150XC). Queued invoices are sent automatically as soon as FBR responds; any
             that FBR rejects must be corrected and resubmitted. <Link to="/invoices?status=REJECTED,UNCERTAIN,QUEUED">View them</Link>.
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function Dashboard() {
         <div className="alert alert-warn">
           <TriangleAlert size={18} />
           <div className="alert-body">
-            {data.unreportedIncidents} incident(s) not yet reported to FBR. Rule 150R requires reporting operational failures within 24 hours —{' '}
+            {data.unreportedIncidents} incident(s) not yet reported to FBR. Rule 150XA(c) requires reporting operational failures within 24 hours —{' '}
             <Link to="/incidents">open the incident register</Link>.
           </div>
         </div>
@@ -373,6 +373,10 @@ export default function Dashboard() {
               </li>
               <li className={company.hasProductionToken ? 'done' : ''}>Save the production token issued on IRIS (whitelist this server's public IP)</li>
               <li className={company.environment === 'production' ? 'done' : ''}>Switch the company to the production environment</li>
+              <li className={company.softwareRegNo ? 'done' : ''}>
+                Record the software registration number and display the “Integrated with FBR” signboard (rule 150R(11)) —{' '}
+                <Link to="/settings/fbr">FBR integration</Link>
+              </li>
             </ol>
           </div>
           {data.reference && (

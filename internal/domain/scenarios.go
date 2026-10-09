@@ -210,67 +210,151 @@ func LookupScenario(id string) (Scenario, bool) {
 	return Scenario{}, false
 }
 
-var baseScenarios = []string{"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"}
-var retailScenarios = []string{"SN026", "SN027", "SN028", "SN008"}
-
-var sectorScenarios = map[string][]string{
-	"All Other Sectors":        nil,
-	"Steel":                    {"SN003", "SN004", "SN011"},
-	"FMCG":                     {"SN008"},
-	"Textile":                  {"SN009"},
-	"Telecom":                  {"SN010"},
-	"Petroleum":                {"SN012"},
-	"Electricity Distribution": {"SN013"},
-	"Gas Distribution":         {"SN014"},
-	"Services":                 {"SN018", "SN019"},
-	"Automobile":               {"SN020"},
-	"CNG Stations":             {"SN023"},
-	"Pharmaceuticals":          {"SN025"},
-	"Wholesale / Retails":      {"SN026", "SN027", "SN028", "SN008"},
+// scenarioMatrix is section 10 of PRAL's Technical Specification for DI API
+// v1.12, "Applicable Scenarios based on Business Activity", row by row
+// (rows 1-13, 16-28, ... 106-118 of the published table).
+var scenarioMatrix = map[string]map[string][]string{
+	"Manufacturer": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"},
+		"Steel":                    {"SN003", "SN004", "SN011"},
+		"FMCG":                     {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN008"},
+		"Textile":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN009"},
+		"Telecom":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN010"},
+		"Petroleum":                {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN012"},
+		"Electricity Distribution": {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN013"},
+		"Gas Distribution":         {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN014"},
+		"Services":                 {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN018", "SN019"},
+		"Automobile":               {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN020"},
+		"CNG Stations":             {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN023"},
+		"Pharmaceuticals":          {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+	},
+	"Importer": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"},
+		"Steel":                    {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN003", "SN004", "SN011"},
+		"FMCG":                     {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN008"},
+		"Textile":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN009"},
+		"Telecom":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN010"},
+		"Petroleum":                {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN012"},
+		"Electricity Distribution": {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN013"},
+		"Gas Distribution":         {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN014"},
+		"Services":                 {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN018", "SN019"},
+		"Automobile":               {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN020"},
+		"CNG Stations":             {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN023"},
+		"Pharmaceuticals":          {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN025"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+	},
+	"Distributor": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+		"Steel":                    {"SN003", "SN004", "SN011", "SN026", "SN027", "SN028", "SN008"},
+		"FMCG":                     {"SN008", "SN026", "SN027", "SN028"},
+		"Textile":                  {"SN009", "SN026", "SN027", "SN028", "SN008"},
+		"Telecom":                  {"SN010", "SN026", "SN027", "SN028", "SN008"},
+		"Petroleum":                {"SN012", "SN026", "SN027", "SN028", "SN008"},
+		"Electricity Distribution": {"SN013", "SN026", "SN027", "SN028", "SN008"},
+		"Gas Distribution":         {"SN014", "SN026", "SN027", "SN028", "SN008"},
+		"Services":                 {"SN018", "SN019", "SN026", "SN027", "SN028", "SN008"},
+		"Automobile":               {"SN020", "SN026", "SN027", "SN028", "SN008"},
+		"CNG Stations":             {"SN023", "SN026", "SN027", "SN028", "SN008"},
+		"Pharmaceuticals":          {"SN025", "SN026", "SN027", "SN028", "SN008"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN026", "SN027", "SN028", "SN008"},
+	},
+	"Wholesaler": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+		"Steel":                    {"SN003", "SN004", "SN011", "SN026", "SN027", "SN028", "SN008"},
+		"FMCG":                     {"SN008", "SN026", "SN027", "SN028"},
+		"Textile":                  {"SN009", "SN026", "SN027", "SN028", "SN008"},
+		"Telecom":                  {"SN010", "SN026", "SN027", "SN028", "SN008"},
+		"Petroleum":                {"SN012", "SN026", "SN027", "SN028", "SN008"},
+		"Electricity Distribution": {"SN013", "SN026", "SN027", "SN028", "SN008"},
+		"Gas Distribution":         {"SN014", "SN026", "SN027", "SN028", "SN008"},
+		"Services":                 {"SN018", "SN019", "SN026", "SN027", "SN028", "SN008"},
+		"Automobile":               {"SN020", "SN026", "SN027", "SN028", "SN008"},
+		"CNG Stations":             {"SN023", "SN026", "SN027", "SN028", "SN008"},
+		"Pharmaceuticals":          {"SN025", "SN026", "SN027", "SN028", "SN008"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN026", "SN027", "SN028", "SN008"},
+	},
+	"Exporter": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"},
+		"Steel":                    {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN003", "SN004", "SN011"},
+		"FMCG":                     {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN008"},
+		"Textile":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN009"},
+		"Telecom":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN010"},
+		"Petroleum":                {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN012"},
+		"Electricity Distribution": {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN013"},
+		"Gas Distribution":         {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN014"},
+		"Services":                 {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN018", "SN019"},
+		"Automobile":               {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN020"},
+		"CNG Stations":             {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN023"},
+		"Pharmaceuticals":          {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN025"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+	},
+	"Retailer": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+		"Steel":                    {"SN003", "SN004", "SN011"},
+		"FMCG":                     {"SN026", "SN027", "SN028", "SN008"},
+		"Textile":                  {"SN009", "SN026", "SN027", "SN028", "SN008"},
+		"Telecom":                  {"SN010", "SN026", "SN027", "SN028", "SN008"},
+		"Petroleum":                {"SN012", "SN026", "SN027", "SN028", "SN008"},
+		"Electricity Distribution": {"SN013", "SN026", "SN027", "SN028", "SN008"},
+		"Gas Distribution":         {"SN014", "SN026", "SN027", "SN028", "SN008"},
+		"Services":                 {"SN018", "SN019", "SN026", "SN027", "SN028", "SN008"},
+		"Automobile":               {"SN020", "SN026", "SN027", "SN028", "SN008"},
+		"CNG Stations":             {"SN023", "SN026", "SN027", "SN028", "SN008"},
+		"Pharmaceuticals":          {"SN025", "SN026", "SN027", "SN028", "SN008"},
+		"Wholesale / Retails":      {"SN026", "SN027", "SN028", "SN008"},
+	},
+	"Service Provider": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN018", "SN019"},
+		"Steel":                    {"SN003", "SN004", "SN011", "SN018", "SN019"},
+		"FMCG":                     {"SN008", "SN018", "SN019"},
+		"Textile":                  {"SN009", "SN018", "SN019"},
+		"Telecom":                  {"SN010", "SN018", "SN019"},
+		"Petroleum":                {"SN012", "SN018", "SN019"},
+		"Electricity Distribution": {"SN013", "SN018", "SN019"},
+		"Gas Distribution":         {"SN014", "SN018", "SN019"},
+		"Services":                 {"SN018", "SN019"},
+		"Automobile":               {"SN020", "SN018", "SN019"},
+		"CNG Stations":             {"SN023", "SN018", "SN019"},
+		"Pharmaceuticals":          {"SN025", "SN018", "SN019"},
+		"Wholesale / Retails":      {"SN026", "SN027", "SN028", "SN008", "SN018", "SN019"},
+	},
+	"Other": {
+		"All Other Sectors":        {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024"},
+		"Steel":                    {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN003", "SN004", "SN011"},
+		"FMCG":                     {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN008"},
+		"Textile":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN009"},
+		"Telecom":                  {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN010"},
+		"Petroleum":                {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN012"},
+		"Electricity Distribution": {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN013"},
+		"Gas Distribution":         {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN014"},
+		"Services":                 {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN018", "SN019"},
+		"Automobile":               {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN020"},
+		"CNG Stations":             {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN023"},
+		"Pharmaceuticals":          {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN025"},
+		"Wholesale / Retails":      {"SN001", "SN002", "SN005", "SN006", "SN007", "SN015", "SN016", "SN017", "SN021", "SN022", "SN024", "SN026", "SN027", "SN028", "SN008"},
+	},
 }
 
 // ApplicableScenarios returns the sandbox scenarios FBR's technical
-// specification associates with a business activity and sector. It follows
-// the published matrix (base goods scenarios plus sector scenarios; retailers
-// get the end-consumer scenarios; service providers get SN018/SN019). IRIS is
-// authoritative: the scenarios shown there after DI registration override
-// this suggestion and can be recorded per company.
+// specification assigns to a business activity and sector. IRIS is
+// authoritative: the scenarios it shows after DI registration override this
+// suggestion and can be recorded per company.
 func ApplicableScenarios(activity, sector string) []string {
-	set := map[string]bool{}
-	add := func(ids ...string) {
-		for _, id := range ids {
-			set[id] = true
-		}
+	if sector == "" {
+		sector = "All Other Sectors"
 	}
-	sec := sectorScenarios[sector]
-	switch activity {
-	case "Manufacturer":
-		if sector == "Steel" {
-			add(sec...)
-		} else {
-			add(baseScenarios...)
-			add(sec...)
-		}
-	case "Retailer":
-		if sector == "All Other Sectors" || sector == "" {
-			add(baseScenarios...)
-			add(retailScenarios...)
-		} else if sector == "Steel" {
-			add(sec...)
-		} else {
-			add(sec...)
-			add(retailScenarios...)
-		}
-	case "Service Provider":
-		if sector == "All Other Sectors" || sector == "" {
-			add(baseScenarios...)
-		} else {
-			add(sec...)
-		}
-		add("SN018", "SN019")
-	default: // Importer, Distributor, Wholesaler, Exporter, Other
-		add(baseScenarios...)
-		add(sec...)
+	rows, ok := scenarioMatrix[activity]
+	if !ok {
+		rows = scenarioMatrix["Other"]
+	}
+	ids, ok := rows[sector]
+	if !ok {
+		ids = rows["All Other Sectors"]
+	}
+	set := map[string]bool{}
+	for _, id := range ids {
+		set[id] = true
 	}
 	return sortedKeys(set)
 }

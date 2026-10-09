@@ -73,21 +73,24 @@ type Company struct {
 	ValidateBeforePost    bool               `json:"validateBeforePost"`
 	// ReturnPaymentDay and ReturnFilingDay are the days of the month after a
 	// tax period by which sales tax is paid and the return is filed.
-	ReturnPaymentDay int           `json:"returnPaymentDay"`
-	ReturnFilingDay  int           `json:"returnFilingDay"`
-	HasLogo          bool          `json:"hasLogo"`
-	LogoMime         string        `json:"-"`
-	PrintSettings    PrintSettings `json:"printSettings"`
-	Active           bool          `json:"active"`
-	CreatedAt        string        `json:"createdAt"`
-	UpdatedAt        string        `json:"updatedAt"`
+	ReturnPaymentDay int `json:"returnPaymentDay"`
+	ReturnFilingDay  int `json:"returnFilingDay"`
+	// SoftwareRegNo is the registration number of the electronic invoicing
+	// software (rule 150R(13)(c)), printed on invoices and the signboard.
+	SoftwareRegNo string        `json:"softwareRegNo"`
+	HasLogo       bool          `json:"hasLogo"`
+	LogoMime      string        `json:"-"`
+	PrintSettings PrintSettings `json:"printSettings"`
+	Active        bool          `json:"active"`
+	CreatedAt     string        `json:"createdAt"`
+	UpdatedAt     string        `json:"updatedAt"`
 }
 
 const companyCols = `id, name, ntn_cnic, strn, province, province_code, address, city, phone, email,
 	business_activities, sectors, assigned_scenarios, environment, sandbox_token_enc, production_token_enc,
 	sandbox_token_expiry, production_token_expiry, invoice_prefix, debit_note_prefix, further_tax_rate,
 	withholding_fraction, send_internal_ref, validate_before_post, (logo IS NOT NULL AND length(logo) > 0), logo_mime,
-	print_settings, active, created_at, updated_at, return_payment_day, return_filing_day`
+	print_settings, active, created_at, updated_at, return_payment_day, return_filing_day, software_reg_no`
 
 func scanCompany(row interface{ Scan(...any) error }) (*Company, error) {
 	var c Company
@@ -96,7 +99,7 @@ func scanCompany(row interface{ Scan(...any) error }) (*Company, error) {
 	err := row.Scan(&c.ID, &c.Name, &c.NTNCNIC, &c.STRN, &c.Province, &c.ProvinceCode, &c.Address, &c.City, &c.Phone, &c.Email,
 		&acts, &secs, &scen, &env, &c.SandboxTokenEnc, &c.ProductionTokenEnc, &c.SandboxTokenExpiry, &c.ProductionTokenExpiry,
 		&c.InvoicePrefix, &c.DebitNotePrefix, &ftr, &wf, &sendRef, &valBefore, &hasLogo, &c.LogoMime, &ps, &active, &c.CreatedAt, &c.UpdatedAt,
-		&c.ReturnPaymentDay, &c.ReturnFilingDay)
+		&c.ReturnPaymentDay, &c.ReturnFilingDay, &c.SoftwareRegNo)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -173,13 +176,13 @@ func (s *Store) CreateCompany(ctx context.Context, c *Company) (int64, error) {
 	res, err := s.DB.ExecContext(ctx, `INSERT INTO companies(name, ntn_cnic, strn, province, province_code, address, city, phone, email,
 		business_activities, sectors, assigned_scenarios, environment, invoice_prefix, debit_note_prefix, further_tax_rate,
 		withholding_fraction, send_internal_ref, validate_before_post, print_settings, active, created_at, updated_at,
-		return_payment_day, return_filing_day)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)`,
+		return_payment_day, return_filing_day, software_reg_no)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?)`,
 		c.Name, c.NTNCNIC, c.STRN, c.Province, c.ProvinceCode, c.Address, c.City, c.Phone, c.Email,
 		toJSON(nz(c.BusinessActivities)), toJSON(nz(c.Sectors)), toJSON(nz(c.AssignedScenarios)), string(c.Environment),
 		c.InvoicePrefix, c.DebitNotePrefix, c.FurtherTaxRate.String(), c.WithholdingFraction.String(),
 		b2i(c.SendInternalRef), b2i(c.ValidateBeforePost), toJSON(c.PrintSettings), t, t,
-		c.ReturnPaymentDay, c.ReturnFilingDay)
+		c.ReturnPaymentDay, c.ReturnFilingDay, c.SoftwareRegNo)
 	if isUnique(err) {
 		return 0, ErrConflict
 	}
@@ -201,12 +204,12 @@ func (s *Store) UpdateCompany(ctx context.Context, c *Company) error {
 	_, err := s.DB.ExecContext(ctx, `UPDATE companies SET name=?, ntn_cnic=?, strn=?, province=?, province_code=?, address=?, city=?,
 		phone=?, email=?, business_activities=?, sectors=?, assigned_scenarios=?, environment=?, invoice_prefix=?, debit_note_prefix=?,
 		further_tax_rate=?, withholding_fraction=?, send_internal_ref=?, validate_before_post=?, print_settings=?, active=?,
-		sandbox_token_expiry=?, production_token_expiry=?, return_payment_day=?, return_filing_day=?, updated_at=? WHERE id=?`,
+		sandbox_token_expiry=?, production_token_expiry=?, return_payment_day=?, return_filing_day=?, software_reg_no=?, updated_at=? WHERE id=?`,
 		c.Name, c.NTNCNIC, c.STRN, c.Province, c.ProvinceCode, c.Address, c.City, c.Phone, c.Email,
 		toJSON(nz(c.BusinessActivities)), toJSON(nz(c.Sectors)), toJSON(nz(c.AssignedScenarios)), string(c.Environment),
 		c.InvoicePrefix, c.DebitNotePrefix, c.FurtherTaxRate.String(), c.WithholdingFraction.String(),
 		b2i(c.SendInternalRef), b2i(c.ValidateBeforePost), toJSON(c.PrintSettings), b2i(c.Active),
-		c.SandboxTokenExpiry, c.ProductionTokenExpiry, c.ReturnPaymentDay, c.ReturnFilingDay, now(), c.ID)
+		c.SandboxTokenExpiry, c.ProductionTokenExpiry, c.ReturnPaymentDay, c.ReturnFilingDay, c.SoftwareRegNo, now(), c.ID)
 	if isUnique(err) {
 		return ErrConflict
 	}

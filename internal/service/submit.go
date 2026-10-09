@@ -203,6 +203,14 @@ func (s *Service) accept(ctx context.Context, a Actor, inv *store.Invoice, fbrNo
 			it.FBRItemInvoiceNo, it.FBRStatusCode = fmt.Sprintf("%s-%d", fbrNo, it.LineNo), "00"
 		}
 	}
+	// Rule 150R(4)(b): a digital signature is recorded on the invoice. The
+	// key is loaded (or created) before the transaction; a signing failure
+	// must not lose FBR's acceptance, and the worker signs any invoice left
+	// unsigned.
+	key, keyErr := s.signingKey(ctx)
+	if keyErr != nil {
+		s.Log.Error("signing key unavailable", "err", keyErr)
+	}
 	err := s.Store.Tx(ctx, func(q store.Querier) error {
 		prev, err := store.LastSealHash(ctx, q, inv.CompanyID)
 		if err != nil {
@@ -210,6 +218,9 @@ func (s *Service) accept(ctx context.Context, a Actor, inv *store.Invoice, fbrNo
 		}
 		inv.PrevSealHash = prev
 		inv.SealHash = sealHash(prev, inv)
+		if keyErr == nil {
+			inv.Signature = signWith(key, inv)
+		}
 		return store.MarkAccepted(ctx, q, inv, inv.Items)
 	})
 	if err != nil {

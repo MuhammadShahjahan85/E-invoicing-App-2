@@ -73,17 +73,25 @@ type Invoice struct {
 	SealHash              string                  `json:"sealHash"`
 	PrevSealHash          string                  `json:"prevSealHash"`
 	OfflineSince          string                  `json:"offlineSince"`
-	PrintCount            int                     `json:"printCount"`
-	CancelledAt           string                  `json:"cancelledAt"`
-	CancelReason          string                  `json:"cancelReason"`
-	CancelReference       string                  `json:"cancelReference"`
-	CreatedBy             *int64                  `json:"createdBy"`
-	UpdatedBy             *int64                  `json:"updatedBy"`
-	CreatedAt             string                  `json:"createdAt"`
-	UpdatedAt             string                  `json:"updatedAt"`
-	SubmittedAt           string                  `json:"submittedAt"`
-	AcceptedAt            string                  `json:"acceptedAt"`
-	Items                 []*InvoiceItem          `json:"items,omitempty"`
+	// Signature is the digital signature recorded on an accepted invoice
+	// (rule 150R(4)(b)): Ed25519 over the FBR number and seal, base64.
+	Signature string `json:"signature"`
+	// AdvanceReceipt marks an advance receipt invoice (section 23(1) as
+	// amended by the Finance Act 2026); AdvanceRef names, on a final
+	// invoice, the advance receipt invoices it adjusts.
+	AdvanceReceipt  bool           `json:"advanceReceipt"`
+	AdvanceRef      string         `json:"advanceRef"`
+	PrintCount      int            `json:"printCount"`
+	CancelledAt     string         `json:"cancelledAt"`
+	CancelReason    string         `json:"cancelReason"`
+	CancelReference string         `json:"cancelReference"`
+	CreatedBy       *int64         `json:"createdBy"`
+	UpdatedBy       *int64         `json:"updatedBy"`
+	CreatedAt       string         `json:"createdAt"`
+	UpdatedAt       string         `json:"updatedAt"`
+	SubmittedAt     string         `json:"submittedAt"`
+	AcceptedAt      string         `json:"acceptedAt"`
+	Items           []*InvoiceItem `json:"items,omitempty"`
 }
 
 // InvoiceItem is one invoice line: inputs (as entered) plus computed amounts.
@@ -114,6 +122,13 @@ type InvoiceItem struct {
 	SalesTaxOverride    *decimal.Decimal `json:"salesTaxOverride"`
 	SROScheduleNo       string           `json:"sroScheduleNo"`
 	SROItemSerialNo     string           `json:"sroItemSerialNo"`
+	// Federal excise duty particulars of rule 150R(13)(aa)-(ff) (SRO
+	// 1666(I)/2026); the amount (dd) is FED.
+	FEDType      string          `json:"fedType"`
+	FEDRateText  string          `json:"fedRateText"`
+	FEDUnitPrice decimal.Decimal `json:"fedUnitPrice"`
+	FEDSRO       string          `json:"fedSro"`
+	FEDSROSerial string          `json:"fedSroSerial"`
 	// Computed.
 	Gross            decimal.Decimal `json:"gross"`
 	Discount         decimal.Decimal `json:"discount"`
@@ -139,20 +154,20 @@ const invoiceCols = `id, company_id, environment, doc_type, internal_no, invoice
 	total_retail_value, total_sales_tax, total_further_tax, total_extra_tax, total_fed, total_st_withheld, total_value, amount_payable,
 	fbr_invoice_number, fbr_dated, fbr_status_code, fbr_errors, last_error, validation_json, submit_attempts, next_attempt_at,
 	payload_json, payload_hash, seal_hash, prev_seal_hash, print_count, cancelled_at, cancel_reason, cancel_reference,
-	created_by, updated_by, created_at, updated_at, submitted_at, accepted_at, offline_since`
+	created_by, updated_by, created_at, updated_at, submitted_at, accepted_at, offline_since, signature, advance_receipt, advance_ref`
 
 func scanInvoice(row interface{ Scan(...any) error }) (*Invoice, error) {
 	var inv Invoice
 	var env, dt, st, rt, fbrErrs, valJSON string
 	var cust, ref, cb, ub sql.NullInt64
-	var g, d, v, rv, stx, ft, et, fed, wh, tv, ap int64
+	var g, d, v, rv, stx, ft, et, fed, wh, tv, ap, adv int64
 	err := row.Scan(&inv.ID, &inv.CompanyID, &env, &dt, &inv.InternalNo, &inv.InvoiceDate, &st, &cust, &inv.SellerNTNCNIC, &inv.SellerName,
 		&inv.SellerProvince, &inv.SellerAddress, &inv.BuyerNTNCNIC, &inv.BuyerName, &inv.BuyerProvince, &inv.BuyerAddress, &rt, &inv.WithholdingMode,
 		&inv.InvoiceRefNo, &ref, &inv.ScenarioID, &inv.ExternalRef, &inv.Source, &inv.Notes, &g, &d, &v,
 		&rv, &stx, &ft, &et, &fed, &wh, &tv, &ap,
 		&inv.FBRInvoiceNumber, &inv.FBRDated, &inv.FBRStatusCode, &fbrErrs, &inv.LastError, &valJSON, &inv.SubmitAttempts, &inv.NextAttemptAt,
 		&inv.PayloadJSON, &inv.PayloadHash, &inv.SealHash, &inv.PrevSealHash, &inv.PrintCount, &inv.CancelledAt, &inv.CancelReason, &inv.CancelReference,
-		&cb, &ub, &inv.CreatedAt, &inv.UpdatedAt, &inv.SubmittedAt, &inv.AcceptedAt, &inv.OfflineSince)
+		&cb, &ub, &inv.CreatedAt, &inv.UpdatedAt, &inv.SubmittedAt, &inv.AcceptedAt, &inv.OfflineSince, &inv.Signature, &adv, &inv.AdvanceRef)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -160,6 +175,7 @@ func scanInvoice(row interface{ Scan(...any) error }) (*Invoice, error) {
 		return nil, err
 	}
 	inv.Environment, inv.DocType, inv.Status, inv.BuyerRegistrationType = domain.Environment(env), domain.DocType(dt), domain.InvoiceStatus(st), domain.RegistrationType(rt)
+	inv.AdvanceReceipt = adv == 1
 	inv.CustomerID, inv.RefInvoiceID, inv.CreatedBy, inv.UpdatedBy = intPtr(cust), intPtr(ref), intPtr(cb), intPtr(ub)
 	inv.Totals = Totals{Gross: Rupees(g), Discount: Rupees(d), ValueExclST: Rupees(v), RetailValue: Rupees(rv), SalesTax: Rupees(stx),
 		FurtherTax: Rupees(ft), ExtraTax: Rupees(et), FED: Rupees(fed), STWithheld: Rupees(wh), TotalValue: Rupees(tv), AmountPayable: Rupees(ap)}
@@ -176,22 +192,23 @@ const itemCols = `id, invoice_id, line_no, product_id, hs_code, description, uom
 	value_override, sale_type, rate, retail_price, retail_value_override, further_tax_mode, further_tax_override, extra_tax_rate,
 	extra_tax_override, fed_rate, fed_override, withholding_override, sales_tax_override, sro_schedule_no, sro_item_serial_no,
 	gross, discount, value_excl_st, retail_value, sales_tax, further_tax, extra_tax, extra_tax_empty, fed, st_withheld, total_value,
-	fbr_item_invoice_no, fbr_status_code, fbr_error_code, fbr_error`
+	fbr_item_invoice_no, fbr_status_code, fbr_error_code, fbr_error, fed_type, fed_rate_text, fed_unit_price, fed_sro, fed_sro_serial`
 
 func scanItem(row interface{ Scan(...any) error }) (*InvoiceItem, error) {
 	var it InvoiceItem
 	var pid sql.NullInt64
-	var qty, up, dp, da, vo, rp, rvo, fto, etr, eto, fedr, fedo, who, sto string
+	var qty, up, dp, da, vo, rp, rvo, fto, etr, eto, fedr, fedo, who, sto, fedup string
 	var g, d, v, rv, st, ft, et, ete, fed, wh, tv int64
 	err := row.Scan(&it.ID, &it.InvoiceID, &it.LineNo, &pid, &it.HSCode, &it.Description, &it.UoM, &qty, &up, &dp, &da,
 		&vo, &it.SaleType, &it.Rate, &rp, &rvo, &it.FurtherTaxMode, &fto, &etr,
 		&eto, &fedr, &fedo, &who, &sto, &it.SROScheduleNo, &it.SROItemSerialNo,
 		&g, &d, &v, &rv, &st, &ft, &et, &ete, &fed, &wh, &tv,
-		&it.FBRItemInvoiceNo, &it.FBRStatusCode, &it.FBRErrorCode, &it.FBRError)
+		&it.FBRItemInvoiceNo, &it.FBRStatusCode, &it.FBRErrorCode, &it.FBRError, &it.FEDType, &it.FEDRateText, &fedup, &it.FEDSRO, &it.FEDSROSerial)
 	if err != nil {
 		return nil, err
 	}
 	it.ProductID = intPtr(pid)
+	it.FEDUnitPrice = dec(fedup)
 	it.Quantity, it.UnitPrice, it.DiscountPercent, it.DiscountAmount = dec(qty), dec(up), dec(dp), dec(da)
 	it.ValueOverride, it.RetailPrice, it.RetailValueOverride = decPtr(vo), dec(rp), decPtr(rvo)
 	it.FurtherTaxOverride, it.ExtraTaxRate, it.ExtraTaxOverride = decPtr(fto), dec(etr), decPtr(eto)
@@ -210,15 +227,17 @@ func insertItems(ctx context.Context, q Querier, invoiceID int64, items []*Invoi
 			discount_percent, discount_amount, value_override, sale_type, rate, retail_price, retail_value_override, further_tax_mode,
 			further_tax_override, extra_tax_rate, extra_tax_override, fed_rate, fed_override, withholding_override, sales_tax_override,
 			sro_schedule_no, sro_item_serial_no, gross, discount, value_excl_st, retail_value, sales_tax, further_tax, extra_tax,
-			extra_tax_empty, fed, st_withheld, total_value, fbr_item_invoice_no, fbr_status_code, fbr_error_code, fbr_error)
-			VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			extra_tax_empty, fed, st_withheld, total_value, fbr_item_invoice_no, fbr_status_code, fbr_error_code, fbr_error,
+			fed_type, fed_rate_text, fed_unit_price, fed_sro, fed_sro_serial)
+			VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			invoiceID, it.LineNo, nullInt(it.ProductID), it.HSCode, it.Description, it.UoM, it.Quantity.String(), it.UnitPrice.String(),
 			it.DiscountPercent.String(), it.DiscountAmount.String(), ptrStr(it.ValueOverride), it.SaleType, it.Rate, it.RetailPrice.String(),
 			ptrStr(it.RetailValueOverride), it.FurtherTaxMode, ptrStr(it.FurtherTaxOverride), it.ExtraTaxRate.String(), ptrStr(it.ExtraTaxOverride),
 			it.FEDRate.String(), ptrStr(it.FEDOverride), ptrStr(it.WithholdingOverride), ptrStr(it.SalesTaxOverride),
 			it.SROScheduleNo, it.SROItemSerialNo, Paisa(it.Gross), Paisa(it.Discount), Paisa(it.ValueExclST), Paisa(it.RetailValue),
 			Paisa(it.SalesTax), Paisa(it.FurtherTax), Paisa(it.ExtraTax), b2i(it.ExtraTaxEmpty), Paisa(it.FED), Paisa(it.STWithheld),
-			Paisa(it.TotalValue), it.FBRItemInvoiceNo, it.FBRStatusCode, it.FBRErrorCode, it.FBRError)
+			Paisa(it.TotalValue), it.FBRItemInvoiceNo, it.FBRStatusCode, it.FBRErrorCode, it.FBRError,
+			it.FEDType, it.FEDRateText, it.FEDUnitPrice.String(), it.FEDSRO, it.FEDSROSerial)
 		if err != nil {
 			return err
 		}
@@ -250,14 +269,15 @@ func InsertInvoice(ctx context.Context, q Querier, inv *Invoice) error {
 		seller_ntn_cnic, seller_name, seller_province, seller_address, buyer_ntn_cnic, buyer_name, buyer_province, buyer_address,
 		buyer_registration_type, withholding_mode, invoice_ref_no, ref_invoice_id, scenario_id, external_ref, source, notes,
 		total_gross, total_discount, total_value_excl_st, total_retail_value, total_sales_tax, total_further_tax, total_extra_tax,
-		total_fed, total_st_withheld, total_value, amount_payable, validation_json, created_by, updated_by, created_at, updated_at)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		total_fed, total_st_withheld, total_value, amount_payable, validation_json, created_by, updated_by, created_at, updated_at,
+		advance_receipt, advance_ref)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		inv.CompanyID, string(inv.Environment), string(inv.DocType), inv.InternalNo, inv.InvoiceDate, string(inv.Status), nullInt(inv.CustomerID),
 		inv.SellerNTNCNIC, inv.SellerName, inv.SellerProvince, inv.SellerAddress, inv.BuyerNTNCNIC, inv.BuyerName, inv.BuyerProvince, inv.BuyerAddress,
 		string(inv.BuyerRegistrationType), inv.WithholdingMode, inv.InvoiceRefNo, nullInt(inv.RefInvoiceID), inv.ScenarioID, inv.ExternalRef, inv.Source, inv.Notes,
 		Paisa(tt.Gross), Paisa(tt.Discount), Paisa(tt.ValueExclST), Paisa(tt.RetailValue), Paisa(tt.SalesTax), Paisa(tt.FurtherTax), Paisa(tt.ExtraTax),
 		Paisa(tt.FED), Paisa(tt.STWithheld), Paisa(tt.TotalValue), Paisa(tt.AmountPayable), valJSON(inv.Validation),
-		nullInt(inv.CreatedBy), nullInt(inv.UpdatedBy), t, t)
+		nullInt(inv.CreatedBy), nullInt(inv.UpdatedBy), t, t, b2i(inv.AdvanceReceipt), inv.AdvanceRef)
 	if isUnique(err) {
 		return ErrConflict
 	}
@@ -276,14 +296,15 @@ func UpdateInvoiceContent(ctx context.Context, q Querier, inv *Invoice) error {
 		seller_province=?, seller_address=?, buyer_ntn_cnic=?, buyer_name=?, buyer_province=?, buyer_address=?, buyer_registration_type=?,
 		withholding_mode=?, invoice_ref_no=?, ref_invoice_id=?, scenario_id=?, external_ref=?, notes=?, total_gross=?, total_discount=?,
 		total_value_excl_st=?, total_retail_value=?, total_sales_tax=?, total_further_tax=?, total_extra_tax=?, total_fed=?,
-		total_st_withheld=?, total_value=?, amount_payable=?, validation_json=?, fbr_errors=?, last_error=?, updated_by=?, updated_at=?
+		total_st_withheld=?, total_value=?, amount_payable=?, validation_json=?, fbr_errors=?, last_error=?, updated_by=?, updated_at=?,
+		advance_receipt=?, advance_ref=?
 		WHERE id=? AND status IN ('DRAFT','VALIDATED','REJECTED')`,
 		string(inv.DocType), inv.InvoiceDate, string(inv.Status), nullInt(inv.CustomerID), inv.SellerNTNCNIC, inv.SellerName,
 		inv.SellerProvince, inv.SellerAddress, inv.BuyerNTNCNIC, inv.BuyerName, inv.BuyerProvince, inv.BuyerAddress, string(inv.BuyerRegistrationType),
 		inv.WithholdingMode, inv.InvoiceRefNo, nullInt(inv.RefInvoiceID), inv.ScenarioID, inv.ExternalRef, inv.Notes, Paisa(tt.Gross), Paisa(tt.Discount),
 		Paisa(tt.ValueExclST), Paisa(tt.RetailValue), Paisa(tt.SalesTax), Paisa(tt.FurtherTax), Paisa(tt.ExtraTax), Paisa(tt.FED),
 		Paisa(tt.STWithheld), Paisa(tt.TotalValue), Paisa(tt.AmountPayable), valJSON(inv.Validation), errsJSON(inv.FBRErrors), inv.LastError,
-		nullInt(inv.UpdatedBy), inv.UpdatedAt, inv.ID)
+		nullInt(inv.UpdatedBy), inv.UpdatedAt, b2i(inv.AdvanceReceipt), inv.AdvanceRef, inv.ID)
 	if isUnique(err) {
 		return ErrConflict
 	}
@@ -482,8 +503,8 @@ func MarkAccepted(ctx context.Context, q Querier, inv *Invoice, items []*Invoice
 	}
 	t := now()
 	res, err := q.ExecContext(ctx, `UPDATE invoices SET status='ACCEPTED', fbr_invoice_number=?, fbr_dated=?, fbr_status_code=?, fbr_errors='',
-		last_error='', seal_hash=?, prev_seal_hash=?, accepted_at=?, next_attempt_at='', updated_at=? WHERE id=? AND status IN ('SUBMITTING','UNCERTAIN')`,
-		inv.FBRInvoiceNumber, inv.FBRDated, inv.FBRStatusCode, inv.SealHash, inv.PrevSealHash, t, t, inv.ID)
+		last_error='', seal_hash=?, prev_seal_hash=?, signature=?, accepted_at=?, next_attempt_at='', updated_at=? WHERE id=? AND status IN ('SUBMITTING','UNCERTAIN')`,
+		inv.FBRInvoiceNumber, inv.FBRDated, inv.FBRStatusCode, inv.SealHash, inv.PrevSealHash, inv.Signature, t, t, inv.ID)
 	if err != nil {
 		return err
 	}
@@ -662,4 +683,29 @@ func (s *Store) RequeueOldest(ctx context.Context, companyID int64, env domain.E
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// SetSignature records the digital signature of an accepted invoice that was
+// accepted before invoices were signed. A signature, once set, never changes.
+func (s *Store) SetSignature(ctx context.Context, id int64, sig string) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE invoices SET signature=? WHERE id=? AND signature='' AND seal_hash<>''`, sig, id)
+	return err
+}
+
+// UnsignedSealedInvoices returns ids of accepted invoices without a signature.
+func (s *Store) UnsignedSealedInvoices(ctx context.Context, limit int) ([]int64, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT id FROM invoices WHERE seal_hash<>'' AND signature='' ORDER BY id LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }

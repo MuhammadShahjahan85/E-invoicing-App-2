@@ -170,7 +170,7 @@ func (a *App) Serve(ctx context.Context) error {
 	case <-ctx.Done():
 		// Record the orderly stop first (Windows gives a service only a few
 		// seconds at system shutdown); an unrecorded stop is later reported
-		// as a system failure under Rule 150R.
+		// as a system failure under rule 150XA(c).
 		a.Svc.MarkCleanShutdown()
 		stopWorker()
 		sctx, c2 := context.WithTimeout(context.Background(), 20*time.Second)

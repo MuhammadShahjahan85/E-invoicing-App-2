@@ -29,6 +29,7 @@ var ImportColumns = []string{
 	"product_code", "hs_code", "description", "uom", "quantity", "unit_price", "discount", "value_excl_st",
 	"sale_type", "rate", "retail_price", "sro_schedule_no", "sro_item_serial_no",
 	"sales_tax", "further_tax", "extra_tax", "fed", "st_withheld",
+	"advance_receipt", "advance_ref", "fed_type", "fed_rate_text", "fed_unit_price", "fed_sro", "fed_sro_serial",
 }
 
 // ImportTemplateCSV returns a CSV template with an example row.
@@ -40,7 +41,8 @@ func ImportTemplateCSV() []byte {
 		"2046004", "ABC Traders", "Punjab", "Lahore", "Registered", "",
 		"", "0101.2100", "Example product", "Numbers, pieces, units", "10", "150", "0", "",
 		"Goods at standard rate (default)", "18%", "", "", "",
-		"", "", "", "", ""})
+		"", "", "", "", "",
+		"", "", "", "", "", "", ""})
 	w.Flush()
 	return b.Bytes()
 }
@@ -56,7 +58,8 @@ func ImportTemplateXLSX() ([]byte, error) {
 		_ = f.SetCellValue(sh, cell, c)
 	}
 	example := []any{"ERP-1001", time.Now().In(PKT).Format("2006-01-02"), "Sale Invoice", "", "", "2046004", "ABC Traders", "Punjab", "Lahore", "Registered", "",
-		"", "0101.2100", "Example product", "Numbers, pieces, units", 10, 150, 0, "", "Goods at standard rate (default)", "18%", "", "", "", "", "", "", "", ""}
+		"", "0101.2100", "Example product", "Numbers, pieces, units", 10, 150, 0, "", "Goods at standard rate (default)", "18%", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", ""}
 	for i, v := range example {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
 		_ = f.SetCellValue(sh, cell, v)
@@ -70,6 +73,8 @@ func ImportTemplateXLSX() ([]byte, error) {
 		"Either product_code (from the Products master) or hs_code + description + uom + sale_type + rate must be given.",
 		"value_excl_st, sales_tax, further_tax, extra_tax, fed and st_withheld are optional overrides; leave blank to let the tax engine compute them.",
 		"withholding_mode: blank, 'fraction' (1/5th) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
+		"advance_receipt: 'yes' for an invoice issued on receipt of an advance (section 23(1)); advance_ref: on a final invoice, the FBR numbers of the advance receipt invoices it adjusts.",
+		"fed_type, fed_rate_text, fed_unit_price, fed_sro and fed_sro_serial: federal excise duty particulars printed on the invoice (rule 150R(13)(aa)-(ff), SRO 1666(I)/2026); blanks are taken from the product.",
 	}
 	for i, l := range lines {
 		_ = f.SetCellValue(help, fmt.Sprintf("A%d", i+1), l)
@@ -223,12 +228,21 @@ func rowsToInputs(rows []map[string]string, env domain.Environment) ([]*InvoiceI
 			if wm := r["withholding_mode"]; wm != "" {
 				in.WithholdingMode = &wm
 			}
+			switch strings.ToLower(strings.TrimSpace(r["advance_receipt"])) {
+			case "", "no", "n", "0", "false":
+			case "yes", "y", "1", "true":
+				in.AdvanceReceipt = true
+			default:
+				errsByRef[ref] = append(errsByRef[ref], fmt.Sprintf("row %d advance_receipt: use yes or no", rowNo))
+			}
+			in.AdvanceRef = r["advance_ref"]
 			byRef[ref] = in
 			order = append(order, ref)
 		}
 		rowsByRef[ref] = append(rowsByRef[ref], rowNo)
 		item := ItemInput{ProductCode: r["product_code"], HSCode: r["hs_code"], Description: r["description"], UoM: r["uom"],
-			SaleType: r["sale_type"], Rate: r["rate"], SROScheduleNo: r["sro_schedule_no"], SROItemSerialNo: r["sro_item_serial_no"]}
+			SaleType: r["sale_type"], Rate: r["rate"], SROScheduleNo: r["sro_schedule_no"], SROItemSerialNo: r["sro_item_serial_no"],
+			FEDType: r["fed_type"], FEDRateText: r["fed_rate_text"], FEDSRO: r["fed_sro"], FEDSROSerial: r["fed_sro_serial"]}
 		var err error
 		bad := func(field string, e error) {
 			if e != nil {
@@ -255,6 +269,8 @@ func rowsToInputs(rows []map[string]string, env domain.Environment) ([]*InvoiceI
 		bad("fed", err)
 		item.STWithheld, err = optDec(r["st_withheld"])
 		bad("st_withheld", err)
+		item.FEDUnitPrice, err = reqDec(r["fed_unit_price"])
+		bad("fed_unit_price", err)
 		in.Items = append(in.Items, item)
 	}
 	var ins []*InvoiceInput
@@ -451,6 +467,28 @@ func CustomerTable(rows []store.CustomerRow) *Table {
 		"Sales Tax", "Further Tax", "ST Withheld", "Total Value"}}
 	for _, r := range rows {
 		t.Rows = append(t.Rows, []any{r.BuyerNTNCNIC, r.BuyerName, r.BuyerRegistration, r.Invoices, r.ValueExclST, r.SalesTax, r.FurtherTax, r.STWithheld, r.TotalValue})
+	}
+	return t
+}
+
+// AnnexCTable builds the Annex-C reconciliation export: every document
+// reported to FBR in the period, to be matched with Annexure-C of the return.
+func AnnexCTable(rows []store.AnnexCRow) *Table {
+	t := &Table{Title: "Annex-C reconciliation", Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
+		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Destination Province", "Value excl ST", "Sales Tax", "Further Tax", "Extra Tax", "FED",
+		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annex-C"}}
+	for _, r := range rows {
+		status := "Reported"
+		if r.Status == "CANCELLED" {
+			status = "Cancelled"
+		}
+		offline := ""
+		if r.OfflineMode {
+			offline = "Yes"
+		}
+		t.Rows = append(t.Rows, []any{r.FBRInvoiceNumber, r.InvoiceDate, r.DocType, r.InternalNo, r.InvoiceRefNo, r.BuyerNTNCNIC, r.BuyerName,
+			r.BuyerRegistration, r.BuyerProvince, r.ValueExclST, r.SalesTax, r.FurtherTax, r.ExtraTax, r.FED, r.STWithheld, r.TotalValue,
+			status, r.CancelReference, offline, ""})
 	}
 	return t
 }

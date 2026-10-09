@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Transfer Note {{.T.Number}}</title>
+<style>
+  @page { size: A4; margin: 12mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #111; font-size: 10.5pt; margin: 0; background: #fff; }
+  .sheet { max-width: 186mm; margin: 0 auto; padding: 2mm 0; }
+  .sheet + .sheet { page-break-before: always; break-before: page; }
+  .toolbar { text-align: right; padding: 8px 0; max-width: 186mm; margin: 0 auto; }
+  .toolbar button { font-size: 11pt; padding: 6px 14px; cursor: pointer; }
+  @media print { .toolbar { display: none; } }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #555; padding-bottom: 6px; }
+  .head h1 { font-size: 15pt; margin: 0; letter-spacing: .4px; }
+  .head .copy { font-size: 8.5pt; border: 1px solid #555; padding: 1px 6px; border-radius: 3px; }
+  .sub { font-size: 8.5pt; color: #444; margin-top: 2px; }
+  table.f { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.f td { border: 1px solid #888; padding: 5px 7px; vertical-align: top; }
+  table.f td.k { width: 38%; background: #f3f3f3; font-weight: 600; }
+  table.g { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9.5pt; }
+  table.g th, table.g td { border: 1px solid #888; padding: 4px 6px; vertical-align: top; }
+  table.g th { background: #f3f3f3; }
+  td.n { text-align: right; white-space: nowrap; }
+  .endorse { margin: 10px 0; border: 2px solid #111; text-align: center; font-size: 15pt; font-weight: 800; letter-spacing: .6px; padding: 6px; }
+  .signs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .signs .box { border-top: 1px solid #111; padding-top: 4px; font-size: 9pt; min-height: 18mm; }
+  .notice { border: 1px solid #c00; color: #a00; padding: 4px 8px; margin: 8px 0; font-weight: 600; }
+  .small { font-size: 8.5pt; color: #444; }
+</style>
+</head>
+<body>
+{{if .ShowToolbar}}<div class="toolbar"><button id="print-btn" type="button">Print</button></div>{{end}}
+{{range .Copies}}
+<div class="sheet">
+  <div class="head">
+    <div>
+      <h1>STOCK TRANSFER NOTE</h1>
+      <div class="sub">Prescribed format — Annexure-A to Sales Tax General Order No. 25 of 2026 · Non-fiscal document</div>
+    </div>
+    <span class="copy">{{.}}</span>
+  </div>
+  {{if eq $.T.Status "CANCELLED"}}<div class="notice">CANCELLED — {{$.T.CancelReason}}</div>{{end}}
+  <table class="f">
+    <tr><td class="k">Stock Transfer Note No.</td><td><b>{{$.T.Number}}</b></td></tr>
+    <tr><td class="k">Date &amp; Time of Dispatch</td><td>{{$.Dispatched}}</td></tr>
+    <tr><td class="k">STRN</td><td>{{if $.Company.STRN}}{{$.Company.STRN}}{{else}}{{$.Company.NTNCNIC}} (NTN){{end}}</td></tr>
+    <tr><td class="k">Despatching Unit (Name &amp; Address)</td><td>{{$.T.FromName}}<br>{{$.T.FromAddress}}</td></tr>
+    <tr><td class="k">Receiving Warehouse (Name &amp; Address)</td><td>{{$.T.ToName}}<br>{{$.T.ToAddress}}</td></tr>
+  </table>
+  <table class="g">
+    <tr><th>#</th><th>Description of Goods</th><th>HS/PCT Code</th><th>Quantity</th><th>Value (at Cost, for Stock Control Only)</th></tr>
+    {{range $.Lines}}<tr><td>{{.No}}</td><td>{{.Description}}</td><td>{{.HSCode}}</td><td class="n">{{.Qty}} {{.UoM}}</td><td class="n">{{.Value}}</td></tr>{{end}}
+    <tr><td colspan="4" class="n"><b>Total value at cost</b></td><td class="n"><b>{{$.Total}}</b></td></tr>
+  </table>
+  <table class="f">
+    <tr><td class="k">Vehicle Registration No.</td><td>{{$.T.VehicleNo}}</td></tr>
+    <tr><td class="k">Driver CNIC</td><td>{{$.T.DriverCNIC}}</td></tr>
+  </table>
+  <div class="endorse">STOCK TRANSFER — NOT A TAXABLE SUPPLY</div>
+  <div class="signs">
+    <div class="box"><b>Authorised by (Despatch)</b><br>Name / Designation / Signature<br>{{$.T.AuthorisedBy}}</div>
+    <div class="box"><b>Acknowledged by (Receipt)</b><br>Name / Designation / Signature<br>{{$.T.ReceivedBy}}{{if $.Received}}<br>Received {{$.Received}}{{end}}</div>
+  </div>
+  <p class="small">Movement between the factory and the registered person's own warehouse under the same STRN is not a supply (section 2(33)); no sales tax
+    invoice is issued. This note must accompany the consignment, be acknowledged on receipt, be reconciled monthly with production and inventory
+    records, and be kept for six years (section 24). If the warehouse holds a separate STRN, a digital invoice must be issued instead.</p>
+  <p class="small">{{$.ProductName}} · Printed {{$.PrintedAt}}</p>
+</div>
+{{end}}
+<script nonce="{{.Nonce}}">
+(function () {
+  var b = document.getElementById('print-btn');
+  if (b) b.addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body>
+</html>

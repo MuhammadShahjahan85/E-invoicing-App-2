@@ -6,6 +6,7 @@ package fbr_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,7 +97,7 @@ func TestRejectionIsNotAnError(t *testing.T) {
 		t.Fatal("expected rejection")
 	}
 	errs := resp.Errors()
-	if len(errs) != 1 || errs[0].Item != 1 || errs[0].Code != "0102" {
+	if len(errs) != 1 || errs[0].Item != 1 || errs[0].Code != "0104" {
 		t.Fatalf("errors %+v", errs)
 	}
 }
@@ -287,5 +288,40 @@ func TestBadGatewayOnPostIsUncertain(t *testing.T) {
 	}
 	if _, err := c.ValidateInvoice(context.Background(), samplePayload()); fbr.KindOf(err) != fbr.ErrUnavailable {
 		t.Fatalf("validate answered 502 must be retryable, got %v (%s)", err, fbr.KindOf(err))
+	}
+}
+
+// statl and Get_Reg_Type are documented as GET methods with a JSON body; the
+// client posts first and falls back to GET when POST is refused.
+func TestDistCallsFallBackToGET(t *testing.T) {
+	var methods []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method+" "+r.URL.Path)
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(body), "0788762") {
+			t.Errorf("body %s", body)
+		}
+		if strings.HasSuffix(r.URL.Path, "/statl") {
+			_, _ = w.Write([]byte(`{"status code":"01","status":"Active"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"statuscode":"00","REGISTRATION_NO":"0788762","REGISTRATION_TYPE":"Registered"}`))
+	}))
+	defer ts.Close()
+	c := fbr.New(domain.EnvProduction, "tok", fbr.Endpoints{BaseURL: ts.URL}, fbr.NewHTTPClient(5*time.Second))
+	st, err := c.STATL(context.Background(), "0788762", time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC))
+	if err != nil || !st.Active {
+		t.Fatalf("statl %+v %v", st, err)
+	}
+	rt, err := c.RegType(context.Background(), "0788762")
+	if err != nil || !rt.Registered {
+		t.Fatalf("reg type %+v %v", rt, err)
+	}
+	if len(methods) != 4 || methods[0] != "POST /dist/v1/statl" || methods[1] != "GET /dist/v1/statl" {
+		t.Fatalf("calls %v", methods)
 	}
 }

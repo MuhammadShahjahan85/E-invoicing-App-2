@@ -6,13 +6,13 @@
 
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import { CalendarClock, CircleCheck, ClipboardList, ExternalLink, FileSpreadsheet, TriangleAlert } from 'lucide-react'
-import { api, qs } from '../api'
-import { ErrorBox, Spinner, useLoad } from '../components/ui'
+import { CalendarCheck2, CalendarClock, CircleCheck, ClipboardList, Download, ExternalLink, FileSpreadsheet, Link2, TriangleAlert } from 'lucide-react'
+import { api, errorMessage, qs } from '../api'
+import { Empty, ErrorBox, Field, Modal, Spinner, useLoad } from '../components/ui'
 import { DeadlineList, HBarList } from '../components/Charts'
-import { dateFmt, envLabels, money } from '../format'
-import { useCompanyPath, useSession } from '../state'
-import type { PeriodReview } from '../types'
+import { dateFmt, dateTimeFmt, envLabels, money } from '../format'
+import { useCompanyPath, useSession, useToast } from '../state'
+import type { Closing, PeriodReview } from '../types'
 
 function monthOptions(): { value: string; label: string }[] {
   const out: { value: string; label: string }[] = []
@@ -31,7 +31,7 @@ export default function Compliance() {
   const s = useSession()
   const cp = useCompanyPath()
   const [period, setPeriod] = useState('')
-  const { data, error, loading } = useLoad(() => api.get<PeriodReview>(`${cp}/compliance${qs({ period })}`), [cp, period, s.company?.environment])
+  const { data, error, loading, reload } = useLoad(() => api.get<PeriodReview>(`${cp}/compliance${qs({ period })}`), [cp, period, s.company?.environment])
   const months = monthOptions()
 
   return (
@@ -62,14 +62,17 @@ export default function Compliance() {
       ) : error ? (
         <ErrorBox error={error} />
       ) : data ? (
-        <PeriodView r={data} />
+        <PeriodView r={data} onChanged={reload} />
       ) : null}
     </>
   )
 }
 
-function PeriodView({ r }: { r: PeriodReview }) {
+function PeriodView({ r, onChanged }: { r: PeriodReview; onChanged: () => void }) {
   const s = useSession()
+  const cp = useCompanyPath()
+  const [extending, setExtending] = useState(false)
+  const filing = r.deadlines.find((d) => d.kind === 'filing')
   const open = r.checks.filter((c) => !c.ok && c.id !== 'simulator').length
   const sm = r.summary
   // Same definition as the monthly report: debit notes are netted off.
@@ -168,8 +171,25 @@ function PeriodView({ r }: { r: PeriodReview }) {
           </div>
           <div className="card-foot">
             Generally tax is paid by the {ordinal(s.company?.returnPaymentDay ?? 15)} and the return filed by the {ordinal(s.company?.returnFilingDay ?? 18)} of
-            the following month. FBR sometimes extends these dates — check its announcements.
+            the following month. When FBR extends the filing date, record its order here; the payment date stays unchanged.
+            {s.can('company.write') && (
+              <div className="mt">
+                <button className="btn btn-sm" onClick={() => setExtending(true)}>
+                  {filing?.originalDue ? 'Change or remove the extension' : 'Record an FBR extension'}
+                </button>
+              </div>
+            )}
           </div>
+          {extending && (
+            <ExtensionForm
+              r={r}
+              onClose={() => setExtending(false)}
+              onSaved={() => {
+                setExtending(false)
+                onChanged()
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -178,9 +198,18 @@ function PeriodView({ r }: { r: PeriodReview }) {
           <h3>
             <FileSpreadsheet size={17} /> Supplies by sale type and rate
           </h3>
-          <Link to={`/reports`} className="small">
-            Sales register & exports <ExternalLink size={12} />
-          </Link>
+          <div className="row" style={{ gap: 12 }}>
+            <a
+              className="btn btn-sm"
+              href={`/api/v1${cp}/reports/annex-c${qs({ from: r.from, to: r.to, env: r.environment, format: 'xlsx' })}`}
+              title="Every document with an FBR invoice number in the period, to match with Annex-C before filing"
+            >
+              <Download size={14} /> Annex-C reconciliation
+            </a>
+            <Link to={`/reports`} className="small">
+              Sales register & exports <ExternalLink size={12} />
+            </Link>
+          </div>
         </div>
         {(r.bySaleType ?? []).length === 0 ? (
           <div className="chart-empty">No accepted invoices in {r.periodLabel}.</div>
@@ -221,6 +250,8 @@ function PeriodView({ r }: { r: PeriodReview }) {
           </div>
         )}
       </div>
+
+      <Closings />
 
       <div className="grid g2 mt">
         <div className="card">
@@ -286,4 +317,184 @@ function ordinal(n: number) {
   const s = ['th', 'st', 'nd', 'rd']
   const v = n % 100
   return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
+function ExtensionForm({ r, onClose, onSaved }: { r: PeriodReview; onClose: () => void; onSaved: () => void }) {
+  const cp = useCompanyPath()
+  const toast = useToast()
+  const filing = r.deadlines.find((d) => d.kind === 'filing')
+  const [date, setDate] = useState(filing?.originalDue ? filing.due : '')
+  const [reference, setReference] = useState(filing?.reference ?? '')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const run = async (fn: () => Promise<unknown>, msg: string) => {
+    setBusy(true)
+    setErr('')
+    try {
+      await fn()
+      toast('ok', msg)
+      onSaved()
+    } catch (e) {
+      setErr(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal
+      title={`Filing date extension · ${r.periodLabel}`}
+      onClose={onClose}
+      footer={
+        <>
+          {filing?.originalDue && (
+            <button
+              className="btn btn-ghost"
+              style={{ marginRight: 'auto' }}
+              disabled={busy}
+              onClick={() => run(() => api.del(`${cp}/return-extensions/${r.period}`), 'Extension removed')}
+            >
+              Remove extension
+            </button>
+          )}
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={busy || !date || !reference.trim()}
+            onClick={() => run(() => api.put(`${cp}/return-extensions/${r.period}`, { filingDate: date, reference }), 'Extension recorded')}
+          >
+            Save
+          </button>
+        </>
+      }
+    >
+      <p className="small muted">
+        FBR extends the date for filing the monthly return by notification or circular, usually on condition that the tax is paid by the normal due date. The
+        reminders and the period-close checklist will use the extended filing date.
+      </p>
+      <Field label="Extended filing date">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
+      <Field label="FBR reference" hint="Number and date of FBR's notification, circular or order">
+        <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. C.No.3(4)ST-L&P/2026, dated 16-10-2026" />
+      </Field>
+      {err && <div className="alert alert-error">{err}</div>}
+    </Modal>
+  )
+}
+
+interface ClosingList {
+  closings: Closing[]
+  checked: number
+  chainOk: boolean
+  brokenAt?: number
+}
+
+const kindLabels: Record<Closing['kind'], string> = { day: 'Daily', week: 'Weekly', month: 'Monthly' }
+
+function closingPeriod(c: Closing): string {
+  if (c.kind === 'day') return dateFmt(c.periodStart)
+  if (c.kind === 'month') return new Date(c.periodStart + 'T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  return `${c.periodKey.replace('-W', ' week ')} · ${dateFmt(c.periodStart)} – ${dateFmt(c.periodEnd)}`
+}
+
+// Closings: the day, week and month closings the system records under
+// rule 150R(4)(f), with the state of their hash chain.
+function Closings() {
+  const s = useSession()
+  const cp = useCompanyPath()
+  const [kind, setKind] = useState<Closing['kind']>('day')
+  const { data, error, loading } = useLoad(
+    () => api.get<ClosingList>(`${cp}/closings${qs({ kind, limit: kind === 'day' ? 31 : kind === 'week' ? 13 : 12 })}`),
+    [cp, kind, s.company?.environment],
+  )
+  return (
+    <div className="card mt">
+      <div className="card-head">
+        <h3>
+          <CalendarCheck2 size={17} /> Day, week and month closings
+        </h3>
+        <div className="row" style={{ gap: 10 }}>
+          {data &&
+            (data.chainOk ? (
+              <span className="badge b-green" title={`${data.checked} closings verified`}>
+                <Link2 size={12} /> Chain intact
+              </span>
+            ) : (
+              <span className="badge b-red">Chain broken at closing #{data.brokenAt}</span>
+            ))}
+          <div className="seg" role="tablist" aria-label="Closing period">
+            {(Object.keys(kindLabels) as Closing['kind'][]).map((k) => (
+              <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)} role="tab" aria-selected={kind === k}>
+                {kindLabels[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <ErrorBox error={error} />
+      {loading && !data ? (
+        <div className="card-body">
+          <Spinner />
+        </div>
+      ) : data && data.closings.length === 0 ? (
+        <Empty>No {kindLabels[kind].toLowerCase()} closings yet. The first is recorded automatically within an hour after the period ends.</Empty>
+      ) : (
+        data && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th className="num">Documents</th>
+                  <th className="num">Reported</th>
+                  <th className="num">Not reported</th>
+                  <th className="num">Cancelled</th>
+                  <th className="num">Value excl. ST</th>
+                  <th className="num">Sales tax</th>
+                  <th>FBR invoice numbers</th>
+                  <th>Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.closings.map((c) => {
+                  const m = c.summary
+                  const open = m.pending + m.unreconciled + m.rejected
+                  return (
+                    <tr key={c.id}>
+                      <td className="nowrap">{closingPeriod(c)}</td>
+                      <td className="num">{m.documents}</td>
+                      <td className="num">{m.reported}</td>
+                      <td className="num">{open > 0 ? <span className="badge b-amber">{open}</span> : 0}</td>
+                      <td className="num">{m.cancelled}</td>
+                      <td className="num">{money(Number(m.sales.valueExclST) + Number(m.debitNotes.valueExclST))}</td>
+                      <td className="num">{money(Number(m.sales.salesTax) + Number(m.debitNotes.salesTax))}</td>
+                      <td className="mono small">
+                        {m.firstFbrNo ? (
+                          <>
+                            {m.firstFbrNo}
+                            {m.lastFbrNo !== m.firstFbrNo && <div>{m.lastFbrNo}</div>}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="nowrap small" title={`Hash ${c.hash}`}>
+                        {dateTimeFmt(c.createdAt)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+      <div className="card-foot">
+        Rule 150R(4)(f) of the Sales Tax Rules, 2006 requires the invoicing system to perform a closing at the close of each day, week and month. Closings are
+        recorded automatically, chained to each other by hash and cannot be changed afterwards; the daily integrity check verifies the chain.
+      </div>
+    </div>
+  )
 }

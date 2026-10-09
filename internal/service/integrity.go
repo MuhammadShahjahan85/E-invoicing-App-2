@@ -13,9 +13,9 @@ import (
 	"einvoicing/internal/store"
 )
 
-// Rule 150R of the Sales Tax Rules, 2006 requires any failure, disruption or
-// tampering of the electronic invoicing system to be reported to the
-// Commissioner within 24 hours. Besides FBR outages (health.go), the worker
+// Rule 150XA(c) of the Sales Tax Rules, 2006 requires any failure, disruption
+// or tampering of the electronic invoicing system to be reported to the Board
+// and the Commissioner within 24 hours. Besides FBR outages (health.go), the worker
 // detects unexpected stops of this system (crash or power failure) and checks
 // the audit chain and the seals of accepted invoices every day. Problems are
 // recorded as auto-detected incidents so the 24-hour clock is visible.
@@ -93,7 +93,8 @@ func (r *IntegrityReport) OK() bool { return r.AuditBrokenAt == 0 && len(r.Probl
 
 // CheckIntegrity verifies the audit trail's hash chain and, for every
 // company, the seal of each accepted invoice and the link to the invoice it
-// was chained to. Any problem opens a tampering incident (Rule 150R).
+// was chained to, the digital signatures and the chain of closings. Any
+// problem opens a tampering incident (rule 150XA(c)).
 func (s *Service) CheckIntegrity(ctx context.Context) (*IntegrityReport, error) {
 	rep := &IntegrityReport{}
 	brokenAt, checked, err := s.Store.VerifyAuditChain(ctx)
@@ -122,12 +123,31 @@ func (s *Service) CheckIntegrity(ctx context.Context) (*IntegrityReport, error) 
 				perCompany[c.ID] = append(perCompany[c.ID], fmt.Sprintf("invoice %s (FBR %s): seal does not match its contents", inv.InternalNo, inv.FBRInvoiceNumber))
 			case inv.PrevSealHash != "" && !seals[inv.PrevSealHash]:
 				perCompany[c.ID] = append(perCompany[c.ID], fmt.Sprintf("invoice %s (FBR %s): the accepted invoice it is chained to is missing or altered", inv.InternalNo, inv.FBRInvoiceNumber))
+			case inv.Signature != "" && !s.SignatureValid(ctx, inv):
+				perCompany[c.ID] = append(perCompany[c.ID], fmt.Sprintf("invoice %s (FBR %s): digital signature does not match", inv.InternalNo, inv.FBRInvoiceNumber))
+			}
+		}
+		for _, env := range []domain.Environment{domain.EnvProduction, domain.EnvSandbox, domain.EnvSimulator} {
+			broken, _, err := s.Store.VerifyClosings(ctx, c.ID, env)
+			if err != nil {
+				return nil, err
+			}
+			if broken != 0 {
+				perCompany[c.ID] = append(perCompany[c.ID], fmt.Sprintf("%s closings: closing %d does not match its hash chain (altered or deleted)", env, broken))
 			}
 		}
 	}
 	for cid, ps := range perCompany {
 		rep.Problems = append(rep.Problems, ps...)
 		s.openTampering(ctx, cid, "Integrity check: "+strings.Join(limit(ps, 20), "; "))
+	}
+	if p := s.signingKeyProblem(ctx); p != "" {
+		rep.Problems = append(rep.Problems, p)
+		for _, c := range cs {
+			if c.Active {
+				s.openTampering(ctx, c.ID, "Integrity check: "+p+".")
+			}
+		}
 	}
 	if brokenAt != 0 {
 		desc := fmt.Sprintf("Integrity check: the audit trail's hash chain is broken at entry %d (entries altered or deleted).", brokenAt)

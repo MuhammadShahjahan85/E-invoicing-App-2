@@ -56,16 +56,22 @@ It is a single program with a built-in web interface. It is installed on the cli
 **Printing**
 
 - A4 and 80 mm thermal formats.
-- QR code version 2 (25×25) at 1 inch; FBR DI logo; amount in words (lakh/crore); buyer/seller/office copies; DUPLICATE marking on reprints.
+- QR code version 2 (25×25) at 1 inch; the official FBR DI logo built in; amount in words (lakh/crore); buyer/seller/office copies; DUPLICATE marking on reprints.
+- Every particular of rule 150R(13): tax period, software registration number, HS code, total discount, tax withheld, and since SRO 1666(I)/2026 the federal excise duty particulars; the digital signature; an "issued in offline mode" note where it applies.
+- "Integrated with FBR" signboard for each outlet (rule 150R(11)).
 
 **Compliance controls**
 
 - Reported invoices are locked by database triggers.
 - 72-hour cancellation rule, counted from FBR's issue time, with Commissioner approval tracking (STGO 01/2026). Optional cancellation through FBR's cancellation service once PRAL publishes it.
-- Offline invoices: resent the moment FBR is reachable again, tracked on the dashboard until accepted (24-hour upload rule), with provisional "PENDING FBR REPORTING" printouts in the meantime.
+- Offline invoices: resent the moment FBR is reachable again, tracked on the dashboard until accepted, identified on the printout as issued in offline mode (rule 150XC, 24-hour upload), with provisional "PENDING FBR REPORTING" printouts in the meantime.
 - Section 23(1)(b): warns when a manufacturer or importer invoices an unregistered buyer without a real CNIC/NTN.
-- Rule 150R incident register. FBR outages, token failures, crashes or power failures and tampering are detected automatically, and the letter to the Commissioner is generated for you.
-- Hash-chained audit trail and tamper-evident invoice seals, checked automatically every day.
+- Incident register (rule 150XA): FBR outages, token failures, crashes or power failures and tampering are detected automatically, and the letter to FBR and the Commissioner is generated for you.
+- Digital signature on every invoice (rule 150R(4)(b)): Ed25519, with the public key available to auditors.
+- Day, week and month closings recorded automatically (rule 150R(4)(f)), hash-chained and unalterable.
+- Hash-chained audit trail and tamper-evident invoice seals; seals, signatures and closings checked automatically every day.
+- Advance receipt invoices (section 23(1), Finance Act 2026) and Stock Transfer Notes for goods moved to your own warehouse (Sales Tax General Order 25 of 2026).
+- Annex-C reconciliation export of every document with an FBR number (rule 150XD(2)); FBR filing-date extensions recorded per tax period.
 
 **FBR reference data built in**
 

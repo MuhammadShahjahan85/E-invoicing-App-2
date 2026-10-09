@@ -5,6 +5,7 @@ package printing
 
 import (
 	"embed"
+	"encoding/base32"
 	"encoding/base64"
 	"html/template"
 	"io"
@@ -23,6 +24,16 @@ import (
 //go:embed templates/*.html
 var tplFS embed.FS
 
+// DefaultFBRLogo is the "FBR Digital Invoicing System" logo published in
+// section 6 of PRAL's Technical Specification for DI API v1.12, which must be
+// printed on every invoice. It is used unless a logo has been uploaded.
+//
+//go:embed assets/fbr-di-logo.jpg
+var DefaultFBRLogo []byte
+
+// DefaultFBRLogoMime is the media type of DefaultFBRLogo.
+const DefaultFBRLogoMime = "image/jpeg"
+
 var templates = template.Must(template.New("").ParseFS(tplFS, "templates/*.html"))
 
 // Options controls rendering.
@@ -34,9 +45,11 @@ type Options struct {
 	Nonce       string // CSP nonce for the page's only script
 	CompanyLogo []byte // raw image
 	CompanyMime string
-	FBRLogo     []byte // official FBR DI logo uploaded by the user
+	FBRLogo     []byte // FBR DI logo (uploaded, or DefaultFBRLogo)
 	FBRLogoMime string
-	Now         time.Time
+	// SigningKey is the fingerprint of the key the invoice is signed with.
+	SigningKey string
+	Now        time.Time
 }
 
 type line struct {
@@ -44,10 +57,13 @@ type line struct {
 	Description, HSCode, SaleType, SRO, UoM, Rate string
 	Qty, UnitPrice, Discount, Value, Retail       string
 	SalesTax, FurtherTax, ExtraTax, FED, Total    string
+	// FEDNote lists the federal excise duty particulars of rule
+	// 150R(13)(aa)-(ff).
+	FEDNote string
 }
 
 type totals struct {
-	Value, Retail, SalesTax, FurtherTax, ExtraTax, FED, Total, Withheld, Payable string
+	Value, Retail, SalesTax, FurtherTax, ExtraTax, FED, Total, Withheld, Payable, Discount string
 }
 
 type rateRow struct{ SaleType, Rate, Value, SalesTax string }
@@ -62,17 +78,22 @@ type cols struct {
 type view struct {
 	Title, InvoiceDate, Watermark, WatermarkSize, Notice, CopyLabel, AmountWords, PrintedAt, ProductName, Developer, ShortSeal string
 	FBRNumber, Nonce                                                                                                           string
-	Company                                                                                                                    *store.Company
-	Invoice                                                                                                                    *store.Invoice
-	Settings                                                                                                                   store.PrintSettings
-	CompanyLogo, FBRLogo                                                                                                       template.URL
-	QR                                                                                                                         template.HTML
-	Lines                                                                                                                      []line
-	Rates                                                                                                                      []rateRow
-	T                                                                                                                          totals
-	Cols                                                                                                                       cols
-	IsDebitNote, AutoPrint, ShowToolbar                                                                                        bool
-	Sheets                                                                                                                     []sheet
+	// Particulars of rule 150R(13): tax period, software registration
+	// number and the digital signature (rule 150R(4)(b)).
+	TaxPeriod, SoftwareRegNo, Signature, SigningKey, OfflineIssued string
+	// AdvanceNote explains an advance receipt invoice (section 23(1)).
+	AdvanceNote                         string
+	Company                             *store.Company
+	Invoice                             *store.Invoice
+	Settings                            store.PrintSettings
+	CompanyLogo, FBRLogo                template.URL
+	QR                                  template.HTML
+	Lines                               []line
+	Rates                               []rateRow
+	T                                   totals
+	Cols                                cols
+	IsDebitNote, AutoPrint, ShowToolbar bool
+	Sheets                              []sheet
 }
 
 // sheet is one printed copy of the A4 invoice; CopyLabel shadows the view's.
@@ -108,8 +129,12 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 	v := view{Company: c, Invoice: inv, Settings: c.PrintSettings, AutoPrint: o.AutoPrint, ShowToolbar: o.ShowToolbar, Nonce: o.Nonce,
 		ProductName: brand.ProductName, Developer: brand.Developer, IsDebitNote: inv.DocType == domain.DocDebitNote}
 	v.Title = "SALES TAX INVOICE"
-	if v.IsDebitNote {
+	switch {
+	case v.IsDebitNote:
 		v.Title = "DEBIT NOTE"
+	case inv.AdvanceReceipt:
+		v.Title = "ADVANCE RECEIPT INVOICE"
+		v.AdvanceNote = "Sales tax invoice issued on receipt of an advance payment, before the goods or services are supplied (section 23(1) read with section 2(44) of the Sales Tax Act, 1990). The advance is adjusted in the final invoice issued on supply."
 	}
 	if d, err := time.Parse("2006-01-02", inv.InvoiceDate); err == nil {
 		v.InvoiceDate = d.Format("02-Jan-2006")
@@ -126,6 +151,13 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 	}
 	v.CompanyLogo = dataURI(o.CompanyLogo, o.CompanyMime)
 	v.FBRLogo = dataURI(o.FBRLogo, o.FBRLogoMime)
+	if d, err := time.Parse("2006-01-02", inv.InvoiceDate); err == nil {
+		v.TaxPeriod = d.Format("January 2006")
+	}
+	v.SoftwareRegNo = c.SoftwareRegNo
+	if inv.Signature != "" {
+		v.Signature, v.SigningKey = ShortSignature(inv.Signature), o.SigningKey
+	}
 
 	reported := inv.Status == domain.StatusAccepted || inv.Status == domain.StatusCancelled
 	if reported && inv.FBRInvoiceNumber != "" {
@@ -133,6 +165,11 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		if svg, err := QRSVG(inv.FBRInvoiceNumber); err == nil {
 			v.QR = template.HTML(svg) // generated by us, contains no user input other than the FBR number
 		}
+	}
+	if reported && inv.OfflineSince != "" {
+		// Rule 150XC: invoices generated while the system or the internet
+		// was down are identified as issued in offline mode.
+		v.OfflineIssued = "Issued in offline mode on " + shortTime(inv.OfflineSince, loc) + " and reported to FBR on " + inv.FBRDated + " (rule 150XC)."
 	}
 	switch {
 	case inv.Status == domain.StatusCancelled:
@@ -179,7 +216,7 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		l := line{No: it.LineNo, Description: it.Description, HSCode: it.HSCode, SaleType: it.SaleType, UoM: it.UoM, Rate: it.Rate,
 			Qty: tax.FormatQty(it.Quantity), UnitPrice: amt(it.UnitPrice), Discount: amt(it.Discount), Value: amt(it.ValueExclST),
 			Retail: amt(it.RetailValue), SalesTax: amt(it.SalesTax), FurtherTax: amt(it.FurtherTax), ExtraTax: amt(it.ExtraTax),
-			FED: amt(it.FED), Total: amt(it.TotalValue)}
+			FED: amt(it.FED), Total: amt(it.TotalValue), FEDNote: fedNote(it)}
 		if it.SROScheduleNo != "" {
 			l.SRO = it.SROScheduleNo
 			if it.SROItemSerialNo != "" {
@@ -200,7 +237,8 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 	t := inv.Totals
 	v.Cols.FEDInValue = t.FED.IsPositive() && t.TotalValue.Sub(tax.Sum(t.ValueExclST, t.SalesTax, t.FurtherTax, t.ExtraTax)).Abs().LessThan(decimal.NewFromFloat(0.01))
 	v.T = totals{Value: amt(t.ValueExclST), Retail: amt(t.RetailValue), SalesTax: amt(t.SalesTax), FurtherTax: amt(t.FurtherTax),
-		ExtraTax: amt(t.ExtraTax), FED: amt(t.FED), Total: amt(t.TotalValue), Withheld: amt(t.STWithheld), Payable: amt(t.AmountPayable)}
+		ExtraTax: amt(t.ExtraTax), FED: amt(t.FED), Total: amt(t.TotalValue), Withheld: amt(t.STWithheld), Payable: amt(t.AmountPayable),
+		Discount: amt(t.Discount)}
 
 	// Rate summary.
 	idx := map[string]int{}
@@ -248,4 +286,69 @@ func Render(w io.Writer, c *store.Company, inv *store.Invoice, o Options) error 
 		name = "invoice_thermal.html"
 	}
 	return templates.ExecuteTemplate(w, name, &v)
+}
+
+// fedNote lists a line's federal excise duty particulars (rule
+// 150R(13)(aa)-(ff), added by SRO 1666(I)/2026): type, rate, price per unit,
+// amount and the FED Schedule/SRO reference and serial number.
+func fedNote(it *store.InvoiceItem) string {
+	if !it.FED.IsPositive() && it.FEDType == "" && it.FEDSRO == "" {
+		return ""
+	}
+	parts := []string{"FED"}
+	if it.FEDType != "" {
+		parts[0] += ": " + it.FEDType
+	}
+	rate := it.FEDRateText
+	if rate == "" && it.FEDRate.IsPositive() {
+		rate = it.FEDRate.String() + "%"
+	}
+	if rate != "" {
+		parts = append(parts, "rate "+rate)
+	}
+	if it.FEDUnitPrice.IsPositive() {
+		parts = append(parts, "price per unit "+amt(it.FEDUnitPrice))
+	}
+	if it.FED.IsPositive() {
+		if it.SaleType == domain.STGoodsFED || it.SaleType == domain.STServicesFED {
+			parts = append(parts, "amount "+amt(it.FED)+" in sales tax mode")
+		} else {
+			parts = append(parts, "amount "+amt(it.FED)+" payable otherwise than in sales tax mode")
+		}
+	}
+	if it.FEDSRO != "" {
+		ref := it.FEDSRO
+		if it.FEDSROSerial != "" {
+			ref += " S.No. " + it.FEDSROSerial
+		}
+		parts = append(parts, ref)
+	}
+	return strings.Join(parts, " · ")
+}
+
+// shortTime formats a stored RFC 3339 time in Pakistan time.
+func shortTime(ts string, loc *time.Location) string {
+	t, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return ts
+	}
+	return t.In(loc).Format("02-Jan-2006 15:04")
+}
+
+// ShortSignature is the printable form of a base64 digital signature: its
+// first 20 base32 characters in groups of four.
+func ShortSignature(sig string) string {
+	raw, err := base64.StdEncoding.DecodeString(sig)
+	if err != nil || len(raw) == 0 {
+		return ""
+	}
+	b := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw)
+	if len(b) > 20 {
+		b = b[:20]
+	}
+	var parts []string
+	for i := 0; i < len(b); i += 4 {
+		parts = append(parts, b[i:min(i+4, len(b))])
+	}
+	return strings.Join(parts, "-")
 }

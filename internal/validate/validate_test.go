@@ -4,6 +4,8 @@
 package validate
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -58,7 +60,7 @@ func TestHeaderErrors(t *testing.T) {
 	p.BuyerProvince = ""
 	r := Payload(p, Context{Env: domain.EnvProduction, Today: today})
 	got := codes(r, SevError)
-	for _, want := range []string{"invoiceType:0003", "invoiceDate:0005", "buyerNTNCNIC:0002", "buyerRegistrationType:0012", "buyerProvince:0074"} {
+	for _, want := range []string{"invoiceType:0003", "invoiceDate:0005", "buyerNTNCNIC:0002", "buyerRegistrationType:0053", "buyerProvince:0074"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %s in %s", want, got)
 		}
@@ -148,7 +150,7 @@ func TestTaxMismatchWarns(t *testing.T) {
 	p := base()
 	p.Items[0].SalesTaxApplicable = fbr.A(tax.MustD("170"))
 	r := Payload(p, Context{Env: domain.EnvProduction, Today: today})
-	if !strings.Contains(codes(r, SevWarning), "salesTaxApplicable:0027") {
+	if !strings.Contains(codes(r, SevWarning), "salesTaxApplicable:0104") {
 		t.Errorf("expected mismatch warning, got %s", codes(r, SevWarning))
 	}
 }
@@ -158,7 +160,7 @@ func TestThirdScheduleNeedsRetailPrice(t *testing.T) {
 	it := &p.Items[0]
 	it.SaleType = domain.STThirdSchedule
 	r := Payload(p, Context{Env: domain.EnvProduction, Today: today})
-	if !strings.Contains(codes(r, SevError), "fixedNotifiedValueOrRetailPrice:0175") {
+	if !strings.Contains(codes(r, SevError), "fixedNotifiedValueOrRetailPrice:0090") {
 		t.Errorf("got %s", codes(r, SevError))
 	}
 }
@@ -167,7 +169,7 @@ func TestDebitNote(t *testing.T) {
 	p := base()
 	p.InvoiceType = "Debit Note"
 	r := Payload(p, Context{Env: domain.EnvProduction, Today: today})
-	if !strings.Contains(codes(r, SevError), "invoiceRefNo:0041") {
+	if !strings.Contains(codes(r, SevError), "invoiceRefNo:0026") {
 		t.Errorf("got %s", codes(r, SevError))
 	}
 	p.InvoiceRefNo = "0786909DI1747119701593"
@@ -191,11 +193,95 @@ func TestNormalizeRegNo(t *testing.T) {
 }
 
 func TestCatalogue(t *testing.T) {
-	if _, ok := Lookup("0046"); !ok {
-		t.Error("0046 missing")
+	// DI API v1.12 lists 86 sales error codes (section 7) and 22 purchase
+	// error codes (section 8).
+	sales, purchase := 0, 0
+	for _, e := range Catalogue() {
+		switch e.Section {
+		case "sales":
+			sales++
+		case "purchase":
+			purchase++
+		default:
+			t.Errorf("%s: section %q", e.Code, e.Section)
+		}
+		if e.Title == "" || e.Detail == "" || e.Fix == "" {
+			t.Errorf("%s: incomplete entry %+v", e.Code, e)
+		}
 	}
-	if len(Catalogue()) < 40 {
-		t.Error("catalogue too small")
+	if sales != 86 || purchase != 22 {
+		t.Errorf("sales %d purchase %d", sales, purchase)
+	}
+	// Spot checks against the specification's wording.
+	for code, want := range map[string]string{
+		"0022": "Please provide ST withheld at Source or STS Withheld",
+		"0026": "Invoice Reference No. is required.",
+		"0034": "{0} only allowed within {1} days of invoice date of the original invoice",
+		"0079": "If Value of Sales Excl. ST greater than {0}. Rate {1} not allowed.",
+		"0401": "The provided seller NTN/CNIC does not have a valid or authorized access token",
+		"0177": "Please provide Further Tax",
+	} {
+		if e, ok := Lookup(code); !ok || e.Title != want {
+			t.Errorf("%s: %q", code, e.Title)
+		}
+	}
+}
+
+// Every code a local check reports must be one FBR documents, so the help
+// text shown next to it is right.
+func TestLocalChecksCiteDocumentedCodes(t *testing.T) {
+	src, err := os.ReadFile("validate.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range regexp.MustCompile(`"(\d{4})", Sev`).FindAllStringSubmatch(string(src), -1) {
+		if _, ok := Lookup(m[1]); !ok {
+			t.Errorf("validate.go cites undocumented code %s", m[1])
+		}
+	}
+	for _, m := range regexp.MustCompile(`neg\("\w+", [^,]+, "(\d{4})"\)`).FindAllStringSubmatch(string(src), -1) {
+		if _, ok := Lookup(m[1]); !ok {
+			t.Errorf("validate.go cites undocumented code %s", m[1])
+		}
+	}
+}
+
+func TestNoteWindowAndElectricityRate(t *testing.T) {
+	p := base()
+	p.InvoiceType = "Debit Note"
+	p.InvoiceRefNo = "0786909DI1747119701593"
+	r := Payload(p, Context{Env: domain.EnvProduction, Today: today, Original: &OriginalInvoice{
+		FBRNumber: p.InvoiceRefNo, Date: "2026-03-01", ValueExclST: tax.MustD("5000"), SalesTax: tax.MustD("900"), BuyerNTNCNIC: "2046004"}})
+	if !strings.Contains(codes(r, SevError), "invoiceDate:0034") {
+		t.Errorf("note older than 180 days: %s", codes(r, SevError))
+	}
+	p.InvoiceRefNo = "INV-12"
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today})
+	if !strings.Contains(codes(r, SevWarning), "invoiceRefNo:0057") {
+		t.Errorf("reference format: %s", codes(r, SevWarning))
+	}
+
+	p = base()
+	it := &p.Items[0]
+	it.SaleType, it.Rate, it.HSCode, it.UoM = domain.STElectricityRetl, "5%", "2716.0000", "KWH"
+	it.ValueSalesExcludingST, it.SalesTaxApplicable = fbr.A(tax.MustD("25000")), fbr.A(tax.MustD("1250"))
+	it.SROScheduleNo, it.SROItemSerialNo = "1450(I)/2021", "4"
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today})
+	if !strings.Contains(codes(r, SevWarning), "rate:0079") {
+		t.Errorf("5%% above Rs 20,000: %s", codes(r, SevWarning))
+	}
+	it.UoM = "Numbers, pieces, units"
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today})
+	if !strings.Contains(codes(r, SevWarning), "uoM:0096") {
+		t.Errorf("electricity unit: %s", codes(r, SevWarning))
+	}
+
+	p = base()
+	p.BuyerRegistrationType, p.BuyerNTNCNIC = "Unregistered", ""
+	p.Items[0].SaleType = domain.STCottonGinners
+	r = Payload(p, Context{Env: domain.EnvProduction, Today: today})
+	if !strings.Contains(codes(r, SevError), "saleType:0100") {
+		t.Errorf("cotton ginners to unregistered buyer: %s", codes(r, SevError))
 	}
 }
 

@@ -104,6 +104,8 @@ func (s *Service) SaveProduct(ctx context.Context, a Actor, p *store.Product) (*
 	if p.UnitPrice.IsNegative() || p.RetailPrice.IsNegative() {
 		return nil, Invalid("prices cannot be negative")
 	}
+	p.FEDType, p.FEDRateText = truncate(cleanText(p.FEDType), 60), truncate(cleanText(p.FEDRateText), 60)
+	p.FEDSRO, p.FEDSROSerial = truncate(cleanText(p.FEDSRO), 120), truncate(cleanText(p.FEDSROSerial), 60)
 	isNew := p.ID == 0
 	if isNew {
 		p.Active = true
@@ -164,6 +166,7 @@ func (s *Service) SaveCompany(ctx context.Context, a Actor, c *store.Company) (*
 	if c.WithholdingFraction.IsNegative() || c.WithholdingFraction.GreaterThan(tax.MustD("1")) {
 		return nil, Invalid("withholding fraction must be between 0 and 1")
 	}
+	c.SoftwareRegNo = truncate(cleanText(c.SoftwareRegNo), 60)
 	if c.ReturnPaymentDay == 0 {
 		c.ReturnPaymentDay = store.DefaultReturnPaymentDay
 	}
