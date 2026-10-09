@@ -93,8 +93,12 @@ type ImportResult struct {
 	InvoiceID int64            `json:"invoiceId,omitempty"`
 	Status    string           `json:"status"`
 	Errors    []string         `json:"errors,omitempty"`
+	Warnings  []string         `json:"warnings,omitempty"`
 	Issues    []validate.Issue `json:"issues,omitempty"`
 	Total     decimal.Decimal  `json:"total"`
+	Buyer     string           `json:"buyer,omitempty"`
+	Date      string           `json:"date,omitempty"`
+	Lines     int              `json:"lines"`
 }
 
 // ImportSummary summarises an import.
@@ -210,6 +214,9 @@ func rowsToInputs(rows []map[string]string, env domain.Environment) ([]*InvoiceI
 	errsByRef := map[string][]string{}
 	for i, r := range rows {
 		rowNo := i + 2 // header is row 1
+		if n, err := strconv.Atoi(r["_row"]); err == nil {
+			rowNo = n // the row in the uploaded file
+		}
 		ref := r["invoice_ref"]
 		if ref == "" {
 			ref = fmt.Sprintf("row-%d", rowNo)
@@ -303,9 +310,27 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 		return nil, err
 	}
 	ins, groups, refs, errs := rowsToInputs(rows, c.Environment)
+	// Totals stated in the file, to compare with the computed ones.
+	fileTotal := map[string]decimal.Decimal{}
+	for _, r := range rows {
+		if v := strings.TrimSpace(r["total_value"]); v != "" {
+			if d, err := decimal.NewFromString(strings.ReplaceAll(v, ",", "")); err == nil {
+				fileTotal[r["invoice_ref"]] = fileTotal[r["invoice_ref"]].Add(d)
+			}
+		}
+	}
+	checkTotal := func(res *ImportResult, computed decimal.Decimal) {
+		if ft, ok := fileTotal[res.Ref]; ok && ft.Sub(computed).Abs().GreaterThan(decimal.NewFromInt(1)) {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("The total in your file is %s; the computed total is %s. Check the rates and amounts.",
+				ft.StringFixed(2), computed.StringFixed(2)))
+		}
+	}
 	sum := &ImportSummary{Preview: preview}
 	for i, in := range ins {
-		res := ImportResult{Ref: refs[i], Rows: groups[i]}
+		res := ImportResult{Ref: refs[i], Rows: groups[i], Lines: len(in.Items), Date: in.InvoiceDate}
+		if in.Buyer != nil {
+			res.Buyer = in.Buyer.Name
+		}
 		if len(errs[i]) > 0 {
 			res.Status, res.Errors = "error", errs[i]
 			sum.Results = append(sum.Results, res)
@@ -319,6 +344,8 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 				sum.Failed++
 			} else {
 				res.Total, res.Issues = inv.Totals.TotalValue, vr.Issues
+				res.Buyer = nzs(inv.BuyerName, res.Buyer)
+				checkTotal(&res, inv.Totals.TotalValue)
 				res.Status = "ok"
 				if vr.HasErrors() {
 					res.Status = "invalid"
@@ -346,6 +373,8 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 			}
 		} else {
 			res.InvoiceID, res.Status, res.Total, res.Issues = inv.ID, string(inv.Status), inv.Totals.TotalValue, inv.Validation
+			res.Buyer = nzs(inv.BuyerName, res.Buyer)
+			checkTotal(&res, inv.Totals.TotalValue)
 			if inv.Status == domain.StatusRejected || inv.Status == domain.StatusUncertain {
 				sum.Failed++
 			} else {

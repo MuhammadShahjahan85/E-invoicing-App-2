@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -497,30 +498,94 @@ func (s *Server) handleTemplateXLSX(w http.ResponseWriter, r *http.Request, rc *
 	attachment(w, "invoice-import-template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", b)
 }
 
-func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+// uploadedFile reads the multipart "file" field (at most 20 MB).
+func uploadedFile(w http.ResponseWriter, r *http.Request) (string, []byte, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, 21<<20)
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
 			writeErr(w, http.StatusRequestEntityTooLarge, "the file is larger than 20 MB; split it into smaller files")
-			return
+			return "", nil, false
 		}
-		writeErr(w, 400, "upload a CSV or XLSX file (multipart field 'file')")
-		return
+		writeErr(w, 400, "upload a file (multipart field 'file')")
+		return "", nil, false
 	}
 	f, hdr, err := r.FormFile("file")
 	if err != nil {
 		writeErr(w, 400, "missing file")
-		return
+		return "", nil, false
 	}
 	defer f.Close()
-	rows, err := service.ReadRows(hdr.Filename, f)
+	data, err := io.ReadAll(io.LimitReader(f, 20<<20+1))
 	if err != nil {
-		s.fail(w, service.Invalid("%v", err))
+		writeErr(w, 400, "the file could not be uploaded")
+		return "", nil, false
+	}
+	return hdr.Filename, data, true
+}
+
+// handleImportAnalyze reads an uploaded file of any supported format and
+// proposes how its columns map to invoice particulars.
+func (s *Server) handleImportAnalyze(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	name, data, ok := uploadedFile(w, r)
+	if !ok {
+		return
+	}
+	sheet := -1
+	if v := r.FormValue("sheet"); v != "" {
+		fmt.Sscan(v, &sheet)
+	}
+	var headerRow *int
+	if v := r.FormValue("headerRow"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			headerRow = &n
+		}
+	}
+	var mapping map[string]int
+	if v := r.FormValue("mapping"); v != "" {
+		if err := json.Unmarshal([]byte(v), &mapping); err != nil {
+			writeErr(w, 400, "invalid column matching")
+			return
+		}
+	}
+	a, err := s.Svc.AnalyzeImport(r.Context(), cid(r), name, data, sheet, headerRow, mapping)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, a)
+}
+
+func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	name, data, ok := uploadedFile(w, r)
+	if !ok {
 		return
 	}
 	preview := r.URL.Query().Get("preview") == "1"
 	submit := r.URL.Query().Get("submit") == "1"
+	// With options (from the import wizard) any format is read with the
+	// user's column matching and defaults; without, the file must use the
+	// template's column names.
+	if opt := r.FormValue("options"); opt != "" {
+		var o service.ImportOptions
+		if err := json.Unmarshal([]byte(opt), &o); err != nil {
+			writeErr(w, 400, "invalid import options")
+			return
+		}
+		sum, err := s.Svc.SmartImport(r.Context(), rc.Actor, cid(r), name, data, o, preview, submit)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		writeJSON(w, 200, sum)
+		return
+	}
+	rows, err := service.ReadRows(name, bytes.NewReader(data))
+	if err != nil {
+		s.fail(w, service.Invalid("%v", err))
+		return
+	}
 	sum, err := s.Svc.Import(r.Context(), rc.Actor, cid(r), rows, preview, submit)
 	if err != nil {
 		s.fail(w, err)

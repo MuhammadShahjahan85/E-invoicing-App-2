@@ -79,6 +79,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/import/template.csv", s.perm(PermRead, s.handleTemplateCSV))
 	m.HandleFunc("GET /api/v1/import/template.xlsx", s.perm(PermRead, s.handleTemplateXLSX))
 	m.HandleFunc("POST /api/v1/companies/{cid}/import", s.perm(PermInvoiceWrite, s.handleImport))
+	m.HandleFunc("POST /api/v1/companies/{cid}/import/analyze", s.perm(PermInvoiceWrite, s.handleImportAnalyze))
 
 	// Scenarios.
 	m.HandleFunc("GET /api/v1/companies/{cid}/scenarios", s.perm(PermRead, s.handleScenarios))
