@@ -914,6 +914,50 @@ a.legend-row:hover { text-decoration: none; background: var(--surface-2); }
 .map-row.missing td:first-child { box-shadow: inset 3px 0 0 var(--st-warning); }
 .map-sample { font-family: var(--mono); font-size: 12px; color: var(--text-2); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .req { color: var(--danger); font-weight: 800; margin-left: 2px; }
+.map-row.unused td { color: var(--text-3); }
+.map-row.unused .cell-title { color: var(--text-2); }
+.spacer { flex: 1; }
+.wizard-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding: 14px 18px; border-radius: var(--radius-lg); background: var(--glass); border: 1px solid var(--border); box-shadow: var(--shadow); position: sticky; bottom: 14px; z-index: 5; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.need-list { list-style: none; margin: 0; padding: 6px 0; }
+.need-list li { display: flex; gap: 11px; align-items: flex-start; padding: 9px 20px; }
+.need-list li svg { margin-top: 2px; flex-shrink: 0; }
+.need-list li b { display: block; font-size: 13.5px; font-weight: 650; }
+.need-list li small { display: block; font-size: 12px; color: var(--text-3); }
+.need-list li.ok svg { color: var(--success); }
+.need-list li.required svg { color: var(--warning); }
+.need-list li.recommended svg { color: var(--info); }
+.miss-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.miss-list li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.miss-list li svg { flex-shrink: 0; margin-top: 2px; }
+.miss-list li b { font-weight: 700; }
+.miss-list li small { display: block; color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
+.miss-list li.required svg { color: var(--warning); }
+.miss-list li.fix svg { color: var(--danger); }
+.miss-list li.recommended svg { color: var(--info); }
+.miss-card { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: inset 3px 0 0 var(--info); }
+.miss-card.required { box-shadow: inset 3px 0 0 var(--st-warning); }
+.miss-card.fix { box-shadow: inset 3px 0 0 var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.miss-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; background: var(--info-soft); color: var(--info); }
+.miss-card.required .miss-ic { background: var(--warning-soft); color: var(--warning); }
+.miss-card.fix .miss-ic { background: var(--surface); color: var(--danger); }
+.miss-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.miss-main p { margin: 0; color: var(--text-2); font-size: 13.5px; }
+.miss-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 750; font-family: var(--font-display); font-size: 15px; }
+.seg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.seg-card { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 13.5px; font-weight: 600; transition: border-color 0.15s, background 0.15s; }
+.seg-card:hover { border-color: var(--primary-line); }
+.seg-card.on { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px var(--primary-ring); }
+.seg-card input { margin-top: 2px; }
+.value-map { max-width: 620px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.value-map td { vertical-align: middle; }
+.value-map select { min-height: 36px; }
+.msg { padding: 2px 0; }
+.msg.err { color: var(--danger); }
+.msg.warn { color: var(--warning); }
+.done-card { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; background: linear-gradient(135deg, var(--success-soft), var(--surface) 60%); border-color: var(--success-line); }
+.done-card h2 { margin: 0 0 4px; }
+.done-card p { margin: 0; }
+.done-ic { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--success); color: #fff; box-shadow: 0 10px 22px rgba(22, 163, 74, 0.3); flex-shrink: 0; }
 
 /* ==========================================================================
    Sign-in and first-run setup

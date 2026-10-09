@@ -409,7 +409,11 @@ func (s *Service) missingInfo(ctx context.Context, c *store.Company, sd *sheetDa
 	}
 	need := func(field, input, suggest, what string) {
 		if b := blank(field); b > 0 && b > known {
-			msg := fmt.Sprintf("Your file has no %s.%s Choose the %s for the other lines.", what, fromMaster, what)
+			rest := "all lines"
+			if known > 0 {
+				rest = "the other lines"
+			}
+			msg := fmt.Sprintf("Your file has no %s.%s Choose the %s to use for %s.", what, fromMaster, what, rest)
 			if mapped(field) {
 				msg = fmt.Sprintf("%s have no %s.%s Choose the %s to use for them.", plural(b, "line", "lines"), what, fromMaster, what)
 			}

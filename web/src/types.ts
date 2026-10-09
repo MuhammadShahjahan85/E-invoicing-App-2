@@ -678,3 +678,90 @@ export interface ReturnExtension {
   reference: string
   createdAt: string
 }
+
+// ---- Import ----
+
+export interface ImportField {
+  key: string
+  label: string
+  group: 'Invoice' | 'Buyer' | 'Item' | 'Tax'
+  need: 'required' | 'recommended' | 'optional'
+  help: string
+  kind: string
+}
+
+export interface ImportColumn {
+  index: number
+  header: string
+  samples: string[] | null
+  field: string
+  score: number
+  by: '' | 'heading' | 'values' | 'you'
+}
+
+export interface ImportValueCount {
+  value: string
+  lines: number
+  suggest: string
+}
+
+export interface ImportMissing {
+  field: string
+  label: string
+  level: 'required' | 'recommended' | 'fix'
+  message: string
+  blank: number
+  input: '' | 'text' | 'date' | 'province' | 'saletype' | 'uom' | 'rate' | 'hs' | 'grouping' | 'regrule' | 'valuemap'
+  suggest: string
+  values?: ImportValueCount[]
+}
+
+export interface ImportAnalysis {
+  fileName: string
+  format: string
+  kind: string
+  notes: string[] | null
+  sheets: { name: string; rows: number }[]
+  sheet: number
+  headerRow: number
+  columns: ImportColumn[]
+  rows: number
+  mapping: Record<string, number>
+  fields: ImportField[]
+  missing: ImportMissing[] | null
+  preview: string[][] | null
+  lists: { provinces: string[] | null; saleTypes: string[] | null; uoms: string[] | null; rates: string[] }
+}
+
+export interface ImportOptions {
+  sheet: number
+  headerRow: number
+  mapping: Record<string, number>
+  defaults: Record<string, string>
+  grouping: string
+  provinceFromAddress: boolean
+  regRule: string
+  valueMap: Record<string, Record<string, string>>
+}
+
+export interface ImportResult {
+  ref: string
+  rows: number[]
+  invoiceId?: number
+  status: string
+  errors?: string[]
+  warnings?: string[]
+  issues?: Issue[]
+  total: number
+  buyer?: string
+  date?: string
+  lines: number
+}
+
+export interface ImportSummary {
+  invoices: number
+  ok: number
+  failed: number
+  results: ImportResult[]
+  preview: boolean
+}
