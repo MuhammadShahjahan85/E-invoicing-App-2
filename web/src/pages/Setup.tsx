@@ -38,7 +38,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (f.adminPassword !== f.confirm) {
-      setError('Passwords do not match')
+      setError('The passwords do not match.')
       return
     }
     setBusy(true)
@@ -104,7 +104,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
           <Field label="Full name">
             <input value={f.adminFullName} onChange={(e) => set('adminFullName', e.target.value)} />
           </Field>
-          <Field label="Password" hint="8+ characters, letters and digits">
+          <Field label="Password" hint="8 or more characters, with letters and digits">
             <input type="password" value={f.adminPassword} onChange={(e) => set('adminPassword', e.target.value)} />
           </Field>
           <Field label="Confirm password">

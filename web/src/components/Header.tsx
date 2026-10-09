@@ -13,8 +13,11 @@ import {
   CircleCheck,
   FilePlus2,
   FileText,
+  GraduationCap,
   Info,
+  Keyboard,
   KeyRound,
+  Languages,
   LifeBuoy,
   Library,
   LogOut,
@@ -28,6 +31,7 @@ import {
   TriangleAlert,
   Upload,
   Users,
+  WifiOff,
   type LucideIcon,
 } from 'lucide-react'
 import { api } from '../api'
@@ -36,14 +40,23 @@ import { applyTheme, getTheme, type Theme } from '../theme'
 import { dateFmt, money, statusLabels } from '../format'
 import type { Alert, SearchResults } from '../types'
 import { usePopover } from './Popover'
+import { setPrefs, usePrefs } from '../prefs'
+import { showShortcuts } from './Shortcuts'
 
 // ---- Alerts ----
 
+/** Pulse is the reporting state shown in the header's status chip. */
+export interface Pulse {
+  needsAttention: number
+  pendingUpload: number
+}
+
 interface AlertsCtx {
   alerts: Alert[]
+  pulse: Pulse | null
   reload: () => void
 }
-const AlertsContext = createContext<AlertsCtx>({ alerts: [], reload: () => {} })
+const AlertsContext = createContext<AlertsCtx>({ alerts: [], pulse: null, reload: () => {} })
 export const useAlerts = () => useContext(AlertsContext)
 
 /** AlertsProvider loads the current company's alerts and refreshes them regularly. */
@@ -52,10 +65,14 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   const { company } = useSession()
   const location = useLocation()
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const [pulse, setPulse] = useState<Pulse | null>(null)
   const load = useCallback(() => {
     api
-      .get<{ alerts: Alert[] }>(`${cp}/alerts`)
-      .then((r) => setAlerts(r.alerts ?? []))
+      .get<{ alerts: Alert[]; pulse?: Pulse }>(`${cp}/alerts`)
+      .then((r) => {
+        setAlerts(r.alerts ?? [])
+        setPulse(r.pulse ?? null)
+      })
       .catch(() => {})
   }, [cp])
   useEffect(() => {
@@ -68,7 +85,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     const t = window.setTimeout(load, 800)
     return () => window.clearTimeout(t)
   }, [location.pathname, load])
-  const value = useMemo(() => ({ alerts, reload: load }), [alerts, load])
+  const value = useMemo(() => ({ alerts, pulse, reload: load }), [alerts, pulse, load])
   return <AlertsContext.Provider value={value}>{children}</AlertsContext.Provider>
 }
 
@@ -136,6 +153,75 @@ export function AlertsBell() {
   )
 }
 
+// ---- Status chip ----
+
+/** StatusChip tells at a glance whether everything issued has reached FBR. */
+export function StatusChip() {
+  const { alerts, pulse } = useAlerts()
+  const { company } = useSession()
+  if (!company) return null
+  if (company.environment === 'simulator')
+    return (
+      <Link className="status-chip sim" to="/settings/fbr" title="The training simulator never sends anything to FBR">
+        <GraduationCap size={16} /> Simulator · <b>not sent to FBR</b>
+      </Link>
+    )
+  if (alerts.some((a) => a.id === 'connection'))
+    return (
+      <Link className="status-chip err" to="/settings/fbr" title="Invoices are queued and sent automatically once FBR responds">
+        <WifiOff size={16} /> FBR · <b>not reachable</b>
+      </Link>
+    )
+  const n = pulse?.needsAttention ?? 0
+  if (n > 0)
+    return (
+      <Link className="status-chip warn" to="/invoices?status=REJECTED,UNCERTAIN,QUEUED" title="Rejected, queued or uncertain invoices">
+        <CircleAlert size={16} /> To review · <b>{n}</b>
+      </Link>
+    )
+  return (
+    <Link className="status-chip ok" to="/invoices" title="Every issued invoice has been reported to FBR">
+      <CircleCheck size={16} /> All reported · <b>0 pending</b>
+    </Link>
+  )
+}
+
+// ---- Theme ----
+
+function prefersDark() {
+  return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+/** isDark reports the theme actually shown, following the device when no theme is picked. */
+export function isDark(t: Theme = getTheme()) {
+  return t === 'dark' || (t === 'system' && prefersDark())
+}
+
+/** ThemeToggle switches between the light and dark themes. */
+export function ThemeToggle() {
+  const [dark, setDark] = useState(() => isDark())
+  useEffect(() => {
+    const sync = () => setDark(isDark())
+    window.addEventListener('themechange', sync)
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
+    mq?.addEventListener?.('change', sync)
+    return () => {
+      window.removeEventListener('themechange', sync)
+      mq?.removeEventListener?.('change', sync)
+    }
+  }, [])
+  return (
+    <button
+      className="icon-btn hide-mobile"
+      aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
+      title={dark ? 'Light theme' : 'Dark theme'}
+      onClick={() => applyTheme(dark ? 'light' : 'dark')}
+    >
+      {dark ? <Sun size={19} /> : <Moon size={19} />}
+    </button>
+  )
+}
+
 // ---- Global search ----
 
 interface Hit {
@@ -149,7 +235,7 @@ interface Hit {
 
 const commands: { label: string; keywords: string; to: string; icon: LucideIcon; perm?: string }[] = [
   { label: 'New invoice', keywords: 'create sale invoice issue', to: '/invoices/new', icon: FilePlus2 },
-  { label: 'Import invoices (CSV / Excel)', keywords: 'upload bulk erp', to: '/import', icon: Upload },
+  { label: 'Import invoices from any file', keywords: 'upload bulk erp excel csv pdf', to: '/import', icon: Upload },
   { label: 'Tax periods & returns', keywords: 'calendar deadline due date annexure c return filing payment', to: '/compliance', icon: CalendarClock, perm: 'reports' },
   { label: 'FBR reference library', keywords: 'hs code pct uom unit sro schedule rate sale type province', to: '/library', icon: Library },
   { label: 'Verify a buyer (ATL / registration)', keywords: 'atl active taxpayer ntn cnic strn check buyer', to: '/library?tab=buyer', icon: ShieldCheck },
@@ -376,8 +462,14 @@ const roleLabels: Record<string, string> = {
 export function UserMenu() {
   const s = useSession()
   const pop = usePopover()
+  const prefs = usePrefs()
   const [theme, setTheme] = useState<Theme>(getTheme())
   const name = s.user.fullName || s.user.username
+  useEffect(() => {
+    const sync = () => setTheme(getTheme())
+    window.addEventListener('themechange', sync)
+    return () => window.removeEventListener('themechange', sync)
+  }, [])
   const pick = (t: Theme) => {
     setTheme(t)
     applyTheme(t)
@@ -416,7 +508,33 @@ export function UserMenu() {
               </button>
             </div>
           </div>
+          <div style={{ padding: '10px 16px 4px' }}>
+            <div className="small faint" style={{ marginBottom: 6 }}>
+              Amounts
+            </div>
+            <div className="seg" role="group" aria-label="Number style">
+              <button className={prefs.grouping === 'intl' ? 'on' : ''} onClick={() => setPrefs({ grouping: 'intl' })} title="International grouping">
+                1,234,567
+              </button>
+              <button className={prefs.grouping === 'pk' ? 'on' : ''} onClick={() => setPrefs({ grouping: 'pk' })} title="Lakh and crore grouping">
+                12,34,567
+              </button>
+            </div>
+          </div>
           <div className="menu-list">
+            <button onClick={() => setPrefs({ urdu: !prefs.urdu })} role="menuitemcheckbox" aria-checked={prefs.urdu}>
+              <Languages size={16} /> Urdu captions
+              <span className={'switch' + (prefs.urdu ? ' on' : '')} aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => {
+                pop.setOpen(false)
+                showShortcuts()
+              }}
+            >
+              <Keyboard size={16} /> Keyboard shortcuts <span className="kbd" style={{ marginLeft: 'auto' }}>?</span>
+            </button>
+            <div className="menu-sep" />
             <Link to="/password" onClick={() => pop.setOpen(false)}>
               <KeyRound size={16} /> Change password
             </Link>

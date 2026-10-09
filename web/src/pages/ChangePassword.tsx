@@ -16,7 +16,7 @@ export default function ChangePassword({ forced, onDone }: { forced?: boolean; o
     e.preventDefault()
     setError('')
     if (next !== confirm) {
-      setError('New passwords do not match')
+      setError('The new passwords do not match.')
       return
     }
     try {
@@ -38,7 +38,7 @@ export default function ChangePassword({ forced, onDone }: { forced?: boolean; o
         <Field label="Current password">
           <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </Field>
-        <Field label="New password" hint="8+ characters with letters and digits">
+        <Field label="New password" hint="8 or more characters, with letters and digits">
           <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
         </Field>
         <Field label="Confirm new password">

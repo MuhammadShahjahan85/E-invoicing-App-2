@@ -6,6 +6,8 @@
 export type Theme = 'system' | 'light' | 'dark'
 
 export function getTheme(): Theme {
+  const shown = document.documentElement.getAttribute('data-theme')
+  if (shown === 'light' || shown === 'dark') return shown
   try {
     const t = localStorage.getItem('theme')
     return t === 'light' || t === 'dark' ? t : 'system'
@@ -24,4 +26,5 @@ export function applyTheme(t: Theme) {
   } catch {
     // storage unavailable (private window): the choice lasts for this visit
   }
+  window.dispatchEvent(new Event('themechange'))
 }

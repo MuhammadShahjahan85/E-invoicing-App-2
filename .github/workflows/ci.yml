@@ -22,8 +22,16 @@ jobs:
 
       - name: Cross-compile Windows and Linux binaries
         run: |
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/einvoice.exe ./cmd/einvoice
+          GOOS=windows GOARCH=amd64 go vet ./cmd/... ./internal/winsvc ./internal/wintrust
+          mkdir -p dist/windows-amd64
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o dist/windows-amd64/einvoice.exe ./cmd/einvoice
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags -H=windowsgui -o dist/windows-amd64/VeridianEInvoicing.exe ./cmd/launcher
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/einvoice ./cmd/einvoice
+
+      - name: Check the Windows installer script
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nsis
+          makensis -WX -V2 -DVERSION=0.0.0-ci packaging/windows/installer.nsi
 
       - uses: actions/setup-node@v4
         with:

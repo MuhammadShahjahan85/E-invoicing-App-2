@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"einvoicing/internal/brand"
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
 	"einvoicing/internal/printing"
@@ -379,6 +381,63 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	_, _ = w.Write(buf.Bytes())
 }
 
+// handleInvoicePDF downloads the invoice as a PDF. Like a print, a PDF of
+// an accepted invoice counts as a copy (later copies say DUPLICATE).
+func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	ctx := r.Context()
+	inv, err := s.Svc.Store.GetInvoice(ctx, cid(r), id)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	c, err := s.Svc.Store.GetCompany(ctx, cid(r))
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	logo, mime, _ := s.Svc.Store.GetCompanyLogo(ctx, c.ID)
+	fbrLogo, fbrMime := s.fbrLogo(r)
+	var keyFP string
+	if inv.Signature != "" {
+		if k, err := s.Svc.SigningKey(ctx); err == nil {
+			keyFP = k.Fingerprint
+		}
+	}
+	var buf bytes.Buffer
+	if err := printing.RenderPDF(&buf, c, inv, printing.Options{CompanyLogo: logo, CompanyMime: mime, FBRLogo: fbrLogo, FBRLogoMime: fbrMime,
+		SigningKey: keyFP}); err != nil {
+		s.fail(w, err)
+		return
+	}
+	if inv.Status == domain.StatusAccepted && r.URL.Query().Get("preview") != "1" {
+		_ = s.Svc.Store.IncrementPrintCount(ctx, inv.ID)
+		s.Svc.Audit(ctx, rc.Actor, c.ID, "invoice.pdf", "invoice", fmt.Sprint(inv.ID), map[string]any{"no": inv.InternalNo, "copy": inv.PrintCount + 1})
+	}
+	attachment(w, safeFileName(inv.InternalNo)+".pdf", "application/pdf", buf.Bytes())
+}
+
+// safeFileName keeps letters, digits, dashes and dots for a download name.
+func safeFileName(s string) string {
+	b := []rune{}
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '.', r == '_':
+			b = append(b, r)
+		default:
+			b = append(b, '-')
+		}
+	}
+	if len(b) == 0 {
+		return "invoice"
+	}
+	return string(b)
+}
+
 func (s *Server) qrContent(r *http.Request) (string, error) {
 	id, err := pathID(r, "id")
 	if err != nil {
@@ -439,30 +498,94 @@ func (s *Server) handleTemplateXLSX(w http.ResponseWriter, r *http.Request, rc *
 	attachment(w, "invoice-import-template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", b)
 }
 
-func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+// uploadedFile reads the multipart "file" field (at most 20 MB).
+func uploadedFile(w http.ResponseWriter, r *http.Request) (string, []byte, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, 21<<20)
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
 			writeErr(w, http.StatusRequestEntityTooLarge, "the file is larger than 20 MB; split it into smaller files")
-			return
+			return "", nil, false
 		}
-		writeErr(w, 400, "upload a CSV or XLSX file (multipart field 'file')")
-		return
+		writeErr(w, 400, "upload a file (multipart field 'file')")
+		return "", nil, false
 	}
 	f, hdr, err := r.FormFile("file")
 	if err != nil {
 		writeErr(w, 400, "missing file")
-		return
+		return "", nil, false
 	}
 	defer f.Close()
-	rows, err := service.ReadRows(hdr.Filename, f)
+	data, err := io.ReadAll(io.LimitReader(f, 20<<20+1))
 	if err != nil {
-		s.fail(w, service.Invalid("%v", err))
+		writeErr(w, 400, "the file could not be uploaded")
+		return "", nil, false
+	}
+	return hdr.Filename, data, true
+}
+
+// handleImportAnalyze reads an uploaded file of any supported format and
+// proposes how its columns map to invoice particulars.
+func (s *Server) handleImportAnalyze(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	name, data, ok := uploadedFile(w, r)
+	if !ok {
+		return
+	}
+	sheet := -1
+	if v := r.FormValue("sheet"); v != "" {
+		fmt.Sscan(v, &sheet)
+	}
+	var headerRow *int
+	if v := r.FormValue("headerRow"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			headerRow = &n
+		}
+	}
+	var mapping map[string]int
+	if v := r.FormValue("mapping"); v != "" {
+		if err := json.Unmarshal([]byte(v), &mapping); err != nil {
+			writeErr(w, 400, "invalid column matching")
+			return
+		}
+	}
+	a, err := s.Svc.AnalyzeImport(r.Context(), cid(r), name, data, sheet, headerRow, mapping)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, a)
+}
+
+func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	name, data, ok := uploadedFile(w, r)
+	if !ok {
 		return
 	}
 	preview := r.URL.Query().Get("preview") == "1"
 	submit := r.URL.Query().Get("submit") == "1"
+	// With options (from the import wizard) any format is read with the
+	// user's column matching and defaults; without, the file must use the
+	// template's column names.
+	if opt := r.FormValue("options"); opt != "" {
+		var o service.ImportOptions
+		if err := json.Unmarshal([]byte(opt), &o); err != nil {
+			writeErr(w, 400, "invalid import options")
+			return
+		}
+		sum, err := s.Svc.SmartImport(r.Context(), rc.Actor, cid(r), name, data, o, preview, submit)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		writeJSON(w, 200, sum)
+		return
+	}
+	rows, err := service.ReadRows(name, bytes.NewReader(data))
+	if err != nil {
+		s.fail(w, service.Invalid("%v", err))
+		return
+	}
 	sum, err := s.Svc.Import(r.Context(), rc.Actor, cid(r), rows, preview, submit)
 	if err != nil {
 		s.fail(w, err)
@@ -583,6 +706,31 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request, rc *reqCtx
 			return
 		}
 		attachment(w, name+".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", b)
+	case "pdf":
+		c, err := s.Svc.Store.GetCompany(ctx, cid(r))
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		span := "All dates"
+		switch {
+		case f.From != "" && f.To != "":
+			span = pdfDate(f.From) + " to " + pdfDate(f.To)
+		case f.From != "":
+			span = "From " + pdfDate(f.From)
+		case f.To != "":
+			span = "Up to " + pdfDate(f.To)
+		}
+		sub := "Documents accepted by FBR (" + envLabel(env) + "), as recorded by " + brand.ProductName + "."
+		if r.PathValue("kind") == "annex-c" {
+			sub = "Every document reported to FBR in the period, to match with Annexure-C of the sales tax return before filing (rule 150XD(2))."
+		}
+		b, err := table.PDF(s.pdfMeta(rc, c, env), "Report · "+span, sub)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		attachment(w, name+".pdf", "application/pdf", b)
 	default:
 		writeJSON(w, 200, data)
 	}

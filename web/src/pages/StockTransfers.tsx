@@ -67,7 +67,7 @@ export default function StockTransfers() {
   const exportRegister = async () => {
     try {
       const r = await api.get<{ transfers: StockTransfer[]; total: number }>(`${cp}/stock-transfers${qs({ status, from, to, q: params.get('q'), limit: 500 })}`)
-      const head = ['Note No.', 'Dispatched', 'From', 'To (warehouse)', 'Vehicle', 'Driver CNIC', 'Lines', 'Value at cost', 'Status', 'Received by', 'Received at', 'Remarks']
+      const head = ['Note no.', 'Dispatched', 'From', 'To (warehouse)', 'Vehicle', 'Driver CNIC', 'Lines', 'Value at cost', 'Status', 'Received by', 'Received at', 'Remarks']
       const rows = r.transfers.map((t) => [
         t.number,
         dateTimeFmt(t.dispatchedAt),
@@ -158,7 +158,7 @@ export default function StockTransfers() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Note No.</th>
+                      <th>Note no.</th>
                       <th>Dispatched</th>
                       <th>To (warehouse)</th>
                       <th>Vehicle</th>

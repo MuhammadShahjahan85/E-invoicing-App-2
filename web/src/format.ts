@@ -3,11 +3,30 @@
 
 // Formatting helpers (amounts in PKR, Pakistan time).
 
-const amountFmt = new Intl.NumberFormat('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const qtyFmt = new Intl.NumberFormat('en-PK', { maximumFractionDigits: 4 })
+import { getPrefs } from './prefs'
+
+// Amounts use international grouping (1,234,567.00) or, by preference,
+// the lakh and crore grouping used in Pakistan (12,34,567.00).
+const amountFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const amountFmtPK = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const qtyFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 })
 
 export function money(n: number | null | undefined): string {
-  return amountFmt.format(Number(n ?? 0))
+  return (getPrefs().grouping === 'pk' ? amountFmtPK : amountFmt).format(Number(n ?? 0))
+}
+
+/**
+ * lakhCrore expresses an amount the way it is spoken in Pakistan:
+ * 4,343,659 → "43.44 lakh", 125,000,000 → "12.5 crore".
+ */
+export function lakhCrore(n: number | null | undefined): string {
+  const v = Number(n ?? 0)
+  const a = Math.abs(v)
+  const f = (x: number) => x.toLocaleString('en-PK', { maximumFractionDigits: 2 })
+  if (a >= 1e7) return f(v / 1e7) + ' crore'
+  if (a >= 1e5) return f(v / 1e5) + ' lakh'
+  if (a >= 1e3) return f(v / 1e3) + ' thousand'
+  return f(v)
 }
 
 export function qty(n: number | null | undefined): string {

@@ -13,6 +13,8 @@ import (
 
 	"einvoicing/internal/domain"
 	"einvoicing/internal/store"
+
+	"github.com/shopspring/decimal"
 )
 
 // ReturnDeadline is a due date of the monthly sales tax return of a tax
@@ -285,6 +287,97 @@ func (s *Service) ReviewPeriod(ctx context.Context, c *store.Company, env domain
 			Detail: "Nothing in the simulator is reported to FBR. Switch the company to production to issue real invoices.", Link: "/settings/fbr"})
 	}
 	return r, nil
+}
+
+// PeriodTie compares a tax period's books with what reached FBR and with
+// Annexure-C of the sales tax return, which IRIS builds from the invoices
+// FBR accepted. Each side of the triangle is one kind of difference:
+// issued but not yet sent (books and FBR), sent but not accepted (FBR and
+// Annexure-C) and unissued drafts dated in the period (books and
+// Annexure-C). The period is the one whose return is due next.
+type PeriodTie struct {
+	Period      string          `json:"period"`
+	PeriodLabel string          `json:"periodLabel"`
+	FilingDue   string          `json:"filingDue"`
+	DaysLeft    int             `json:"daysLeft"`
+	Books       decimal.Decimal `json:"books"`     // issued documents, excluding sales tax
+	AnnexC      decimal.Decimal `json:"annexC"`    // documents accepted by FBR, excluding sales tax
+	AnnexCTax   decimal.Decimal `json:"annexCTax"` // sales tax on them
+	Accepted    int             `json:"accepted"`
+	Issued      int             `json:"issued"`
+	Edges       []TieEdge       `json:"edges"`
+	ChecksOpen  int             `json:"checksOpen"`
+	ChecksTotal int             `json:"checksTotal"`
+}
+
+// TieEdge is one side of the period tie; it ties when Count is zero.
+type TieEdge struct {
+	ID     string          `json:"id"` // books-fbr | fbr-annexc | books-annexc
+	Title  string          `json:"title"`
+	Detail string          `json:"detail"`
+	Count  int             `json:"count"`
+	Value  decimal.Decimal `json:"value"`
+	Link   string          `json:"link"`
+}
+
+// Tie works out the period tie for the tax period whose return is due next.
+func (s *Service) Tie(ctx context.Context, c *store.Company, env domain.Environment) (*PeriodTie, error) {
+	rev, err := s.ReviewPeriod(ctx, c, env, "")
+	if err != nil {
+		return nil, err
+	}
+	return s.tieFor(ctx, c, env, rev)
+}
+
+// tieFor works out the tie of a reviewed period.
+func (s *Service) tieFor(ctx context.Context, c *store.Company, env domain.Environment, rev *PeriodReview) (*PeriodTie, error) {
+	if env == "" {
+		env = c.Environment
+	}
+	totals, err := s.Store.PeriodStatusTotals(ctx, c.ID, env, rev.From, rev.To)
+	if err != nil {
+		return nil, err
+	}
+	sum := func(statuses ...domain.InvoiceStatus) (int, decimal.Decimal) {
+		n, v := 0, decimal.Zero
+		for _, st := range statuses {
+			t := totals[string(st)]
+			n += t.Count
+			v = v.Add(t.Value)
+		}
+		return n, v
+	}
+	t := &PeriodTie{Period: rev.Period, PeriodLabel: rev.PeriodLabel}
+	for _, d := range rev.Deadlines {
+		if d.Kind == "filing" {
+			t.FilingDue, t.DaysLeft = d.Due, d.DaysLeft
+		}
+	}
+	acc := totals[string(domain.StatusAccepted)]
+	t.AnnexC, t.AnnexCTax, t.Accepted = acc.Value, acc.SalesTax, acc.Count
+	t.Issued, t.Books = sum(domain.StatusAccepted, domain.StatusQueued, domain.StatusSubmitting, domain.StatusRejected, domain.StatusUncertain)
+	link := func(statuses string) string {
+		return "/invoices?status=" + statuses + "&from=" + rev.From + "&to=" + rev.To
+	}
+	n, v := sum(domain.StatusQueued, domain.StatusSubmitting)
+	t.Edges = append(t.Edges, TieEdge{ID: "books-fbr", Title: "Books = FBR", Detail: "Every issued invoice sent to FBR",
+		Count: n, Value: v, Link: link("QUEUED,SUBMITTING")})
+	n, v = sum(domain.StatusRejected, domain.StatusUncertain)
+	t.Edges = append(t.Edges, TieEdge{ID: "fbr-annexc", Title: "FBR = Annexure-C", Detail: "Every submission accepted by FBR",
+		Count: n, Value: v, Link: link("REJECTED,UNCERTAIN")})
+	n, v = sum(domain.StatusDraft, domain.StatusValidated)
+	t.Edges = append(t.Edges, TieEdge{ID: "books-annexc", Title: "Books = Annexure-C", Detail: "No unissued drafts dated in the period",
+		Count: n, Value: v, Link: link("DRAFT,VALIDATED")})
+	for _, ch := range rev.Checks {
+		if ch.ID == "simulator" {
+			continue
+		}
+		t.ChecksTotal++
+		if !ch.OK {
+			t.ChecksOpen++
+		}
+	}
+	return t, nil
 }
 
 func plural(n int, one, many string) string {

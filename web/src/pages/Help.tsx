@@ -145,7 +145,7 @@ export default function Help() {
               </li>
               <li>
                 <b>Rule 150XD(2)</b> (substituted by SRO 1666(I)/2026) — tax is recovered on any invoice transmitted with an FBR number but not accounted for in
-                Annex-C or the return, unless cancelled through the approved mechanism. Use the Annex-C reconciliation before filing.
+                Annexure-C or the return, unless cancelled through the approved mechanism. Use the Annexure-C reconciliation before filing.
               </li>
               <li>
                 <b>Section 23(1)</b> (Finance Act 2026) — invoices bearing an FBR invoice number are also required for exempt supplies and advance receipts.

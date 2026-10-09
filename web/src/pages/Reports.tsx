@@ -3,6 +3,7 @@
 
 import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FileDown, FileSpreadsheet, FileText } from 'lucide-react'
 import { api, qs } from '../api'
 import { Empty, ErrorBox, Pager, useLoad, PageSpinner } from '../components/ui'
 import { dateFmt, dateTimeFmt, envLabels, money, monthStartPK, qty, todayPK } from '../format'
@@ -16,7 +17,7 @@ const titles: Record<Kind, string> = {
   'tax-summary': 'Tax summary by sale type & rate',
   monthly: 'Monthly summary (tax periods)',
   customers: 'Buyer-wise summary',
-  'annex-c': 'Annex-C reconciliation',
+  'annex-c': 'Annexure-C reconciliation',
   calls: 'FBR API log',
 }
 
@@ -62,11 +63,14 @@ export default function Reports() {
               ))}
             </select>
             <div className="spacer" />
-            <a className="btn" href={`/api/v1${cp}/reports/${kind}${params}&format=csv`}>
-              Download CSV
+            <a className="btn" href={`/api/v1${cp}/reports/${kind}${params}&format=pdf`} title="A formatted PDF document, ready to print or send">
+              <FileText size={16} /> PDF
             </a>
-            <a className="btn" href={`/api/v1${cp}/reports/${kind}${params}&format=xlsx`}>
-              Download Excel
+            <a className="btn" href={`/api/v1${cp}/reports/${kind}${params}&format=xlsx`} title="Excel workbook with every column">
+              <FileSpreadsheet size={16} /> Excel
+            </a>
+            <a className="btn" href={`/api/v1${cp}/reports/${kind}${params}&format=csv`} title="Comma-separated values for other software">
+              <FileDown size={16} /> CSV
             </a>
           </div>
         </div>
@@ -217,8 +221,8 @@ function ReportTable({ kind, params }: { kind: Exclude<Kind, 'calls'>; params: s
       <div className="card">
         <p className="small muted card-body">
           Every document that received an FBR invoice number in the period, including those cancelled later. Rule 150XD(2) (as amended by SRO 1666(I)/2026)
-          lets FBR recover tax on any invoice transmitted with an FBR number but not accounted for in Annex-C or the return, unless it was cancelled through
-          the approved mechanism. Match each line with Annex-C on IRIS before filing.
+          lets FBR recover tax on any invoice transmitted with an FBR number but not accounted for in Annexure-C or the return, unless it was cancelled through
+          the approved mechanism. Match each line with Annexure-C on IRIS before filing.
         </p>
         <div className="table-wrap">
           <table className="table">

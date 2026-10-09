@@ -8,6 +8,7 @@ import { api, ApiError, errorMessage } from '../api'
 import { ErrorBox, Field, HSCodeInput, IssueList, PageSpinner } from '../components/ui'
 import { dateFmt, money, num, todayPK } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
+import { provinceFromAddress } from '../pkcities'
 import type { BuyerStatus, Customer, Invoice, InvoiceItem, Issue, Paged, Product, RateRef, SaleType } from '../types'
 
 interface Line extends InvoiceItem {
@@ -365,22 +366,31 @@ export default function InvoiceEditor() {
         </div>
         <div className="table-wrap">
           <table className="table lines-table">
+            {/* Fixed widths keep every input readable; the description takes the rest. */}
+            <colgroup>
+              <col style={{ width: 30 }} />
+              <col />
+              <col style={{ width: 98 }} />
+              <col style={{ width: 82 }} />
+              <col style={{ width: 86 }} />
+              <col style={{ width: 102 }} />
+              <col style={{ width: 128 }} />
+              <col style={{ width: 74 }} />
+              <col style={{ width: 112 }} />
+              <col style={{ width: 122 }} />
+              <col style={{ width: 38 }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ width: 28 }}>#</th>
-                <th style={{ minWidth: 230 }}>Product / description</th>
-                <th style={{ width: 120 }}>HS code</th>
-                <th style={{ width: 150 }}>UoM</th>
-                <th style={{ width: 90 }} className="num">
-                  Qty
-                </th>
-                <th style={{ width: 110 }} className="num">
-                  Unit price
-                </th>
-                <th style={{ minWidth: 200 }}>Sale type</th>
-                <th style={{ width: 110 }}>Rate</th>
+                <th>#</th>
+                <th>Product / description</th>
+                <th>HS code</th>
+                <th>UoM</th>
+                <th className="num">Qty</th>
+                <th className="num">Unit price</th>
+                <th>Sale type</th>
+                <th>Rate</th>
                 <th className="num">Value excl. ST</th>
-                <th className="num">Taxes</th>
                 <th className="num">Total</th>
                 <th></th>
               </tr>
@@ -426,7 +436,7 @@ export default function InvoiceEditor() {
           </div>
           {!!totals?.retailValue && (
             <div className="t-row">
-              <span>Retail value excl. sales tax (3rd Schedule)</span>
+              <span>Retail value excl. sales tax (Third Schedule)</span>
               <span>{money(totals.retailValue)}</span>
             </div>
           )}
@@ -606,13 +616,24 @@ function BuyerCard({ buyer, setBuyer, provinces, cp }: { buyer: Buyer; setBuyer:
               ))}
             </select>
           </Field>
-          <Field label="Address" span={2}>
-            <input value={buyer.address} onChange={(e) => set('address', e.target.value)} />
+          <Field
+            label="Address"
+            span={2}
+            hint={!buyer.province && provinceFromAddress(buyer.address) ? `Looks like ${provinceFromAddress(buyer.address)} — the province is filled in when you leave this field` : undefined}
+          >
+            <input
+              value={buyer.address}
+              onChange={(e) => set('address', e.target.value)}
+              onBlur={() => {
+                const p = provinceFromAddress(buyer.address)
+                if (!buyer.province && p && provinces.includes(p)) set('province', p)
+              }}
+            />
           </Field>
           <Field label="Withholding agent?" hint="Sales tax withheld at source by the buyer">
             <select value={buyer.withholdingMode} onChange={(e) => set('withholdingMode', e.target.value)}>
               <option value="">No</option>
-              <option value="fraction">Yes — withholds a fraction (default 1/5th)</option>
+              <option value="fraction">Yes — withholds a fraction (one-fifth by default)</option>
               <option value="full">Yes — withholds the full sales tax</option>
             </select>
           </Field>
@@ -737,7 +758,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
             )}
           </div>
           <button className="btn-link small" onClick={() => update({ showMore: !l.showMore })}>
-            {l.showMore ? '▾ fewer details' : '▸ SRO, retail price, discount, further/extra tax, FED…'}
+            {l.showMore ? '▾ fewer details' : '▸ SRO, discount, FED and more'}
           </button>
           {c?.warnings?.map((w, i) => (
             <div key={i} className="small" style={{ color: 'var(--warning)' }}>
@@ -788,10 +809,12 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
             ))}
           </datalist>
         </td>
-        <td className="num">{money(c?.valueExclST)}</td>
-        <td className="num">{money(taxes)}</td>
-        <td className="num">
+        <td className={'num' + (money(c?.valueExclST).length > 13 ? ' amt-long' : '')}>{money(c?.valueExclST)}</td>
+        <td className={'num' + (money(c?.totalValue).length > 13 ? ' amt-long' : '')}>
           <b>{money(c?.totalValue)}</b>
+          <span className="line-tax" title="Sales tax, further tax, extra tax and FED on this line">
+            tax {money(taxes)}
+          </span>
         </td>
         <td>
           {remove && (
@@ -804,10 +827,10 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
       {l.showMore && (
         <tr>
           <td></td>
-          <td colSpan={11}>
+          <td colSpan={10}>
             <div className="form-grid" style={{ background: 'var(--surface-2)', padding: 10, borderRadius: 6 }}>
               {st?.note && <div className="small muted" style={{ gridColumn: '1 / -1' }}>ℹ {st.note}</div>}
-              <Field label={'SRO / Schedule no.' + (st?.sroRequired ? ' *' : '')} hint="e.g. EIGHTH SCHEDULE Table 1">
+              <Field label={'SRO / schedule no.' + (st?.sroRequired ? ' *' : '')} hint="e.g. EIGHTH SCHEDULE Table 1">
                 <input value={l.sroScheduleNo} onChange={(e) => update({ sroScheduleNo: e.target.value })} />
               </Field>
               <Field label={'SRO item serial no.' + (st?.sroRequired ? ' *' : '')}>
@@ -872,7 +895,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
                   <Field label="Price per unit for FED">
                     <input type="number" step="any" min="0" value={l.fedUnitPrice ?? 0} onChange={(e) => update({ fedUnitPrice: num(e.target.value) })} />
                   </Field>
-                  <Field label="FED Schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
+                  <Field label="FED schedule / SRO" hint="e.g. First Schedule, Federal Excise Act 2005">
                     <input value={l.fedSro ?? ''} onChange={(e) => update({ fedSro: e.target.value })} />
                   </Field>
                   <Field label="FED serial no.">

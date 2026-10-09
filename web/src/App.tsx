@@ -2,11 +2,13 @@
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
   Building2,
   CalendarClock,
+  CalendarDays,
   ChartColumnBig,
+  Check,
   ChevronsUpDown,
   FilePlus2,
   FileText,
@@ -18,9 +20,12 @@ import {
   LifeBuoy,
   Menu,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlugZap,
   Plus,
   Printer,
+  RadioTower,
   ScrollText,
   Search,
   Server,
@@ -32,7 +37,7 @@ import {
   Users as UsersIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { api, ApiError, onUnauthorized, setCsrf } from './api'
+import { api, ApiError, onBusy, onUnauthorized, setCsrf } from './api'
 import { SessionProvider, useSession } from './state'
 import { envLabels } from './format'
 import type { User } from './types'
@@ -62,7 +67,11 @@ import ReferenceLibrary from './pages/ReferenceLibrary'
 import Compliance from './pages/Compliance'
 import StockTransfers from './pages/StockTransfers'
 import { BrandMark } from './components/Brand'
-import { AlertsBell, AlertsProvider, GlobalSearch, UserMenu, useAlerts } from './components/Header'
+import { AlertsBell, AlertsProvider, GlobalSearch, StatusChip, ThemeToggle, UserMenu, useAlerts } from './components/Header'
+import { usePopover } from './components/Popover'
+import { usePrefs } from './prefs'
+import { urdu } from './urdu'
+import { ShortcutsHelp, useShortcuts } from './components/Shortcuts'
 
 interface Me {
   user: User
@@ -155,16 +164,37 @@ interface NavItem {
   badge?: number
 }
 
+function readCollapsed() {
+  try {
+    return localStorage.getItem('sidebar') === 'collapsed'
+  } catch {
+    return false
+  }
+}
+
 function Shell() {
   const s = useSession()
   const c = s.company
   const location = useLocation()
   const [navOpen, setNavOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const prefs = usePrefs()
+  const shortcuts = useShortcuts()
   useEffect(() => {
     setNavOpen(false)
     setSearchOpen(false)
   }, [location.pathname])
+  const toggleCollapsed = () => {
+    setCollapsed((v) => {
+      try {
+        localStorage.setItem('sidebar', v ? 'open' : 'collapsed')
+      } catch {
+        // storage unavailable: the choice lasts for this visit
+      }
+      return !v
+    })
+  }
 
   if (!c) {
     return (
@@ -180,37 +210,45 @@ function Shell() {
     )
   }
 
+  const page = pageTitle(location.pathname)
   return (
     <AlertsProvider>
-      <div className={'app' + (navOpen ? ' nav-open' : '')}>
+      <div className={'app' + (navOpen ? ' nav-open' : '') + (collapsed ? ' collapsed' : '')}>
         <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-        <Sidebar />
+        <Sidebar collapsed={collapsed} onCollapse={toggleCollapsed} />
         <div className="main">
           <EnvBanner />
           <header className="topbar">
             <button className="icon-btn menu-btn" aria-label="Open menu" onClick={() => setNavOpen(true)}>
               <Menu size={21} />
             </button>
-            <div className="topbar-title">
-              <BrandMark size={26} />
-              <span>{c.name}</span>
+            <div className="tb-title">
+              <span className="tb-crumb">
+                {c.name} · {page.section}
+              </span>
+              <span className="tb-h">
+                {page.title}
+                {prefs.urdu && urdu[page.title] && (
+                  <span className="tb-ur" lang="ur">
+                    {urdu[page.title]}
+                  </span>
+                )}
+              </span>
             </div>
-            <GlobalSearch />
-            <div className="spacer hide-mobile" />
-            <span className={'env-ribbon env-' + c.environment} title="Working environment of this company">
-              {envLabels[c.environment]}
+            <div className="spacer" />
+            <span className="tb-chip" title="Today's date in Pakistan (PKT)">
+              <CalendarDays size={16} /> As at <b>{asAtToday()}</b>
             </span>
-            {s.can('invoice.write') && (
-              <NavLink to="/invoices/new" className="btn btn-primary hide-mobile">
-                <Plus size={16} /> New invoice
-              </NavLink>
-            )}
+            <StatusChip />
+            <GlobalSearch />
             <button className="icon-btn mobile-only" aria-label="Search" onClick={() => setSearchOpen(true)}>
               <Search size={20} />
             </button>
+            <ThemeToggle />
             <AlertsBell />
             <UserMenu />
           </header>
+          <Flowbar />
           {searchOpen && (
             <div className="search-sheet">
               <div className="row" style={{ flexWrap: 'nowrap' }}>
@@ -221,7 +259,7 @@ function Shell() {
               </div>
             </div>
           )}
-          <main className="content">
+          <main className="content" key={prefs.grouping}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/invoices" element={<Invoices />} />
@@ -252,8 +290,39 @@ function Shell() {
           </main>
         </div>
         <TabBar onMenu={() => setNavOpen(true)} />
+        {shortcuts.open && <ShortcutsHelp onClose={() => shortcuts.setOpen(false)} />}
       </div>
     </AlertsProvider>
+  )
+}
+
+/** asAtToday is today's date in Pakistan, e.g. "09 Oct 2026". */
+function asAtToday() {
+  return new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/** Flowbar is the thin line under the top bar; it flows while the app is talking to the server. */
+function Flowbar() {
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let t: number | undefined
+    const off = onBusy((b) => {
+      window.clearTimeout(t)
+      // Short requests do not flicker the line; it lingers briefly once they finish.
+      t = window.setTimeout(() => setBusy(b), b ? 180 : 300)
+    })
+    return () => {
+      off()
+      window.clearTimeout(t)
+    }
+  }, [])
+  return (
+    <div className={'flowbar' + (busy ? ' busy' : '')} aria-hidden="true">
+      <span />
+      <span />
+      <span />
+      <span />
+    </div>
   )
 }
 
@@ -276,19 +345,21 @@ function EnvBanner() {
   )
 }
 
-function Sidebar() {
-  const s = useSession()
-  const c = s.company!
-  const { alerts } = useAlerts()
-  const attention = alerts.filter((a) => a.id === 'rejected' || a.id === 'uncertain' || a.id === 'pending').length
-  const sections: { title?: string; items: NavItem[] }[] = [
+const envWorkspace: Record<string, { title: string; icon: LucideIcon }> = {
+  production: { title: 'FBR production', icon: RadioTower },
+  sandbox: { title: 'FBR sandbox', icon: FlaskConical },
+  simulator: { title: 'Training simulator', icon: GraduationCap },
+}
+
+function navSections(attention: number): { title?: string; items: NavItem[] }[] {
+  return [
     { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
       title: 'Sales',
       items: [
         { to: '/invoices/new', label: 'New invoice', icon: FilePlus2, perm: 'invoice.write' },
         { to: '/invoices', label: 'Invoices', icon: FileText, end: true, badge: attention },
-        { to: '/import', label: 'Import (CSV / Excel)', icon: Upload, perm: 'invoice.write' },
+        { to: '/import', label: 'Import data', icon: Upload, perm: 'invoice.write' },
         { to: '/stock-transfers', label: 'Stock transfer notes', icon: Truck },
       ],
     },
@@ -329,44 +400,80 @@ function Sidebar() {
       ],
     },
   ]
+}
+
+/** pageTitle names the page shown in the top bar, with its menu section. */
+function pageTitle(path: string): { section: string; title: string } {
+  if (path === '/') return { section: 'Overview', title: 'Sales tax overview' }
+  if (/^\/invoices\/\d+\/edit$/.test(path)) return { section: 'Sales', title: 'Edit invoice' }
+  if (/^\/invoices\/\d+$/.test(path)) return { section: 'Sales', title: 'Invoice' }
+  if (path === '/password') return { section: 'Account', title: 'Change password' }
+  for (const sec of navSections(0)) {
+    for (const it of sec.items) {
+      if (it.to === path) return { section: sec.title ?? 'Overview', title: it.label }
+    }
+  }
+  return { section: 'Veridian', title: 'E-invoicing Pakistan' }
+}
+
+/** coInitials gives the two-letter tile of a company, e.g. "Acme Textiles (Pvt) Ltd" → "AT". */
+function coInitials(name: string) {
+  const words = name
+    .replace(/\(.*?\)/g, ' ')
+    .split(/[\s.&,-]+/)
+    .filter((w) => w && !/^(m\/s|the|pvt|private|ltd|limited|llc|co|and|of)$/i.test(w))
+  if (words.length === 0) return name.slice(0, 2).toUpperCase()
+  return (words[0][0] + (words[1]?.[0] ?? words[0][1] ?? '')).toUpperCase()
+}
+
+function Sidebar({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
+  const s = useSession()
+  const prefs = usePrefs()
+  const c = s.company!
+  const { alerts } = useAlerts()
+  const attention = alerts.filter((a) => a.id === 'rejected' || a.id === 'uncertain' || a.id === 'pending').length
+  const ws = envWorkspace[c.environment] ?? envWorkspace.simulator
+  const WsIcon = ws.icon
   return (
     <aside className="sidebar" aria-label="Main menu">
       <div className="sidebar-brand">
         <NavLink to="/" className="lockup" aria-label="Veridian E-invoicing Pakistan — dashboard">
-          <BrandMark size={38} />
+          <BrandMark size={40} />
           <span className="lockup-text">
             <span className="lockup-name">Veridian</span>
             <span className="lockup-tag">E-invoicing Pakistan</span>
           </span>
         </NavLink>
       </div>
-      <div className="workspace">
-        <select value={c.id} onChange={(e) => s.setCompanyId(Number(e.target.value))} aria-label="Company">
-          {s.companies.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.name}
-            </option>
-          ))}
-        </select>
-        <ChevronsUpDown size={15} className="chev" />
-        <div className={'workspace-meta ' + c.environment}>
-          <span className="dot" />
-          <span className="truncate">
-            {envLabels[c.environment]} · NTN {c.ntnCnic}
-          </span>
-        </div>
-      </div>
+      <Link to="/settings/fbr" className={'ws-card ' + c.environment} title={`Working environment: ${envLabels[c.environment]}`}>
+        <span className="ws-ic">
+          <WsIcon size={17} />
+        </span>
+        <span className="ws-text">
+          <span className="ws-title">{ws.title}</span>
+          <span className="ws-sub">Digital Invoicing workspace</span>
+        </span>
+      </Link>
       <nav className="nav">
-        {sections.map((sec, i) => {
+        {navSections(attention).map((sec, i) => {
           const items = sec.items.filter((it) => !it.perm || s.can(it.perm))
           if (items.length === 0) return null
           return (
             <div key={i}>
-              {sec.title && <div className="nav-section">{sec.title}</div>}
+              {sec.title && (
+                <div className="nav-section">
+                  {sec.title}
+                  {prefs.urdu && urdu[sec.title] && (
+                    <span className="nav-ur" lang="ur">
+                      {urdu[sec.title]}
+                    </span>
+                  )}
+                </div>
+              )}
               {items.map((it) => {
                 const Ic = it.icon
                 return (
-                  <NavLink key={it.to} to={it.to} end={it.end}>
+                  <NavLink key={it.to} to={it.to} end={it.end} title={collapsed ? it.label : undefined}>
                     <Ic size={18} />
                     <span>{it.label}</span>
                     {it.badge ? <span className="count">{it.badge}</span> : null}
@@ -377,14 +484,78 @@ function Sidebar() {
           )
         })}
       </nav>
-      <div className="sidebar-foot">
-        <b>{s.meta.product}</b> v{s.meta.version}
-        <br />
-        {s.meta.developedBy}
-        <br />
-        {s.meta.copyright}
+      <div className="sidebar-bottom">
+        <CompanySwitcher />
+        <div className="sidebar-credit">
+          {s.meta.developedBy}
+          <br />
+          <b>{s.meta.product}</b> · v{s.meta.version}
+        </div>
+        <button className="collapse-btn" onClick={onCollapse} aria-label={collapsed ? 'Expand the menu' : 'Collapse the menu'}>
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          <span>Collapse</span>
+        </button>
       </div>
     </aside>
+  )
+}
+
+/** CompanySwitcher shows the current company at the foot of the menu and switches between companies. */
+function CompanySwitcher() {
+  const s = useSession()
+  const c = s.company!
+  const pop = usePopover()
+  return (
+    <div ref={pop.ref} style={{ position: 'relative' }}>
+      {pop.open && (
+        <div className="co-menu" role="menu" aria-label="Companies">
+          {s.companies.map((x) => (
+            <button
+              key={x.id}
+              role="menuitem"
+              className={x.id === c.id ? 'on' : ''}
+              onClick={() => {
+                s.setCompanyId(x.id)
+                pop.setOpen(false)
+              }}
+            >
+              <span className="co-avatar">{coInitials(x.name)}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <b className="truncate" style={{ display: 'block' }}>
+                  {x.name}
+                </b>
+                <small>
+                  NTN {x.ntnCnic} · {envLabels[x.environment]}
+                </small>
+              </span>
+              {x.id === c.id && <Check size={16} color="#16a34a" />}
+            </button>
+          ))}
+          <div className="menu-sep" />
+          <Link to="/settings/company" className="co-link" onClick={() => pop.setOpen(false)}>
+            <Building2 size={15} /> Company details
+          </Link>
+        </div>
+      )}
+      <button
+        className="co-card"
+        aria-haspopup="menu"
+        aria-expanded={pop.open}
+        aria-label={`Company: ${c.name}. Switch company`}
+        title={c.name}
+        onClick={() => pop.setOpen(!pop.open)}
+      >
+        <span className="co-avatar">{coInitials(c.name)}</span>
+        <span className="co-text">
+          <b>{c.name}</b>
+          <small>
+            NTN {c.ntnCnic}
+            {c.city ? ' · ' + c.city : c.province ? ' · ' + c.province : ''}
+          </small>
+        </span>
+        <ChevronsUpDown size={16} />
+      </button>
+    </div>
   )
 }
 

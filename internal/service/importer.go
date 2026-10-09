@@ -72,7 +72,7 @@ func ImportTemplateXLSX() ([]byte, error) {
 		"buyer_registration_type: Registered / Unregistered. Registered buyers need buyer_ntn_cnic (7/9-digit NTN or 13-digit CNIC). Leave blank to use the customer master (matched by buyer_ntn_cnic); unknown buyers are treated as Unregistered.",
 		"Either product_code (from the Products master) or hs_code + description + uom + sale_type + rate must be given.",
 		"value_excl_st, sales_tax, further_tax, extra_tax, fed and st_withheld are optional overrides; leave blank to let the tax engine compute them.",
-		"withholding_mode: blank, 'fraction' (1/5th) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
+		"withholding_mode: blank, 'fraction' (one-fifth) or 'full'. scenario_id is only used in the FBR sandbox (SN001–SN028).",
 		"advance_receipt: 'yes' for an invoice issued on receipt of an advance (section 23(1)); advance_ref: on a final invoice, the FBR numbers of the advance receipt invoices it adjusts.",
 		"fed_type, fed_rate_text, fed_unit_price, fed_sro and fed_sro_serial: federal excise duty particulars printed on the invoice (rule 150R(13)(aa)-(ff), SRO 1666(I)/2026); blanks are taken from the product.",
 	}
@@ -93,8 +93,12 @@ type ImportResult struct {
 	InvoiceID int64            `json:"invoiceId,omitempty"`
 	Status    string           `json:"status"`
 	Errors    []string         `json:"errors,omitempty"`
+	Warnings  []string         `json:"warnings,omitempty"`
 	Issues    []validate.Issue `json:"issues,omitempty"`
 	Total     decimal.Decimal  `json:"total"`
+	Buyer     string           `json:"buyer,omitempty"`
+	Date      string           `json:"date,omitempty"`
+	Lines     int              `json:"lines"`
 }
 
 // ImportSummary summarises an import.
@@ -210,6 +214,9 @@ func rowsToInputs(rows []map[string]string, env domain.Environment) ([]*InvoiceI
 	errsByRef := map[string][]string{}
 	for i, r := range rows {
 		rowNo := i + 2 // header is row 1
+		if n, err := strconv.Atoi(r["_row"]); err == nil {
+			rowNo = n // the row in the uploaded file
+		}
 		ref := r["invoice_ref"]
 		if ref == "" {
 			ref = fmt.Sprintf("row-%d", rowNo)
@@ -303,9 +310,27 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 		return nil, err
 	}
 	ins, groups, refs, errs := rowsToInputs(rows, c.Environment)
+	// Totals stated in the file, to compare with the computed ones.
+	fileTotal := map[string]decimal.Decimal{}
+	for _, r := range rows {
+		if v := strings.TrimSpace(r["total_value"]); v != "" {
+			if d, err := decimal.NewFromString(strings.ReplaceAll(v, ",", "")); err == nil {
+				fileTotal[r["invoice_ref"]] = fileTotal[r["invoice_ref"]].Add(d)
+			}
+		}
+	}
+	checkTotal := func(res *ImportResult, computed decimal.Decimal) {
+		if ft, ok := fileTotal[res.Ref]; ok && ft.Sub(computed).Abs().GreaterThan(decimal.NewFromInt(1)) {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("The total in your file is %s; the computed total is %s. Check the rates and amounts.",
+				ft.StringFixed(2), computed.StringFixed(2)))
+		}
+	}
 	sum := &ImportSummary{Preview: preview}
 	for i, in := range ins {
-		res := ImportResult{Ref: refs[i], Rows: groups[i]}
+		res := ImportResult{Ref: refs[i], Rows: groups[i], Lines: len(in.Items), Date: in.InvoiceDate}
+		if in.Buyer != nil {
+			res.Buyer = in.Buyer.Name
+		}
 		if len(errs[i]) > 0 {
 			res.Status, res.Errors = "error", errs[i]
 			sum.Results = append(sum.Results, res)
@@ -319,6 +344,8 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 				sum.Failed++
 			} else {
 				res.Total, res.Issues = inv.Totals.TotalValue, vr.Issues
+				res.Buyer = nzs(inv.BuyerName, res.Buyer)
+				checkTotal(&res, inv.Totals.TotalValue)
 				res.Status = "ok"
 				if vr.HasErrors() {
 					res.Status = "invalid"
@@ -346,6 +373,8 @@ func (s *Service) Import(ctx context.Context, a Actor, companyID int64, rows []m
 			}
 		} else {
 			res.InvoiceID, res.Status, res.Total, res.Issues = inv.ID, string(inv.Status), inv.Totals.TotalValue, inv.Validation
+			res.Buyer = nzs(inv.BuyerName, res.Buyer)
+			checkTotal(&res, inv.Totals.TotalValue)
 			if inv.Status == domain.StatusRejected || inv.Status == domain.StatusUncertain {
 				sum.Failed++
 			} else {
@@ -366,6 +395,10 @@ type Table struct {
 	Title   string
 	Headers []string
 	Rows    [][]any
+	// PDFCols picks the columns printed in the PDF (all when nil): wide
+	// exports keep every column in CSV and Excel but only the essential
+	// ones fit on a page.
+	PDFCols []int
 }
 
 // CSV renders the table as CSV (UTF-8 with BOM so Excel opens it correctly).
@@ -427,7 +460,7 @@ func (t *Table) XLSX() ([]byte, error) {
 
 // RegisterTable builds the sales register export (Annexure-C style columns).
 func RegisterTable(lines []store.RegisterLine) *Table {
-	t := &Table{Title: "Sales register", Headers: []string{"Doc Type", "Invoice No", "FBR Invoice No", "Date", "Ref FBR Invoice No",
+	t := &Table{Title: "Sales register", PDFCols: []int{1, 2, 3, 5, 6, 11, 12, 14, 15, 17, 19, 21, 25}, Headers: []string{"Doc Type", "Invoice No", "FBR Invoice No", "Date", "Ref FBR Invoice No",
 		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Origin Province", "Destination Province", "Line", "HS Code", "Description",
 		"Sale Type", "Rate", "Quantity", "UoM", "Value excl ST", "Fixed/Retail Value", "Sales Tax", "Extra Tax", "Further Tax", "FED",
 		"ST Withheld", "Discount", "Total Value", "SRO/Schedule", "SRO Item S.No"}}
@@ -474,9 +507,9 @@ func CustomerTable(rows []store.CustomerRow) *Table {
 // AnnexCTable builds the Annex-C reconciliation export: every document
 // reported to FBR in the period, to be matched with Annexure-C of the return.
 func AnnexCTable(rows []store.AnnexCRow) *Table {
-	t := &Table{Title: "Annex-C reconciliation", Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
+	t := &Table{Title: "Annexure-C reconciliation", PDFCols: []int{0, 1, 2, 3, 5, 6, 9, 10, 11, 14, 15, 16}, Headers: []string{"FBR Invoice No", "Date", "Doc Type", "Invoice No", "Ref FBR Invoice No",
 		"Buyer NTN/CNIC", "Buyer Name", "Buyer Type", "Destination Province", "Value excl ST", "Sales Tax", "Further Tax", "Extra Tax", "FED",
-		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annex-C"}}
+		"ST Withheld", "Total Value", "FBR Status", "Cancellation Reference", "Issued Offline", "Matched in Annexure-C"}}
 	for _, r := range rows {
 		status := "Reported"
 		if r.Status == "CANCELLED" {

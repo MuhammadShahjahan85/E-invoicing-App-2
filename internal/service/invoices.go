@@ -400,7 +400,7 @@ func (s *Service) ValidateLocal(ctx context.Context, c *store.Company, inv *stor
 		// rule 150R(13); FBR's API does not carry them, so they are printed.
 		if it.FED.IsPositive() && (it.FEDType == "" || it.FEDSRO == "" || it.FEDSROSerial == "") {
 			res.Issues = append(res.Issues, validate.Issue{Line: i + 1, Field: "fedType", Severity: validate.SevWarning,
-				Message: "Enter the federal excise duty type and the FED Schedule/SRO reference and serial number for this line: rule 150R(13)(aa)-(ff) (SRO 1666(I)/2026) requires them on the invoice."})
+				Message: "Enter the federal excise duty type and the FED schedule or SRO reference and serial number for this line: rule 150R(13)(aa)-(ff) (SRO 1666(I)/2026) requires them on the invoice."})
 		}
 	}
 	return res

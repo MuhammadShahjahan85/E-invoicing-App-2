@@ -12,6 +12,9 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     chunkSizeWarningLimit: 900,
+    // Fonts are served as files: the server's Content-Security-Policy does
+    // not allow fonts from data: URLs.
+    assetsInlineLimit: (file: string) => (/\.(woff2?|ttf|otf)$/.test(file) ? false : undefined),
   },
   server: {
     port: 5173,

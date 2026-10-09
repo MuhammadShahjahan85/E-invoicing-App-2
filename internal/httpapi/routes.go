@@ -36,6 +36,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/companies/{cid}/alerts", s.perm(PermRead, s.handleAlerts))
 	m.HandleFunc("GET /api/v1/companies/{cid}/search", s.perm(PermRead, s.handleSearch))
 	m.HandleFunc("GET /api/v1/companies/{cid}/compliance", s.perm(PermReports, s.handleCompliance))
+	m.HandleFunc("GET /api/v1/companies/{cid}/compliance/pack", s.perm(PermReports, s.handleReportPack))
 
 	// Masters.
 	m.HandleFunc("GET /api/v1/companies/{cid}/customers", s.perm(PermRead, s.handleListCustomers))
@@ -70,6 +71,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/payload", s.perm(PermRead, s.handleInvoicePayload))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/calls", s.perm(PermRead, s.handleInvoiceCalls))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/print", s.perm(PermRead, s.handlePrint))
+	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/pdf", s.perm(PermRead, s.handleInvoicePDF))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/qr.svg", s.perm(PermRead, s.handleQRSVG))
 	m.HandleFunc("GET /api/v1/companies/{cid}/invoices/{id}/qr.png", s.perm(PermRead, s.handleQRPNG))
 
@@ -77,6 +79,7 @@ func (s *Server) routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/import/template.csv", s.perm(PermRead, s.handleTemplateCSV))
 	m.HandleFunc("GET /api/v1/import/template.xlsx", s.perm(PermRead, s.handleTemplateXLSX))
 	m.HandleFunc("POST /api/v1/companies/{cid}/import", s.perm(PermInvoiceWrite, s.handleImport))
+	m.HandleFunc("POST /api/v1/companies/{cid}/import/analyze", s.perm(PermInvoiceWrite, s.handleImportAnalyze))
 
 	// Scenarios.
 	m.HandleFunc("GET /api/v1/companies/{cid}/scenarios", s.perm(PermRead, s.handleScenarios))

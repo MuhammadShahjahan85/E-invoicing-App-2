@@ -8,6 +8,7 @@ import { api, errorMessage, qs } from '../api'
 import { Empty, ErrorBox, Field, Modal, Pager, Spinner, useLoad } from '../components/ui'
 import { dateTimeFmt } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
+import { pkCities, provinceForCity, regNoHint } from '../pkcities'
 import type { Customer, Paged } from '../types'
 
 interface BuyerStatus {
@@ -264,7 +265,7 @@ export function CustomerForm({ initial, onClose, onSaved }: { initial: Partial<C
         <Field label="Customer code">
           <input value={c.code ?? ''} onChange={(e) => set('code', e.target.value)} />
         </Field>
-        <Field label="NTN / CNIC" hint="NTN 7 digits (without check digit) or CNIC 13 digits, no dashes">
+        <Field label="NTN / CNIC" hint={regNoHint(c.ntnCnic ?? '') || 'NTN 7 digits (without check digit) or CNIC 13 digits'}>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <input className="mono" value={c.ntnCnic ?? ''} onChange={(e) => set('ntnCnic', e.target.value.replace(/[\s-]/g, ''))} />
             <button type="button" className="btn btn-sm" onClick={checkFBR} disabled={checking || !c.ntnCnic}>
@@ -289,8 +290,21 @@ export function CustomerForm({ initial, onClose, onSaved }: { initial: Partial<C
             ))}
           </select>
         </Field>
-        <Field label="City">
-          <input value={c.city ?? ''} onChange={(e) => set('city', e.target.value)} />
+        <Field label="City" hint={provinceForCity(c.city ?? '') ? `In ${provinceForCity(c.city ?? '')} — the province is filled in` : undefined}>
+          <input
+            value={c.city ?? ''}
+            list="pk-cities"
+            onChange={(e) => {
+              set('city', e.target.value)
+              const p = provinceForCity(e.target.value)
+              if (p && s.meta.provinces.some((x) => x.name === p)) set('province', p)
+            }}
+          />
+          <datalist id="pk-cities">
+            {pkCities.map((x) => (
+              <option key={x} value={x} />
+            ))}
+          </datalist>
         </Field>
         <Field label="Address" span={2}>
           <input value={c.address ?? ''} onChange={(e) => set('address', e.target.value)} />
@@ -304,7 +318,7 @@ export function CustomerForm({ initial, onClose, onSaved }: { initial: Partial<C
         <Field label="Sales tax withholding agent" hint="Buyer withholds sales tax under the Eleventh Schedule" span={2}>
           <select value={c.withholdingMode ?? ''} onChange={(e) => set('withholdingMode', e.target.value)}>
             <option value="">Not a withholding agent</option>
-            <option value="fraction">Withholds a fraction of sales tax (default 1/5)</option>
+            <option value="fraction">Withholds a fraction of sales tax (one-fifth by default)</option>
             <option value="full">Withholds the full sales tax</option>
           </select>
         </Field>

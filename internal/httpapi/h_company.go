@@ -253,6 +253,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request, rc *req
 			}
 			out["topItems"] = items
 		}
+		if tie, err := s.Svc.Tie(r.Context(), c, env); err == nil {
+			out["tie"] = tie
+		}
 	}
 	writeJSON(w, 200, out)
 }

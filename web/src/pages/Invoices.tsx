@@ -94,7 +94,7 @@ export default function Invoices() {
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th>Invoice No.</th>
+                      <th>Invoice no.</th>
                       <th>Type</th>
                       <th>Buyer</th>
                       <th className="num">Value excl. ST</th>

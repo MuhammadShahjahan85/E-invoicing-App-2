@@ -8,17 +8,22 @@
 //	einvoice mock-fbr [--listen ADDR]              run the offline FBR DI simulator
 //	einvoice backup [--data DIR] [--out FILE]      write a database backup
 //	einvoice reset-password --user NAME --password PW [--data DIR]
+//	einvoice tls init|trust|untrust [--data DIR]   certificates for HTTPS (Windows trust store)
+//	einvoice firewall allow|remove [--data DIR]    Windows Firewall rule for the office network
 //	einvoice version
 package main
 
 import (
 	"context"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 	_ "time/tzdata" // Asia/Karachi on Windows without a zoneinfo database
@@ -30,6 +35,7 @@ import (
 	"einvoicing/internal/fbrmock"
 	"einvoicing/internal/service"
 	"einvoicing/internal/winsvc"
+	"einvoicing/internal/wintrust"
 )
 
 func main() {
@@ -62,6 +68,10 @@ func main() {
 		err = cmdBackup(args)
 	case "reset-password":
 		err = cmdResetPassword(args)
+	case "tls":
+		err = cmdTLS(args)
+	case "firewall":
+		err = cmdFirewall(args)
 	case "version":
 		fmt.Printf("%s %s (built %s)\n%s\n%s\n", brand.ProductName, brand.Version, brand.BuildDate, brand.DevelopedBy, brand.Copyright)
 	case "help", "-h", "--help":
@@ -87,6 +97,9 @@ Usage:
   einvoice mock-fbr [--listen 127.0.0.1:9090]     run the offline FBR DI simulator for ERP testing
   einvoice backup [--data DIR] [--out FILE]       write a consistent database backup
   einvoice reset-password --user NAME --password NEW [--data DIR]
+  einvoice tls init [--data DIR]                  create the HTTPS certificates now
+  einvoice tls trust|untrust [--data DIR]         add/remove the local CA in the Windows trusted root store
+  einvoice firewall allow|remove [--data DIR]     let computers on the local network in (Windows Firewall)
   einvoice version
 `, brand.ProductName, brand.Version, brand.Copyright)
 }
@@ -136,7 +149,7 @@ func cmdService(args []string) error {
 		if err := winsvc.Install(*data); err != nil {
 			return err
 		}
-		fmt.Println("Service installed. Start it with: einvoice service start")
+		fmt.Printf("Service %s installed (data: %s).\n", brand.WindowsServiceName, *data)
 		return nil
 	case "uninstall":
 		return winsvc.Uninstall()
@@ -212,4 +225,86 @@ func cmdResetPassword(args []string) error {
 	}
 	fmt.Println("Password reset. The user must change it at next login.")
 	return nil
+}
+
+// cmdTLS prepares the HTTPS certificates and, on Windows, trusts the local
+// certificate authority on this computer (used by the installer).
+func cmdTLS(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("tls: expected init, trust or untrust")
+	}
+	fs := flag.NewFlagSet("tls", flag.ExitOnError)
+	data := fs.String("data", config.DefaultDataDir(), "data directory")
+	_ = fs.Parse(args[1:])
+	switch args[0] {
+	case "init":
+		cfg, err := config.Load(*data)
+		if err != nil {
+			return err
+		}
+		if _, _, err := app.EnsureCertificates(cfg.DataDir, cfg.TLS.Hosts); err != nil {
+			return err
+		}
+		fmt.Println(config.CACertPath(cfg.DataDir))
+		return nil
+	case "trust", "untrust":
+		der, err := readPEMCert(config.CACertPath(*data))
+		if err != nil {
+			if args[0] == "untrust" {
+				return nil // nothing was trusted
+			}
+			return err
+		}
+		if args[0] == "trust" {
+			if err := wintrust.Trust(der); err != nil {
+				return err
+			}
+			fmt.Println("The local certificate authority is trusted on this computer.")
+			return nil
+		}
+		return wintrust.Untrust(der)
+	}
+	return fmt.Errorf("unknown tls command %q", args[0])
+}
+
+func readPEMCert(path string) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	blk, _ := pem.Decode(b)
+	if blk == nil || blk.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("%s is not a PEM certificate", path)
+	}
+	return blk.Bytes, nil
+}
+
+// cmdFirewall lets computers on the local network reach the server through
+// Windows Firewall, or removes that rule (used by the installer).
+func cmdFirewall(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("firewall: expected allow or remove")
+	}
+	fs := flag.NewFlagSet("firewall", flag.ExitOnError)
+	data := fs.String("data", config.DefaultDataDir(), "data directory")
+	_ = fs.Parse(args[1:])
+	switch args[0] {
+	case "allow":
+		cfg, err := config.Read(*data)
+		if err != nil {
+			return err
+		}
+		_, port, err := net.SplitHostPort(cfg.Listen)
+		if n, perr := strconv.Atoi(port); err != nil || perr != nil || n <= 0 || n > 65535 {
+			return fmt.Errorf("listen address %q has no valid port", cfg.Listen)
+		}
+		if err := firewallAllow(port); err != nil {
+			return err
+		}
+		fmt.Printf("Windows Firewall: computers on the local network may connect to TCP port %s.\n", port)
+		return nil
+	case "remove":
+		return firewallRemove()
+	}
+	return fmt.Errorf("unknown firewall command %q", args[0])
 }
