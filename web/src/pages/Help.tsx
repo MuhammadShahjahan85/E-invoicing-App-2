@@ -8,8 +8,13 @@ export default function Help() {
   const s = useSession()
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<'errors' | 'rules' | 'saletypes' | 'support'>('errors')
+  const [section, setSection] = useState<'all' | 'sales' | 'purchase'>('all')
   const needle = q.trim().toLowerCase()
-  const errors = s.meta.errorCatalogue.filter((e) => !needle || e.code.includes(needle) || e.title.toLowerCase().includes(needle) || e.fix.toLowerCase().includes(needle))
+  const errors = s.meta.errorCatalogue.filter(
+    (e) =>
+      (section === 'all' || e.section === section) &&
+      (!needle || e.code.includes(needle) || [e.title, e.detail, e.fix].some((t) => t.toLowerCase().includes(needle))),
+  )
 
   return (
     <>
@@ -37,14 +42,33 @@ export default function Help() {
       {tab === 'errors' && (
         <div className="card">
           <div className="card-body">
-            <input placeholder="Search code or text, e.g. 0052 or HS code" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 360 }} />
+            <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <input placeholder="Search code or text, e.g. 0052 or HS code" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 360 }} />
+              <div className="seg" role="group" aria-label="Code list">
+                {(
+                  [
+                    ['all', 'All codes'],
+                    ['sales', 'Sales (section 7)'],
+                    ['purchase', 'Purchase (section 8)'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button key={k} className={section === k ? 'on' : ''} aria-pressed={section === k} onClick={() => setSection(k)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="small muted" style={{ marginTop: 8 }}>
+              {s.meta.errorCatalogue.length} codes with FBR's own wording, from PRAL's Technical Specification for DI API v1.12 (24 July 2025). Purchase codes
+              apply to purchases from cotton ginners (scenario SN009). The message FBR returns on an invoice is always shown as received.
+            </p>
           </div>
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
                   <th>Code</th>
-                  <th>Meaning</th>
+                  <th>FBR's message</th>
                   <th>How to fix</th>
                 </tr>
               </thead>
@@ -53,11 +77,22 @@ export default function Help() {
                   <tr key={e.code}>
                     <td className="mono">
                       <b>{e.code}</b>
+                      {e.section === 'purchase' && <div className="small muted">purchase</div>}
                     </td>
-                    <td>{e.title}</td>
+                    <td>
+                      {e.title}
+                      {e.detail && e.detail !== e.title && <div className="small muted">{e.detail}</div>}
+                    </td>
                     <td className="small">{e.fix}</td>
                   </tr>
                 ))}
+                {errors.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="muted">
+                      No code matches.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

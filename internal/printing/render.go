@@ -23,6 +23,16 @@ import (
 //go:embed templates/*.html
 var tplFS embed.FS
 
+// DefaultFBRLogo is the "FBR Digital Invoicing System" logo published in
+// section 6 of PRAL's Technical Specification for DI API v1.12, which must be
+// printed on every invoice. It is used unless a logo has been uploaded.
+//
+//go:embed assets/fbr-di-logo.jpg
+var DefaultFBRLogo []byte
+
+// DefaultFBRLogoMime is the media type of DefaultFBRLogo.
+const DefaultFBRLogoMime = "image/jpeg"
+
 var templates = template.Must(template.New("").ParseFS(tplFS, "templates/*.html"))
 
 // Options controls rendering.

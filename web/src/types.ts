@@ -300,7 +300,7 @@ export interface Meta {
   registrationTypes: RegType[]
   provinces: { code: number; name: string }[]
   uoms: string[]
-  errorCatalogue: { code: string; title: string; fix: string }[]
+  errorCatalogue: { code: string; section: 'sales' | 'purchase'; title: string; detail: string; fix: string }[]
   roles: string[]
   product: string
   vendor: string

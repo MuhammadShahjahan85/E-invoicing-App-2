@@ -317,17 +317,17 @@ func (s *Server) handleInvoiceCalls(w http.ResponseWriter, r *http.Request, rc *
 	writeJSON(w, 200, list)
 }
 
+// fbrLogo returns the uploaded FBR Digital Invoicing logo, or the official
+// logo from the DI technical specification when none has been uploaded.
 func (s *Server) fbrLogo(r *http.Request) ([]byte, string) {
 	v, _ := s.Svc.Store.GetSetting(r.Context(), "fbr_logo")
 	mime, _ := s.Svc.Store.GetSetting(r.Context(), "fbr_logo_mime")
-	if v == "" {
-		return nil, ""
+	if v != "" {
+		if b, err := decodeB64(v); err == nil && len(b) > 0 {
+			return b, mime
+		}
 	}
-	b, err := decodeB64(v)
-	if err != nil {
-		return nil, ""
-	}
-	return b, mime
+	return printing.DefaultFBRLogo, printing.DefaultFBRLogoMime
 }
 
 func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request, rc *reqCtx) {

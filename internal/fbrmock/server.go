@@ -382,7 +382,7 @@ func (s *Server) headerError(p *fbr.InvoicePayload, ti TokenInfo, sandbox bool, 
 	}
 	rt := domain.RegistrationType(p.BuyerRegistrationType)
 	if p.BuyerRegistrationType == "" || !rt.Valid() {
-		return "0012", "Provided buyer registration type is not valid. Please refer to relevant reference API in the technical document for DI API for valid buyer registration types."
+		return "0053", "Provided buyer registration type is invalid"
 	}
 	if rt == domain.Registered && p.BuyerNTNCNIC == "" {
 		return "0009", "Provide Buyer Registration No."
@@ -404,22 +404,22 @@ func (s *Server) headerError(p *fbr.InvoicePayload, ti TokenInfo, sandbox bool, 
 	}
 	if domain.DocType(p.InvoiceType) == domain.DocDebitNote {
 		if p.InvoiceRefNo == "" {
-			return "0041", "Provide reference invoice number for debit note."
+			return "0026", "Invoice Reference No. is required."
 		}
 		s.mu.Lock()
 		orig, ok := s.invoices[p.InvoiceRefNo]
 		origDate := s.invoiceDates[p.InvoiceRefNo]
 		s.mu.Unlock()
-		if !ok {
-			return "0006", "Sale invoice does not exist against the provided reference number."
-		}
-		if orig.SellerNTNCNIC != p.SellerNTNCNIC {
-			return "0006", "Sale invoice does not exist against the provided reference number."
+		if !ok || orig.SellerNTNCNIC != p.SellerNTNCNIC {
+			return "0057", "Reference Invoice does not exist."
 		}
 		if d.Before(time.Date(origDate.Year(), origDate.Month(), origDate.Day(), 0, 0, 0, 0, time.UTC)) {
 			if od, err := time.Parse("2006-01-02", orig.InvoiceDate); err == nil && d.Before(od) {
-				return "0035", "Debit note date cannot be earlier than the original invoice date."
+				return "0035", "Debit Note date must be greater or equal to original invoice date."
 			}
+		}
+		if od, err := time.Parse("2006-01-02", orig.InvoiceDate); err == nil && d.After(od.AddDate(0, 0, 180)) {
+			return "0034", "Debit Note only allowed within 180 days of invoice date of the original invoice"
 		}
 	}
 	if len(p.Items) == 0 {
@@ -452,10 +452,10 @@ func itemError(p *fbr.InvoicePayload, it *fbr.ItemPayload) (string, string) {
 		return "0046", "Provided rate is not valid for the selected sale type. Please refer to SaleTypeToRate reference API."
 	}
 	if strings.TrimSpace(it.UoM) == "" {
-		return "0023", "Provide UoM."
+		return "0099", "Provide uom."
 	}
 	if strings.TrimSpace(it.ProductDescription) == "" {
-		return "0024", "Provide product description."
+		return "0000", "Provide product description."
 	}
 	if st.SRORequired && strings.TrimSpace(it.SROScheduleNo) == "" {
 		return "0077", "Valid SRO/Schedule No. is mandatory where rate is not 18%."
@@ -467,10 +467,10 @@ func itemError(p *fbr.InvoicePayload, it *fbr.ItemPayload) (string, string) {
 		return "0091", "Extra tax provided where sale is of reduced rate goods. Please verify if provided sale type is for Goods at reduced rate."
 	}
 	if st.Name == domain.STPotassiumChlor && it.UoM != "KG" {
-		return "0165", "Provide UoM as KG."
+		return "0097", "Provide UOM KG."
 	}
 	if st.Basis == domain.BasisRetailPrice && it.FixedNotifiedValueOrRetailPrice.Value.IsZero() {
-		return "0175", "Provide fixed / notified value or retail price."
+		return "0090", "Please provide Fixed / notified value or Retail Price"
 	}
 	base := it.ValueSalesExcludingST.Value
 	if st.Basis == domain.BasisRetailPrice {
@@ -481,13 +481,16 @@ func itemError(p *fbr.InvoicePayload, it *fbr.ItemPayload) (string, string) {
 		expected = decimal.Zero
 	}
 	if it.SalesTaxApplicable.Value.Sub(expected).Abs().GreaterThan(decimal.NewFromFloat(0.01)) {
-		return "0102", "Provided sales tax amount does not match the calculated sales tax amount. Please ensure that the provided Sale Value is used to calculate the Sales Tax Amount for the provided Rate."
+		if st.Basis == domain.BasisRetailPrice {
+			return "0102", "Calculated tax not matched in 3rd schedule"
+		}
+		return "0104", "The calculated percentage sales tax does not match."
 	}
 	if it.SalesTaxWithheldAtSource.Value.IsPositive() && it.SalesTaxWithheldAtSource.Value.GreaterThan(it.SalesTaxApplicable.Value) && !rate.IsZeroRate() {
 		return "0008", "ST withheld at source should either be zero or same as sales tax/fed in ST mode."
 	}
 	if domain.RegistrationType(p.BuyerRegistrationType) == domain.Registered && it.FurtherTax.Value.IsPositive() {
-		return "0028", "Further tax is not applicable on supplies to registered persons."
+		return "0000", "Further tax is not applicable on supplies to registered persons."
 	}
 	return "", ""
 }

@@ -172,13 +172,16 @@ export default function SystemPage() {
           )}
           <hr />
           <h3>FBR Digital Invoicing logo</h3>
-          <p className="small muted">Upload the official logo provided by FBR/PRAL. It is printed next to the QR code on every invoice.</p>
+          <p className="small muted">
+            Printed next to the QR code on every invoice, as section 6 of the DI technical specification requires. The official logo from the specification is
+            built in; upload a file only if FBR or PRAL gives you a newer version.
+          </p>
           <div className="row">
             <div className="qr-box" style={{ width: 'auto', height: 'auto', padding: 6 }}>
               <img
                 key={logoTick}
                 src={`/api/v1/system/fbr-logo?t=${logoTick}`}
-                alt="not uploaded"
+                alt="FBR Digital Invoicing System logo"
                 style={{ maxHeight: 60 }}
                 onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
               />
