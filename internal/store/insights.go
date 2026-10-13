@@ -134,15 +134,16 @@ func (s *Store) LastReferenceSync(ctx context.Context, env domain.Environment) (
 	return t, err
 }
 
-// HSCodeSource reports where the stored HS code list came from ("fbr" when
-// it was downloaded from FBR, otherwise "seed") and how many codes it holds.
+// HSCodeSource reports where the stored HS code list came from ("fbr" once
+// FBR's list has been downloaded, otherwise "tariff": the built-in Pakistan
+// Customs Tariff) and how many codes it holds.
 func (s *Store) HSCodeSource(ctx context.Context) (string, int, error) {
 	var fromFBR, n int
-	err := s.DB.QueryRowContext(ctx, `SELECT COALESCE(SUM(CASE WHEN source='fbr' THEN 1 ELSE 0 END),0), COUNT(*) FROM ref_hs_codes`).Scan(&fromFBR, &n)
+	err := s.DB.QueryRowContext(ctx, `SELECT COALESCE(SUM(in_fbr),0), COUNT(*) FROM ref_hs_codes`).Scan(&fromFBR, &n)
 	if fromFBR > 0 {
 		return "fbr", n, err
 	}
-	return "seed", n, err
+	return "tariff", n, err
 }
 
 // IncidentCounts returns how many of a company's incidents are still open

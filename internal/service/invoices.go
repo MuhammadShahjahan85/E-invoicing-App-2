@@ -14,6 +14,7 @@ import (
 
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
+	"einvoicing/internal/hscodes"
 	"einvoicing/internal/security"
 	"einvoicing/internal/store"
 	"einvoicing/internal/tax"
@@ -392,9 +393,16 @@ func (s *Service) ValidateLocal(ctx context.Context, c *store.Company, inv *stor
 			ValueExclST: original.Totals.ValueExclST, SalesTax: original.Totals.SalesTax, BuyerNTNCNIC: original.BuyerNTNCNIC}
 	}
 	res := validate.Payload(&p, vc)
+	fbrList := false
+	if src, _, err := s.Store.HSCodeSource(ctx); err == nil && src == "fbr" {
+		fbrList = true
+	}
 	for i, it := range inv.Items {
 		for _, w := range it.Warnings {
 			res.Issues = append(res.Issues, validate.Issue{Line: i + 1, Field: "computation", Severity: validate.SevWarning, Message: w})
+		}
+		if w := s.hsCodeWarning(ctx, it.HSCode, fbrList && inv.Environment != domain.EnvSimulator); w != "" {
+			res.Issues = append(res.Issues, validate.Issue{Line: i + 1, Field: "hsCode", Severity: validate.SevWarning, Message: w})
 		}
 		// SRO 1666(I)/2026 added the federal excise duty particulars to
 		// rule 150R(13); FBR's API does not carry them, so they are printed.
@@ -404,6 +412,25 @@ func (s *Service) ValidateLocal(ctx context.Context, c *store.Company, inv *stor
 		}
 	}
 	return res
+}
+
+// hsCodeWarning warns about an HS code that is in neither the built-in
+// Pakistan Customs Tariff nor FBR's list, or (once FBR's list has been
+// downloaded) one that FBR's list lacks. The format itself is checked by
+// the validation rules.
+func (s *Service) hsCodeWarning(ctx context.Context, code string, checkFBR bool) string {
+	code = strings.TrimSpace(code)
+	if len(code) != 9 || code[4] != '.' || strings.Trim(code[:4]+code[5:], "0123456789") != "" {
+		return ""
+	}
+	h, err := s.Store.GetHSCode(ctx, code)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return "HS code " + code + " is not in the Pakistan Customs Tariff " + hscodes.Edition() + " or on FBR's HS code list. Check the code (FBR reference library → HS codes)."
+	case err == nil && checkFBR && !h.InFBR:
+		return "HS code " + code + " is in the Pakistan Customs Tariff but not on the HS code list downloaded from FBR, so FBR may reject it. Download FBR's latest list (FBR reference library → Data sync) or check the code."
+	}
+	return ""
 }
 
 // fbrText keeps descriptive text plain for FBR's parser, which integrators

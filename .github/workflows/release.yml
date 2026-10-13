@@ -11,15 +11,38 @@ name: Release
 #      publisher instead of "Unknown publisher". Add two repository secrets:
 #        CODESIGN_PFX_BASE64   the .pfx file in base64 (PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx")))
 #        CODESIGN_PASSWORD     its password
-# Then run this workflow from the Actions tab ("Run workflow"), or push a tag like v1.0.0.
+#   4. Software updates (installed copies offer each new version to their administrators, who
+#      click Update now), see docs/LICENSING-AND-SALES.md, "Publishing updates":
+#        a. On your own PC:  licensegen update-keygen   (keep update-private.key secret!)
+#        b. Variable  UPDATE_PUBKEY        the public key it printed
+#        c. Secret    UPDATE_SIGNING_KEY   the contents of update-private.key
+#      Releases are then published with a signed update.json, and every build looks for it at
+#      https://github.com/<this repository>/releases/latest/download/update.json
+#      Optional: variable UPDATES_REPO (owner/name of another, public repository for the releases,
+#      e.g. if this one is private) with secret UPDATES_REPO_TOKEN (a token that may create releases
+#      there), or variable UPDATE_FEED_URL to use your own web server.
+# Then run this workflow from the Actions tab ("Run workflow", tick "Publish"), or push a tag like v1.2.0.
+# A version with a suffix (1.3.0-beta1) is published as a pre-release, which installed copies do not see.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version number, e.g. 1.0.0"
+        description: "Version number, e.g. 1.2.0"
         required: true
         default: "1.0.0"
+      publish:
+        description: "Publish the release (installed copies are offered the update)"
+        type: boolean
+        default: false
+      notes:
+        description: "What's new (separate points with ;). Empty: the version's section of CHANGELOG.md"
+        required: false
+        default: ""
+      mandatory:
+        description: "Required update: install it at every client's update time, even where updates are installed by hand"
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
 
@@ -31,14 +54,34 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.ver.outputs.version }}
+      repo: ${{ steps.ver.outputs.repo }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Determine version
+      - name: Determine version and update address
         id: ver
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          UPDATES_REPO: ${{ vars.UPDATES_REPO }}
+          FEED_URL: ${{ vars.UPDATE_FEED_URL }}
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v="${{ github.event.inputs.version }}"; fi
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v="${INPUT_VERSION#v}"; fi
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::Invalid version number: $v"
+            exit 1
+          fi
+          repo="${UPDATES_REPO:-$GITHUB_REPOSITORY}"
           echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "feed=${FEED_URL:-https://github.com/$repo/releases/latest/download/update.json}" >> "$GITHUB_OUTPUT"
+
+      - name: Check update key
+        env:
+          UPDATE_PUBKEY: ${{ vars.UPDATE_PUBKEY }}
+        run: |
+          if [ -z "$UPDATE_PUBKEY" ]; then
+            echo "::warning::Repository variable UPDATE_PUBKEY is not set: copies installed from this build cannot install software updates from the app."
+          fi
 
       - name: Check licence public key
         env:
@@ -84,6 +127,8 @@ jobs:
         env:
           VERSION: ${{ steps.ver.outputs.version }}
           LICENSE_PUBKEY: ${{ vars.LICENSE_PUBKEY }}
+          UPDATE_PUBKEY: ${{ vars.UPDATE_PUBKEY }}
+          UPDATE_FEED_URL: ${{ steps.ver.outputs.feed }}
           CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
         run: sh scripts/build-release.sh
 
@@ -112,17 +157,63 @@ jobs:
           path: dist/vendor-tools
 
   publish:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || github.event.inputs.publish == 'true'
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      - name: Release notes
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" | sed 's/[[:space:]]*;[[:space:]]*/\n/g' > "$RUNNER_TEMP/notes.txt"
+          elif [ -f CHANGELOG.md ]; then
+            awk -v v="## $VERSION" '$0 == v {f = 1; next} /^## / {f = 0} f' CHANGELOG.md | sed '/./,$!d' > "$RUNNER_TEMP/notes.txt"
+          fi
+          [ -s "$RUNNER_TEMP/notes.txt" ] || echo "Version $VERSION" > "$RUNNER_TEMP/notes.txt"
+          cat "$RUNNER_TEMP/notes.txt"
+
+      - name: Sign the update file
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          REPO: ${{ needs.build.outputs.repo }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          MANDATORY: ${{ github.event.inputs.mandatory }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "::warning::Secret UPDATE_SIGNING_KEY is not set: no update.json was published, so installed copies are not offered this version."
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$UPDATE_SIGNING_KEY" > "$RUNNER_TEMP/update.key"
+          tool=artifacts/vendor-tools-keep-private/linux-amd64/licensegen
+          chmod +x "$tool"
+          set -- -key "$RUNNER_TEMP/update.key" -version "$VERSION" -notes-file "$RUNNER_TEMP/notes.txt" \
+            -url-base "https://github.com/$REPO/releases/download/v$VERSION/" \
+            -windows "artifacts/windows-installer/VeridianEInvoicingPakistan-Setup-$VERSION.exe" \
+            -linux "artifacts/linux-package/einvoice-$VERSION-linux-amd64.tar.gz" -out artifacts/update.json
+          [ "$MANDATORY" = "true" ] && set -- "$@" -mandatory
+          "$tool" sign-update "$@"
+          rm -f "$RUNNER_TEMP/update.key"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.build.outputs.version }}
+          target_commitish: ${{ vars.UPDATES_REPO == '' && github.sha || '' }}
+          name: Veridian E-invoicing Pakistan ${{ needs.build.outputs.version }}
+          body_path: ${{ runner.temp }}/notes.txt
+          prerelease: ${{ contains(needs.build.outputs.version, '-') }}
+          repository: ${{ needs.build.outputs.repo }}
+          token: ${{ vars.UPDATES_REPO != '' && secrets.UPDATES_REPO_TOKEN || github.token }}
           files: |
             artifacts/windows-installer/*.exe
             artifacts/linux-package/*.tar.gz
+            artifacts/update.json

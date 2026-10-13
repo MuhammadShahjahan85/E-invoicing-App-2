@@ -12,20 +12,39 @@
 //	    [-expires 2027-06-30] [-support 2027-06-30] [-companies 1] [-users 5] [-edition standard] -out license.lic
 //
 //	licensegen verify -pub <base64> -in license.lic
+//
+// Software updates (see docs/LICENSING-AND-SALES.md, "Publishing updates"):
+//
+//	licensegen update-keygen -out update-private.key
+//	    Creates the key pair that signs updates; builds embed the public key:
+//	    -ldflags "-X einvoicing/internal/update.PublicKeyB64=<KEY>"
+//
+//	licensegen sign-update -key update-private.key -version 1.2.0 -notes-file notes.txt \
+//	    -url-base https://github.com/OWNER/REPO/releases/download/v1.2.0/ \
+//	    -windows VeridianEInvoicingPakistan-Setup-1.2.0.exe -linux einvoice-1.2.0-linux-amd64.tar.gz \
+//	    [-released 2026-10-20] [-mandatory] [-free] -out update.json
+//
+//	licensegen verify-update -pub <base64> -in update.json [-dir folder-with-the-installers]
 package main
 
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"einvoicing/internal/brand"
 	"einvoicing/internal/license"
+	"einvoicing/internal/update"
 )
 
 func main() {
@@ -41,6 +60,12 @@ func main() {
 		err = issue(os.Args[2:])
 	case "verify":
 		err = verify(os.Args[2:])
+	case "update-keygen":
+		err = updateKeygen(os.Args[2:])
+	case "sign-update":
+		err = signUpdate(os.Args[2:])
+	case "verify-update":
+		err = verifyUpdate(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -52,25 +77,36 @@ func main() {
 }
 
 func usage() {
-	fmt.Println("usage: licensegen keygen|issue|verify [flags]  (see source header for details)")
+	fmt.Println("usage: licensegen keygen|issue|verify|update-keygen|sign-update|verify-update [flags]  (see source header for details)")
 }
 
 func keygen(args []string) error {
 	fs := flag.NewFlagSet("keygen", flag.ExitOnError)
 	out := fs.String("out", "vendor-private.key", "private key output file")
 	_ = fs.Parse(args)
-	if _, err := os.Stat(*out); err == nil {
-		return fmt.Errorf("%s exists; refusing to overwrite a vendor key", *out)
+	return writeKeyPair(*out, "LICENSE_PUBKEY")
+}
+
+func updateKeygen(args []string) error {
+	fs := flag.NewFlagSet("update-keygen", flag.ExitOnError)
+	out := fs.String("out", "update-private.key", "private key output file")
+	_ = fs.Parse(args)
+	return writeKeyPair(*out, "UPDATE_PUBKEY")
+}
+
+func writeKeyPair(out, variable string) error {
+	if _, err := os.Stat(out); err == nil {
+		return fmt.Errorf("%s exists; refusing to overwrite a vendor key", out)
 	}
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(*out, []byte(base64.StdEncoding.EncodeToString(priv)), 0o600); err != nil {
+	if err := os.WriteFile(out, []byte(base64.StdEncoding.EncodeToString(priv)), 0o600); err != nil {
 		return err
 	}
-	fmt.Println("Private key written to", *out, "(keep it secret and backed up)")
-	fmt.Println("Public key (embed in builds):")
+	fmt.Println("Private key written to", out, "(keep it secret and backed up)")
+	fmt.Printf("Public key (embed in builds; GitHub variable %s):\n", variable)
 	fmt.Println(base64.StdEncoding.EncodeToString(pub))
 	return nil
 }
@@ -158,5 +194,111 @@ func verify(args []string) error {
 		return err
 	}
 	fmt.Printf("Valid licence %s for %s (NTN %v, expires %q)\n", s.License.LicenseID, s.License.Licensee, s.License.SellerNTNs, s.License.ExpiresAt)
+	return nil
+}
+
+// signUpdate writes the signed update file for a release.
+func signUpdate(args []string) error {
+	fs := flag.NewFlagSet("sign-update", flag.ExitOnError)
+	key := fs.String("key", "update-private.key", "update private key")
+	version := fs.String("version", "", "version of the release, e.g. 1.2.0")
+	released := fs.String("released", time.Now().Format("2006-01-02"), "release date YYYY-MM-DD")
+	notes := fs.String("notes", "", "what is new (or use -notes-file)")
+	notesFile := fs.String("notes-file", "", "file with what is new")
+	base := fs.String("url-base", "", "https address the installers are downloaded from (ending in /)")
+	win := fs.String("windows", "", "Windows installer (Setup .exe)")
+	lin := fs.String("linux", "", "Linux archive (.tar.gz)")
+	mandatory := fs.Bool("mandatory", false, "install at the clients' update time even if they install updates by hand")
+	free := fs.Bool("free", false, "also for licences whose support period has ended")
+	out := fs.String("out", "update.json", "output file")
+	_ = fs.Parse(args)
+	if *version == "" || *base == "" || (*win == "" && *lin == "") {
+		return fmt.Errorf("-version, -url-base and at least one of -windows and -linux are required")
+	}
+	if !strings.HasSuffix(*base, "/") {
+		*base += "/"
+	}
+	text := *notes
+	if *notesFile != "" {
+		b, err := os.ReadFile(*notesFile)
+		if err != nil {
+			return err
+		}
+		text = strings.TrimSpace(string(b))
+	}
+	if text == "" {
+		text = "Version " + *version
+	}
+	m := update.Manifest{Product: brand.ShortName, Version: strings.TrimPrefix(*version, "v"), Released: *released, Notes: text,
+		Mandatory: *mandatory, Free: *free, Files: map[string]update.File{}}
+	for platform, path := range map[string]string{"windows-amd64": *win, "linux-amd64": *lin} {
+		if path == "" {
+			continue
+		}
+		f, err := describe(path)
+		if err != nil {
+			return err
+		}
+		f.URL = *base + filepath.Base(path)
+		m.Files[platform] = f
+	}
+	priv, err := loadPriv(*key)
+	if err != nil {
+		return err
+	}
+	b, err := update.Sign(m, priv)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(*out, b, 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("Update %s signed: %s (%d installer(s))\n", m.Version, *out, len(m.Files))
+	return nil
+}
+
+func describe(path string) (update.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return update.File{}, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	n, err := io.Copy(h, f)
+	if err != nil {
+		return update.File{}, err
+	}
+	return update.File{SHA256: hex.EncodeToString(h.Sum(nil)), Size: n}, nil
+}
+
+// verifyUpdate checks a signed update file and, optionally, the installers.
+func verifyUpdate(args []string) error {
+	fs := flag.NewFlagSet("verify-update", flag.ExitOnError)
+	pub := fs.String("pub", "", "base64 update public key")
+	in := fs.String("in", "update.json", "update file")
+	dir := fs.String("dir", "", "folder with the installers, to check them too")
+	_ = fs.Parse(args)
+	key, err := update.ParsePublicKey(*pub)
+	if err != nil {
+		return err
+	}
+	b, err := os.ReadFile(*in)
+	if err != nil {
+		return err
+	}
+	m, err := update.Parse(b, key)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Valid update %s (released %s, mandatory %v, free %v)\n%s\n", m.Version, m.Released, m.Mandatory, m.Free, m.Notes)
+	for p, f := range m.Files {
+		fmt.Printf("  %s: %s (%d bytes)\n", p, f.URL, f.Size)
+		if *dir != "" {
+			if err := update.VerifyFile(filepath.Join(*dir, f.FileName()), f); err != nil {
+				return fmt.Errorf("%s: %w", p, err)
+			}
+			fmt.Println("    file checked")
+		}
+	}
 	return nil
 }

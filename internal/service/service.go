@@ -77,6 +77,8 @@ type Service struct {
 
 	closeMu        sync.Mutex // one closing run at a time
 	lastClosingRun time.Time
+
+	upd *updater // software updates
 }
 
 // New builds the service.
@@ -93,6 +95,7 @@ func New(st *store.Store, vault *security.Vault, opts Options) *Service {
 		Store: st, Vault: vault, Opts: opts, Simulator: sim, Log: opts.Logger, Now: time.Now,
 		HTTPClient: fbr.NewHTTPClient(opts.HTTPTimeout),
 		health:     newHealthTracker(),
+		upd:        newUpdater(),
 	}
 	return s
 }

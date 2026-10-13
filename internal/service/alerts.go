@@ -156,6 +156,11 @@ func (s *Service) systemAlerts(ctx context.Context, includeBackups bool) []Alert
 			}
 		}
 	}
+	if includeBackups {
+		if a := s.updateAlert(ctx); a != nil {
+			out = append(out, *a)
+		}
+	}
 	if lr, ok := s.Opts.License.(LicenseReporter); ok {
 		lic := lr.Status(ctx)
 		switch lic.Mode {

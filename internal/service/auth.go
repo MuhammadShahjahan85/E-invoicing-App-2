@@ -261,6 +261,39 @@ func (s *Service) SaveUser(ctx context.Context, a Actor, id int64, in UserInput)
 	return s.Store.GetUser(ctx, id)
 }
 
+// DeleteUser removes a user account and frees its licence seat. Nobody can
+// delete their own account or the last active administrator. What the user
+// did stays in the audit log under their username.
+func (s *Service) DeleteUser(ctx context.Context, a Actor, id int64) error {
+	if a.UserID != nil && *a.UserID == id {
+		return Invalid("you cannot delete your own account")
+	}
+	u, err := s.Store.GetUser(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u.Role == store.RoleAdmin && u.Active {
+		users, err := s.Store.ListUsers(ctx)
+		if err != nil {
+			return err
+		}
+		admins := 0
+		for _, o := range users {
+			if o.Role == store.RoleAdmin && o.Active {
+				admins++
+			}
+		}
+		if admins <= 1 {
+			return Invalid("%s is the only active administrator and cannot be deleted", u.Username)
+		}
+	}
+	if err := s.Store.DeleteUser(ctx, id); err != nil {
+		return err
+	}
+	s.Audit(ctx, a, 0, "user.delete", "user", fmt.Sprint(id), map[string]any{"username": u.Username, "fullName": u.FullName, "role": u.Role})
+	return nil
+}
+
 // ResetAdminPassword is used by the command-line recovery tool.
 func (s *Service) ResetAdminPassword(ctx context.Context, username, newPw string) error {
 	u, err := s.Store.GetUserByUsername(ctx, username)

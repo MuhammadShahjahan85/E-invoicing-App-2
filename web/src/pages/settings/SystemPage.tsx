@@ -8,6 +8,7 @@ import { ErrorBox, Field, Spinner, useLoad } from '../../components/ui'
 import { dateFmt, dateTimeFmt } from '../../format'
 import { useToast } from '../../state'
 import type { LicenseStatus } from '../../types'
+import SoftwareUpdates from './SoftwareUpdates'
 
 interface SystemInfo {
   product: string
@@ -90,10 +91,11 @@ export default function SystemPage() {
       <div className="page-head">
         <div>
           <h1>System</h1>
-          <p>Licence, backups and server information.</p>
+          <p>Software updates, licence, backups and server information.</p>
         </div>
       </div>
-      <div className="grid g2">
+      <SoftwareUpdates />
+      <div className="grid g2 mt">
         <div className="card card-pad">
           <h3>Licence</h3>
           <ErrorBox error={lic.error} />

@@ -72,6 +72,7 @@ import { usePopover } from './components/Popover'
 import { usePrefs } from './prefs'
 import { urdu } from './urdu'
 import { ShortcutsHelp, useShortcuts } from './components/Shortcuts'
+import { WhatsNew } from './components/WhatsNew'
 
 interface Me {
   user: User
@@ -291,6 +292,7 @@ function Shell() {
         </div>
         <TabBar onMenu={() => setNavOpen(true)} />
         {shortcuts.open && <ShortcutsHelp onClose={() => shortcuts.setOpen(false)} />}
+        <WhatsNew />
       </div>
     </AlertsProvider>
   )

@@ -216,6 +216,7 @@ export function HSCodeInput({ value, onChange, companyPath, onPick }: { value: s
               }}
             >
               <b className="mono">{h.code}</b> <span className="muted">{h.description}</span>
+              {h.context && <span className="hs-ctx">{h.context}</span>}
             </div>
           ))}
         </div>

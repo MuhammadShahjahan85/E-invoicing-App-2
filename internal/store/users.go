@@ -186,6 +186,20 @@ func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 	})
 }
 
+// DeleteUser removes a user; their sessions and company assignments go with
+// them. Invoices and other records keep the user's id, and the audit log
+// keeps the username.
+func (s *Store) DeleteUser(ctx context.Context, id int64) error {
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM users WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SetPassword changes a password hash.
 func (s *Store) SetPassword(ctx context.Context, userID int64, hash string, mustChange bool) error {
 	_, err := s.DB.ExecContext(ctx, `UPDATE users SET password_hash=?, must_change_password=?, failed_logins=0, locked_until='', updated_at=? WHERE id=?`,

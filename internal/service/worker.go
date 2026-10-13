@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"einvoicing/internal/db"
@@ -33,11 +34,13 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 	// still marked SUBMITTING was interrupted by the previous run.
 	s.recoverStuck(ctx, s.Now().UTC().Add(time.Second))
 	s.detectUnexpectedStop(ctx)
+	s.FinishUpdate(ctx)
 	defer s.MarkCleanShutdown()
 	t := time.NewTicker(o.Interval)
 	defer t.Stop()
 	lastBackupDay := ""
-	var lastIntegrity time.Time
+	var lastIntegrity, lastRefCheck time.Time
+	var refreshing atomic.Bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,6 +64,17 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 		s.runClosings(ctx)
 		// E-mails can take a while (slow mail server); never hold up the queue.
 		go s.runNotifications(ctx)
+		// FBR's reference lists (HS codes, units, sale types, rates, SROs)
+		// are downloaded again every day; checked hourly, in the background.
+		if time.Since(lastRefCheck) >= time.Hour && refreshing.CompareAndSwap(false, true) {
+			lastRefCheck = time.Now()
+			go func() {
+				defer refreshing.Store(false)
+				s.refreshReference(ctx)
+			}()
+		}
+		// New versions of the software, from the vendor's update address.
+		s.startUpdateTick(ctx)
 		_ = s.Store.PurgeExpiredSessions(ctx)
 		if o.BackupHour >= 0 {
 			now := s.Now().In(PKT)
@@ -74,6 +88,39 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 				}
 			}
 		}
+	}
+}
+
+// refreshReference downloads FBR's reference lists again for each
+// environment in use (sandbox or production) once they are a day old, so
+// HS codes, units, sale types, rates and SROs follow FBR's changes. The
+// lists are kept per environment, so one company with a token is enough.
+func (s *Service) refreshReference(ctx context.Context) {
+	cs, err := s.Store.ListCompanies(ctx)
+	if err != nil {
+		return
+	}
+	done := map[domain.Environment]bool{}
+	for _, c := range cs {
+		env := c.Environment
+		if env == domain.EnvSimulator || done[env] || ctx.Err() != nil {
+			continue
+		}
+		if (env == domain.EnvSandbox && !c.HasSandboxToken) || (env == domain.EnvProduction && !c.HasProductionToken) {
+			continue
+		}
+		last, _ := s.Store.LastReferenceSync(ctx, env)
+		if t, err := time.Parse(time.RFC3339, last); err == nil && s.Now().Sub(t) < 24*time.Hour {
+			done[env] = true
+			continue
+		}
+		rep, err := s.SyncReference(ctx, System, c.ID, env)
+		if err != nil {
+			s.Log.Warn("automatic FBR reference data download failed", "company", c.ID, "environment", env, "err", err)
+			continue
+		}
+		done[env] = true
+		s.Log.Info("FBR reference data downloaded", "company", c.ID, "environment", env, "counts", rep.Counts, "errors", len(rep.Errors))
 	}
 }
 
@@ -143,7 +190,15 @@ func (s *Service) Backup(ctx context.Context, a Actor, kind string) (*BackupInfo
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, err
 	}
-	name := fmt.Sprintf("einvoice-%s-%s.db", kind, s.Now().In(PKT).Format("20060102-150405"))
+	stamp := s.Now().In(PKT).Format("20060102-150405")
+	name := fmt.Sprintf("einvoice-%s-%s.db", kind, stamp)
+	// Two backups within one second get different names.
+	for i := 2; ; i++ {
+		if _, err := os.Stat(filepath.Join(dir, name)); os.IsNotExist(err) {
+			break
+		}
+		name = fmt.Sprintf("einvoice-%s-%s-%d.db", kind, stamp, i)
+	}
 	path := filepath.Join(dir, name)
 	if err := db.Backup(ctx, s.Store.DB, path); err != nil {
 		return nil, err

@@ -6,6 +6,10 @@
 #   BUILD_DATE      build date (default: today, UTC)
 #   LICENSE_PUBKEY  base64 Ed25519 public key from `go run ./cmd/licensegen keygen`
 #                   (empty = developer build without licence enforcement)
+#   UPDATE_PUBKEY   base64 Ed25519 public key from `licensegen update-keygen`
+#   UPDATE_FEED_URL address of the signed update file, e.g.
+#                   https://github.com/OWNER/REPO/releases/latest/download/update.json
+#                   (without both, the build cannot install software updates)
 #   SKIP_WEB=1      reuse the web UI already built in internal/webui/dist
 #   CODESIGN_PFX, CODESIGN_PASSWORD
 #                   code-signing certificate (.pfx) and its password: signs the
@@ -28,6 +32,8 @@ cd "$(dirname "$0")/.."
 VERSION="${VERSION:-1.0.0}"
 BUILD_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%d)}"
 LICENSE_PUBKEY="${LICENSE_PUBKEY:-}"
+UPDATE_PUBKEY="${UPDATE_PUBKEY:-}"
+UPDATE_FEED_URL="${UPDATE_FEED_URL:-}"
 
 if [ -z "$LICENSE_PUBKEY" ]; then
 	echo "********************************************************************" >&2
@@ -37,12 +43,16 @@ if [ -z "$LICENSE_PUBKEY" ]; then
 	echo "********************************************************************" >&2
 fi
 
+if [ -z "$UPDATE_PUBKEY" ] || [ -z "$UPDATE_FEED_URL" ]; then
+	echo "note: UPDATE_PUBKEY or UPDATE_FEED_URL is empty: this build cannot install software updates from the app" >&2
+fi
+
 if [ "${SKIP_WEB:-0}" != "1" ]; then
 	echo "Building web UI..."
 	(cd web && npm ci && npm run build)
 fi
 
-LDFLAGS="-s -w -X einvoicing/internal/brand.Version=$VERSION -X einvoicing/internal/brand.BuildDate=$BUILD_DATE -X einvoicing/internal/license.PublicKeyB64=$LICENSE_PUBKEY"
+LDFLAGS="-s -w -X einvoicing/internal/brand.Version=$VERSION -X einvoicing/internal/brand.BuildDate=$BUILD_DATE -X einvoicing/internal/license.PublicKeyB64=$LICENSE_PUBKEY -X einvoicing/internal/update.PublicKeyB64=$UPDATE_PUBKEY -X einvoicing/internal/update.FeedURL=$UPDATE_FEED_URL"
 export GOTOOLCHAIN=local CGO_ENABLED=0
 # Windows wants a numeric a.b.c.d version: 1.2.3-rc1 -> 1.2.3.0.
 NUMVER=$(echo "$VERSION" | sed 's/[-+].*//' | awk -F. '{printf "%d.%d.%d.%d", $1, $2, $3, $4}')
@@ -91,7 +101,7 @@ for os in windows linux; do
 	done
 	cp docs/Veridian-E-invoicing-Pakistan-User-Guide.pdf "$out/docs/" 2>/dev/null || true
 done
-cp packaging/linux/einvoice.service packaging/linux/install.sh dist/linux-amd64/
+cp packaging/linux/einvoice.service packaging/linux/einvoice-update.path packaging/linux/einvoice-update.service packaging/linux/install.sh dist/linux-amd64/
 
 # Windows installer.
 SETUP="dist/VeridianEInvoicingPakistan-Setup-$VERSION.exe"

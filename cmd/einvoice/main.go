@@ -10,6 +10,7 @@
 //	einvoice reset-password --user NAME --password PW [--data DIR]
 //	einvoice tls init|trust|untrust [--data DIR]   certificates for HTTPS (Windows trust store)
 //	einvoice firewall allow|remove [--data DIR]    Windows Firewall rule for the office network
+//	einvoice update apply [--data DIR]             install an update the app downloaded (Linux update helper, as root)
 //	einvoice version
 package main
 
@@ -34,6 +35,7 @@ import (
 	"einvoicing/internal/db"
 	"einvoicing/internal/fbrmock"
 	"einvoicing/internal/service"
+	"einvoicing/internal/update"
 	"einvoicing/internal/winsvc"
 	"einvoicing/internal/wintrust"
 )
@@ -72,6 +74,8 @@ func main() {
 		err = cmdTLS(args)
 	case "firewall":
 		err = cmdFirewall(args)
+	case "update":
+		err = cmdUpdate(args)
 	case "version":
 		fmt.Printf("%s %s (built %s)\n%s\n%s\n", brand.ProductName, brand.Version, brand.BuildDate, brand.DevelopedBy, brand.Copyright)
 	case "help", "-h", "--help":
@@ -100,6 +104,7 @@ Usage:
   einvoice tls init [--data DIR]                  create the HTTPS certificates now
   einvoice tls trust|untrust [--data DIR]         add/remove the local CA in the Windows trusted root store
   einvoice firewall allow|remove [--data DIR]     let computers on the local network in (Windows Firewall)
+  einvoice update apply [--data DIR]              install an update downloaded by the app (Linux update helper)
   einvoice version
 `, brand.ProductName, brand.Version, brand.Copyright)
 }
@@ -159,6 +164,19 @@ func cmdService(args []string) error {
 		return winsvc.Stop()
 	}
 	return fmt.Errorf("unknown service command %q", args[0])
+}
+
+// cmdUpdate runs the Linux update helper (packaging/linux/einvoice-update.*),
+// which installs an update the app downloaded and verified. On Windows the
+// installer does this.
+func cmdUpdate(args []string) error {
+	if len(args) == 0 || args[0] != "apply" {
+		return fmt.Errorf("update: expected apply")
+	}
+	fs := flag.NewFlagSet("update apply", flag.ExitOnError)
+	data := fs.String("data", config.DefaultDataDir(), "data directory")
+	_ = fs.Parse(args[1:])
+	return update.Apply(*data, log.Printf)
 }
 
 func cmdMock(args []string) error {

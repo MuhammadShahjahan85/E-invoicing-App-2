@@ -1,0 +1,12 @@
+# Installs software updates that Veridian E-invoicing Pakistan downloaded and
+# verified: the service (which runs without administrator rights) asks for an
+# update by creating this file, and einvoice-update.service installs it.
+[Unit]
+Description=Watch for Veridian E-invoicing Pakistan updates requested from the app
+
+[Path]
+PathExists=/var/lib/einvoice/updates/install-request.json
+Unit=einvoice-update.service
+
+[Install]
+WantedBy=multi-user.target

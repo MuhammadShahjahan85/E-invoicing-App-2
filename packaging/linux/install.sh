@@ -4,7 +4,9 @@
 #   sudo sh install.sh [path/to/einvoice]
 #
 # Binary: /opt/einvoice/einvoice   Data: /var/lib/einvoice   Service: einvoice
-# Re-running the script upgrades the binary and keeps all data.
+# Re-running the script upgrades the binary and keeps all data. Later updates
+# can be installed from the app (Settings → System → Software updates) through
+# the einvoice-update helper units.
 set -eu
 
 BIN_SRC="${1:-./einvoice}"
@@ -42,10 +44,18 @@ fi
 install -m 0755 "$BIN_SRC" "$PREFIX/einvoice"
 [ -f "$SCRIPT_DIR/README.md" ] && install -m 0644 "$SCRIPT_DIR/README.md" "$PREFIX/README.md"
 install -m 0644 "$SCRIPT_DIR/einvoice.service" "$UNIT"
+# The update helper lets administrators install updates from the app.
+if [ -f "$SCRIPT_DIR/einvoice-update.path" ] && [ -f "$SCRIPT_DIR/einvoice-update.service" ]; then
+	install -m 0644 "$SCRIPT_DIR/einvoice-update.service" /etc/systemd/system/einvoice-update.service
+	install -m 0644 "$SCRIPT_DIR/einvoice-update.path" /etc/systemd/system/einvoice-update.path
+fi
 
 systemctl daemon-reload
 systemctl enable einvoice >/dev/null
 systemctl start einvoice
+if [ -f /etc/systemd/system/einvoice-update.path ]; then
+	systemctl enable --now einvoice-update.path >/dev/null
+fi
 
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -n "$IP" ] || IP=localhost
