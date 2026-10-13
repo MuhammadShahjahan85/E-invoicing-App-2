@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,5 +81,67 @@ func TestMigrateAndTriggers(t *testing.T) {
 	}
 	if err := Backup(ctx, d2, filepath.Join(t.TempDir(), "b.db")); err != nil {
 		t.Fatalf("backup: %v", err)
+	}
+}
+
+func TestInspectAndRestore(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	d, err := Open(filepath.Join(dir, "live.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	now := Now()
+	if _, err := d.ExecContext(ctx, `INSERT INTO companies(name, ntn_cnic, province, address, created_at, updated_at) VALUES('Before','0786909','SINDH','Karachi',?,?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	backup := filepath.Join(dir, "backup.db")
+	if err := Backup(ctx, d, backup); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := Inspect(ctx, backup); err != nil || v != LatestMigration() {
+		t.Fatalf("inspect backup: %d %v (latest %d)", v, err, LatestMigration())
+	}
+	if _, err := d.ExecContext(ctx, `UPDATE companies SET name='After'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.ExecContext(ctx, `INSERT INTO companies(name, ntn_cnic, province, address, created_at, updated_at) VALUES('New','1234567','PUNJAB','Lahore',?,?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := Restore(ctx, d, backup); err != nil {
+		t.Fatal(err)
+	}
+	var names string
+	if err := d.QueryRowContext(ctx, `SELECT group_concat(name) FROM companies`).Scan(&names); err != nil || names != "Before" {
+		t.Fatalf("after restore: %q %v", names, err)
+	}
+	// The live database keeps working, and the backup file is unchanged.
+	if _, err := d.ExecContext(ctx, `UPDATE companies SET name='Again'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Inspect(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+
+	// Files that are not backups of this software.
+	junk := filepath.Join(dir, "junk.db")
+	if err := os.WriteFile(junk, []byte("this is not a database, just text that is long enough to be read"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Inspect(ctx, junk); err == nil {
+		t.Fatal("text file accepted")
+	}
+	other := filepath.Join(dir, "other.db")
+	o, err := sql.Open("sqlite", "file:"+filepath.ToSlash(other))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.Exec(`CREATE TABLE notes(x TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	o.Close()
+	if _, err := Inspect(ctx, other); err == nil || !strings.Contains(err.Error(), "not a backup") {
+		t.Fatalf("other database: %v", err)
 	}
 }

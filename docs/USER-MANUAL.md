@@ -30,6 +30,10 @@ The Start menu also has **User guide** (this guide) and **Help and error codes**
 
 To remove the program, use **Settings → Apps** in Windows. Your data folder is kept, because sales tax records must be kept for six years; installing again picks it up.
 
+### Keeping the software up to date
+
+New versions are installed from inside the app: **Settings → System & licence → Software updates → Update now**, or automatically at night if you choose so (see [Software updates](#software-updates)). Running a newer **Setup.exe** over an installed copy also upgrades it; the data is kept.
+
 ## 2. Getting started
 
 ### Logging in
@@ -356,17 +360,25 @@ Choose the period and environment, then download the report as **PDF** (formatte
 
 | Tab | Use it to |
 |---|---|
-| HS codes | Search FBR's HS (PCT) codes by number or description; click a code for the unit of measure FBR prescribes for it (HS_UOM). |
+| HS codes | Search all 7,823 HS (PCT) codes of the Pakistan Customs Tariff by number or by words (for example *pink salt* or *steel bars*); each code shows its heading and group. Codes on the list downloaded from FBR are marked **FBR**. Click a code for the unit of measure FBR prescribes for it (HS_UOM). |
 | Rates & SROs | Pick a sale type and date: the rates FBR accepts (SaleTypeToRate) → the SROs or schedules linked to a rate → their serial numbers. These are the values to put on the invoice. |
 | Units | FBR's units of measure, spelt as FBR expects them. |
 | Provinces & types | Province codes, document types and transaction (sale) types. |
 | Buyer check (ATL) | Check an NTN or CNIC against FBR's Active Taxpayer List and registration type, with what it means for the invoice (registered or unregistered buyer, further tax). |
 | Tax calculator | Work out sales tax, further tax, extra tax, FED, withholding and the invoice total for a sale, using the same engine as invoices. |
-| Data sync | See what is stored on the server and **Download from FBR now** (company settings permission). Refresh after FBR announces new sale types, rates or SROs. |
+| Data sync | See what is stored on the server and **Download from FBR now** (company settings permission). The lists are also downloaded again automatically every day once a company has a sandbox or production token. |
 
 ![Tax calculator](images/library-calculator.png)
 
 The invoice editor uses the same data: it shows FBR's unit for the HS code you enter (with **Use** to apply it), offers **Pick SRO / schedule from FBR** and **Pick serial no. from FBR** in the line details, and has **Check with FBR** next to the buyer's NTN/CNIC.
+
+### The complete HS code list
+
+![HS codes: the complete Customs Tariff, searched by words](images/library-hs.png)
+
+The whole **Pakistan Customs Tariff 2026-27** published by FBR is built into the software (7,823 codes, including the services of chapter 98), so HS codes can be searched and checked from the first day, before any FBR token is entered. Type a code (`7214` or `72149990`) or words (`pink salt`) in the HS code box of an invoice line or a product: the suggestions show the description and the heading it belongs to.
+
+Before an invoice is sent, its HS codes are checked: a code that is not in the tariff, or (once FBR's own list has been downloaded) not on FBR's list, gives a warning so that it can be corrected before FBR rejects the invoice.
 
 ## 16. Sandbox scenarios
 
@@ -418,10 +430,57 @@ On a phone, the bar at the bottom of the screen opens **Home**, **Invoices**, a 
 | Company | Seller particulars, business activity and sector, invoice prefixes, further-tax rate, withholding fraction, validate-before-post, sales tax return due days. **+ Add another company** for multi-company installations. |
 | FBR integration | Working environment (training simulator / FBR sandbox / FBR production), sandbox and production tokens with expiry, **Test connection**, reference data download, go-live requirements. **Registration on IRIS** lists the exact technical details to enter on IRIS (system provider, software type, version, business nature, sector), finds this server's public IP for PRAL's IP whitelisting and keeps the **software registration number**. **“Integrated with FBR” signboard** prints the signboard each outlet must display (rule 150R(11)). |
 | Invoice printing | Default format, amount-in-words style, columns, copies, terms, footer, company logo |
-| Users & roles | Create users, assign roles and companies, reset passwords, deactivate leavers |
+| Users & roles | Create users, assign roles and companies, reset passwords, deactivate or delete leavers |
 | ERP API keys | Keys for ERP/POS integration ([ERP-INTEGRATION-API.md](ERP-INTEGRATION-API.md)) |
-| System & licence | Licence status and installation, backups (create/download), FBR Digital Invoicing logo, server information, the **digital signature key** (fingerprint and public key for auditors), **e-mail notifications** |
-| Help & error codes | All 108 FBR error codes in FBR's words with fixes, compliance rules, a summary of FBR's FAQs, the official documents and the licensed integrators, sale types and rates |
+| System & licence | **Software updates**, licence status and installation, **backups** (make, download, upload, restore, schedule and folder), FBR Digital Invoicing logo, server information, the **digital signature key** (fingerprint and public key for auditors), **e-mail notifications**, the **server log** |
+| Help & error codes | All 108 FBR error codes in FBR's words with fixes, compliance rules, a summary of FBR's FAQs, the official documents and the licensed integrators, sale types and rates. **User guide (PDF)** opens this guide. |
+
+### Software updates
+
+![A new version is available](images/update-available.png)
+
+New versions of the software are published by Veridian Partners Consultancy. **Settings → System & licence → Software updates** (administrators) shows the version installed and, when a newer one is available, what it brings; the notifications bell also tells administrators.
+
+1. Click **Update now**. The new version is downloaded and checked: it must carry Veridian's digital signature and match it exactly, otherwise nothing is installed.
+2. The database is backed up (a backup named *einvoice-pre-update-…* appears under Backups).
+3. The software installs the new version and restarts by itself. Keep the page open: it reopens on the new version, usually within a minute. Invoices waiting to be sent to FBR are kept and sent after the restart.
+
+![What's new after an update](images/whats-new.png)
+
+After an update every user sees once what is new. Choose under **How should updates be installed?**:
+
+| Choice | What happens |
+|---|---|
+| Tell administrators — they click Update now | The default. New versions are looked for every few hours; an administrator installs them. |
+| Automatically, at the time below | New versions install by themselves at the chosen time (Pakistan time). Choose a time when nobody is invoicing and the computer is on. |
+| Don't look for updates | No checks. Install new versions with the installer from Veridian. |
+
+Updates that Veridian marks as **required** (for example for a change FBR makes) install at the chosen time even when updates are installed by hand. Updates released after the support period of your licence ended need a support renewal; the page says so. If an update cannot be completed, the previous version keeps working and the page says what happened.
+
+On Linux servers, updates install from the app once the update helper is in place (installed by `install.sh`); in Docker, pull the new image instead. When the software cannot install an update itself, **Download the update** gives the checked installer to install by hand.
+
+### Backups and restoring
+
+![Backups](images/backups.png)
+
+**Settings → System & licence → Backups** lists the backups with their kind (automatic, made by hand, before an update, before a restore, uploaded):
+
+- **Back up now** makes a consistent copy of the database at once; **Download** saves a backup on this computer.
+- **Backup settings** sets the time of the daily automatic backup (or turns it off), how many automatic backups are kept and the folder. A second disk or a network folder (`\\server\share\folder`) protects against a failed disk.
+- **Upload a backup** adds a backup kept elsewhere (for example on a USB disk) after checking that it is a backup of this software.
+- **Restore** replaces all data with a backup. Type `RESTORE` to confirm. The current data is backed up first (*einvoice-before-restore-…*), so a restore can be undone. Invoices made after the backup will no longer be in the software; FBR keeps those it accepted. Everybody signs in again afterwards.
+
+![Restoring a backup](images/restore-confirm.png)
+
+### Deleting a user
+
+![Deleting a user](images/user-delete.png)
+
+**Settings → Users & roles → Delete** removes a user who has left. Their invoices and their entries in the audit trail are kept, and the licence seat is freed. You cannot delete your own account, or the last administrator. To stop someone signing in for a while, open the user and untick **Active** instead.
+
+### Server log
+
+**Settings → System & licence → Server log** shows what the server did recently (start-ups, FBR connection problems, automatic backups, updates and errors). **Download log** saves the whole file to send to support.
 
 ### Registration on IRIS and the signboard
 

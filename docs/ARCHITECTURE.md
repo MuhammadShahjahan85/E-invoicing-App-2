@@ -36,9 +36,9 @@ Everything runs in one process with no external services other than FBR (and, if
 
 | Package | Responsibility |
 |---|---|
-| `cmd/einvoice` | CLI: `serve`, `service`, `mock-fbr`, `backup`, `reset-password`, `tls`, `firewall`, `version` |
+| `cmd/einvoice` | CLI: `serve`, `service`, `mock-fbr`, `backup`, `reset-password`, `tls`, `firewall`, `update apply` (Linux update helper), `version` |
 | `cmd/launcher` | Desktop launcher `VeridianEInvoicing.exe` (Windows GUI program): starts the service if needed and opens the app in an Edge or Chrome app window |
-| `cmd/licensegen` | Vendor tool: `keygen`, `issue`, `verify` |
+| `cmd/licensegen` | Vendor tool: `keygen`, `issue`, `verify` (licences); `update-keygen`, `sign-update`, `verify-update` (software updates) |
 | `internal/app` | Startup: config, logging, DB, vault, licence, service; HTTP(S) server and worker; self-signed TLS |
 | `internal/brand` | Product, vendor and support names used everywhere (one place to change them) |
 | `internal/config` | `config.json` defaults and loading; data directory selection (keeps the data folder of installations made before the rename) |
@@ -54,6 +54,8 @@ Everything runs in one process with no external services other than FBR (and, if
 | `internal/printing` | HTML templates (A4 and 80 mm invoices, stock transfer note, "Integrated with FBR" signboard), QR generation, the official FBR DI logo (`assets/fbr-di-logo.jpg`) |
 | `internal/dataimport` | Reads sales registers in any format — Excel (.xlsx, .xls), OpenDocument, CSV and other separated text, fixed-width text reports, JSON, XML, Word (.docx), HTML and the tables of PDF reports — finds the heading row and recognises the columns; normalises dates, amounts, NTN/CNIC and units |
 | `internal/pdf` | PDF documents with the embedded Inter and Plus Jakarta Sans fonts: report tables (net totals where debit notes are included), the invoice PDF and the monthly report pack with its books–FBR–Annexure-C tie diagram |
+| `internal/update` | Software updates: the signed update file (Ed25519 over the exact manifest bytes, with a domain prefix), version comparison, HTTPS-only download with size and SHA-256 checks; on Windows starts the installer detached in `/S /UPDATE` mode while holding it open against changes; on Linux asks the root update helper, which verifies everything again and replaces the program |
+| `internal/hscodes` | The Pakistan Customs Tariff 2026-27 and FBR's IRIS HS code list (7,823 codes with descriptions and headings), embedded and built by `scripts/hscodes/build.py` from FBR's publications |
 | `internal/winsvc` | Windows service integration; lets signed-in users start the service |
 | `internal/wintrust` | Adds the local certificate authority to (or removes it from) the Windows trusted root store, for the installer |
 | `web/` | React + TypeScript + Vite source; built into `internal/webui/dist` and embedded with `go:embed` |
@@ -68,7 +70,9 @@ Main files of `internal/service`:
 | `closings.go` | Day, ISO-week and month closings (rule 150R(4)(f)), recorded hourly by the worker with catch-up |
 | `transfers.go` | Stock transfer notes (STGO 25 of 2026) |
 | `publicip.go` | On request, asks a public echo service for this server's internet address (for PRAL's IP whitelisting) |
-| `refdata.go` | Sync and live look-ups of FBR's reference APIs (provinces, document and transaction types, UoM, HS codes, SRO item codes, SaleTypeToRate, SroSchedule, SROItem, HS_UOM, ATL status, registration type) |
+| `refdata.go` | Sync and live look-ups of FBR's reference APIs (provinces, document and transaction types, UoM, HS codes, SRO item codes, SaleTypeToRate, SroSchedule, SROItem, HS_UOM, ATL status, registration type); loads the built-in tariff; the worker downloads FBR's lists again daily |
+| `updates.go` | Software updates: checks, download, pre-update backup, start of the installer, outcome on the next start (or failure detection), automatic and required updates, the support-period rule, "What's new" |
+| `maintenance.go` | Restoring a backup into the live database (SQLite online backup API, after an integrity check and a safety backup), uploaded backups, backup schedule and folder, the server log, the installed user guide |
 | `compliance.go` | Sales tax return calendar (payment and filing days per company, FBR filing-date extensions), period-close review |
 | `alerts.go` | Alerts shown under the bell and e-mailed: connection, token, unreported / rejected / unreconciled invoices, drafts, incidents, deadlines, stale reference data, sandbox progress, backups, licence |
 | `notify.go` | E-mail settings (password encrypted with the vault), immediate alerts and the daily summary |
@@ -168,6 +172,8 @@ The schema is in `internal/db/migrations/` (`0001_init.sql`; `0002_offline_since
 | Web | Strict security headers and Content Security Policy (`script-src 'self'`); print and letter pages allow only a per-request nonce'd script. Uploaded images are restricted to image types, max 2 MB; SVGs with scripts, event handlers or embedded content are rejected, and images are served with a sandboxing CSP. Import uploads are capped at 20 MB with bounded XLSX decompression; QR PNG size is capped. |
 | Transport | HTTPS by default (self-signed or own certificate) |
 | Licence | Ed25519 signature verified offline against the embedded public key |
+| Software updates | Only a version newer than the installed one, described by an update file signed with the vendor's update key (separate from the licence key), is installed; the installer must match the signed size and SHA-256. Downloads are HTTPS only, including redirects. On Windows the installer is kept open against writes from the final check until it has started (the data folder is limited to SYSTEM and administrators); on Linux the service runs without privileges and the root helper re-verifies the signature and hash from its own copy and never follows links. The database is backed up before every update. |
+| Restore | Administrators only, with a typed confirmation; the file is integrity-checked and must be a database of this software, no newer than the build; the current data is backed up first |
 
 ## 6. Simulator and testing
 

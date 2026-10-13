@@ -9,6 +9,7 @@ import { dateFmt, dateTimeFmt } from '../../format'
 import { useToast } from '../../state'
 import type { LicenseStatus } from '../../types'
 import SoftwareUpdates from './SoftwareUpdates'
+import BackupsCard, { ServerLog } from './Backups'
 
 interface SystemInfo {
   product: string
@@ -22,17 +23,6 @@ interface SystemInfo {
   uptimeSeconds: number
 }
 
-interface Backup {
-  name: string
-  size: number
-  created: string
-}
-
-function size(n: number) {
-  if (n > 1 << 20) return (n / (1 << 20)).toFixed(1) + ' MB'
-  return Math.ceil(n / 1024) + ' KB'
-}
-
 function uptime(s: number) {
   const d = Math.floor(s / 86400)
   const h = Math.floor((s % 86400) / 3600)
@@ -44,8 +34,6 @@ export default function SystemPage() {
   const toast = useToast()
   const info = useLoad(() => api.get<SystemInfo>('/system/info'), [])
   const lic = useLoad(() => api.get<LicenseStatus>('/system/license'), [])
-  const backups = useLoad(() => api.get<{ items: Backup[] | null; dir: string }>('/system/backups'), [])
-  const [backingUp, setBackingUp] = useState(false)
   const [licError, setLicError] = useState('')
   const [logoTick, setLogoTick] = useState(0)
 
@@ -58,19 +46,6 @@ export default function SystemPage() {
       toast('ok', `Licence installed for ${st.licensee}`)
     } catch (e) {
       setLicError(errorMessage(e))
-    }
-  }
-
-  const backupNow = async () => {
-    setBackingUp(true)
-    try {
-      const b = await api.post<Backup>('/system/backups')
-      toast('ok', `Backup ${b.name} created`)
-      backups.reload()
-    } catch (e) {
-      toast('err', errorMessage(e))
-    } finally {
-      setBackingUp(false)
     }
   }
 
@@ -195,55 +170,11 @@ export default function SystemPage() {
 
       <SigningKeyCard />
 
-      <div className="card mt">
-        <div className="card-head">
-          <h3>Backups</h3>
-          <button className="btn btn-primary btn-sm" onClick={backupNow} disabled={backingUp}>
-            {backingUp ? 'Backing up…' : 'Back up now'}
-          </button>
-        </div>
-        <div className="card-body small muted">
-          A consistent copy of the database is written automatically every night to <span className="mono">{backups.data?.dir}</span>. Copy backups to another disk or
-          cloud storage regularly: records must be kept for six years (rule 150S). Also keep a safe copy of <span className="mono">master.key</span> from the data folder —
-          without it the saved FBR tokens and the invoice signing key cannot be opened (invoices remain readable).
-        </div>
-        <ErrorBox error={backups.error} />
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Created</th>
-                <th className="num">Size</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(backups.data?.items ?? []).map((b) => (
-                <tr key={b.name}>
-                  <td className="mono small">{b.name}</td>
-                  <td>{dateTimeFmt(b.created)}</td>
-                  <td className="num">{size(b.size)}</td>
-                  <td>
-                    <a className="btn btn-sm" href={`/api/v1/system/backups/${encodeURIComponent(b.name)}`}>
-                      Download
-                    </a>
-                  </td>
-                </tr>
-              ))}
-              {backups.data && (backups.data.items ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={4} className="muted">
-                    No backups yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <BackupsCard />
 
       <EmailNotifications />
+
+      <ServerLog />
     </>
   )
 }

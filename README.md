@@ -75,7 +75,8 @@ It is a single program with a built-in web interface, installed on the client's 
 
 **FBR reference data built in**
 
-- FBR reference library: HS codes with the unit FBR prescribes (HS_UOM); sale types → rates (SaleTypeToRate) → SROs/schedules → serial numbers; units; provinces, document and transaction types — downloaded with the company's token and refreshed on demand.
+- **The complete Pakistan Customs Tariff 2026-27** built in: all 7,823 HS (PCT) codes, including the services of chapter 98, with their headings, searchable by code or by words; codes on FBR's own list are marked, and invoices warn about codes FBR would reject.
+- FBR reference library: HS codes with the unit FBR prescribes (HS_UOM); sale types → rates (SaleTypeToRate) → SROs/schedules → serial numbers; units; provinces, document and transaction types — downloaded with the company's token, **refreshed automatically every day** and on demand.
 - Buyer checks against FBR's Active Taxpayer List and registration type, one at a time or for the whole customer list, with buyers whose master record differs from FBR flagged.
 - The invoice editor uses the same data: FBR's unit for the HS code, SRO pickers and an inline buyer check.
 - Sales tax calculator using the invoice engine.
@@ -112,8 +113,9 @@ It is a single program with a built-in web interface, installed on the client's 
 
 **Administration**
 
-- Multiple companies (NTNs); roles (admin, manager, accountant, operator, auditor).
-- Encrypted FBR tokens; HTTPS; nightly backups.
+- **Software updates in one click**: administrators see each new version and what it brings, and click **Update now** (or let it install at night); every update is checked against the vendor's digital signature, and the database is backed up first. The vendor publishes updates from GitHub with one click, and can mark updates as required.
+- Multiple companies (NTNs); roles (admin, manager, accountant, operator, auditor); users can be deactivated or deleted (the audit trail keeps their actions).
+- Encrypted FBR tokens; HTTPS; nightly backups with the schedule and folder set in the app; **restore a backup from the app** (the current data is backed up first); the server log on screen.
 - Windows installer with a background service, desktop icon, trusted HTTPS certificate and firewall rule; Linux systemd unit or Docker.
 - Built-in **training simulator** that works without FBR access.
 
@@ -160,12 +162,13 @@ make web                                                    # rebuild the web UI
 ## Repository layout
 
 ```
-cmd/einvoice/          server program (serve, service, mock-fbr, backup, reset-password)
-cmd/licensegen/        vendor licence tool (keygen, issue, verify)
-internal/              Go packages (tax engine, FBR client, simulator, services, API, printing, ...)
+cmd/einvoice/          server program (serve, service, mock-fbr, backup, reset-password, update)
+cmd/licensegen/        vendor tool: licences (keygen, issue, verify) and updates (update-keygen, sign-update, verify-update)
+internal/              Go packages (tax engine, FBR client, simulator, services, API, printing, updates, HS codes, ...)
 web/                   React + TypeScript web UI source (built into internal/webui/dist)
-packaging/             Windows installer script, Linux systemd unit and installer
-scripts/               release build script
+packaging/             Windows installer script, Linux systemd units (service, update helper) and installer
+scripts/               release build script, HS code list builder (scripts/hscodes)
+CHANGELOG.md           what's new in each version (shown to clients when they update)
 docs/                  documentation
 Dockerfile, Makefile
 ```

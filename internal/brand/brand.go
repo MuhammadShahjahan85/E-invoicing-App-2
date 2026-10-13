@@ -33,6 +33,8 @@ const (
 	Copyright = "© " + CopyrightYear + " " + Developer + ". All rights reserved."
 	// DevelopedBy is the developer credit line.
 	DevelopedBy = "Developed by " + Developer
+	// UserGuideFile is the printable user guide in the program's docs folder.
+	UserGuideFile = "Veridian-E-invoicing-Pakistan-User-Guide.pdf"
 )
 
 // Version is overridden at build time with

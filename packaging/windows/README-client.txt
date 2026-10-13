@@ -29,6 +29,14 @@ WHERE THINGS ARE
             compliance, mobile access, ERP integration API)
 
 
+UPDATES AND BACKUPS
+
+  New versions install from inside the app: Settings > System & licence >
+  Software updates > Update now (an administrator), or automatically at a
+  time you choose. The database is backed up first. Backups can be made,
+  downloaded and restored on the same page.
+
+
 OTHER COMPUTERS AND PHONES
 
   In the app, open Support > Mobile app & access for the address, a QR code

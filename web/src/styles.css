@@ -1166,3 +1166,11 @@ a.legend-row:hover { text-decoration: none; background: var(--surface-2); }
 .update-screen .warn-icon { color: var(--warning); }
 .whats-new-lead { display: flex; align-items: center; gap: 8px; margin-top: 0; color: var(--text-2); }
 .whats-new-lead svg { color: var(--accent); flex: none; }
+
+/* Backups and server log */
+.backup-settings { border-top: 1px solid var(--border); }
+.backup-settings summary { cursor: pointer; font-weight: 600; color: var(--text-2); }
+.mt-s { margin-top: 12px; }
+.nowrap { white-space: nowrap; }
+.log-view { max-height: 380px; overflow: auto; margin: 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; font: 12px/1.5 var(--mono, ui-monospace, Consolas, monospace); white-space: pre-wrap; word-break: break-all; }
+.suggest.floating { position: fixed; right: auto; z-index: 400; }

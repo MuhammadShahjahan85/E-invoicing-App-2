@@ -43,6 +43,11 @@ if systemctl is-active --quiet einvoice 2>/dev/null; then
 fi
 install -m 0755 "$BIN_SRC" "$PREFIX/einvoice"
 [ -f "$SCRIPT_DIR/README.md" ] && install -m 0644 "$SCRIPT_DIR/README.md" "$PREFIX/README.md"
+# The guides; the app's Help page opens the printable user guide from here.
+if [ -d "$SCRIPT_DIR/docs" ]; then
+	install -d -m 0755 "$PREFIX/docs"
+	install -m 0644 "$SCRIPT_DIR"/docs/* "$PREFIX/docs/"
+fi
 install -m 0644 "$SCRIPT_DIR/einvoice.service" "$UNIT"
 # The update helper lets administrators install updates from the app.
 if [ -f "$SCRIPT_DIR/einvoice-update.path" ] && [ -f "$SCRIPT_DIR/einvoice-update.service" ]; then

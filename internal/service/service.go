@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"einvoicing/internal/domain"
@@ -79,6 +80,10 @@ type Service struct {
 	lastClosingRun time.Time
 
 	upd *updater // software updates
+
+	restoreMu  sync.Mutex   // one restore at a time
+	backupHour atomic.Int64 // automatic backup hour from config.json (RunWorker)
+	backupKeep atomic.Int64 // automatic backups kept, from config.json
 }
 
 // New builds the service.
@@ -97,6 +102,8 @@ func New(st *store.Store, vault *security.Vault, opts Options) *Service {
 		health:     newHealthTracker(),
 		upd:        newUpdater(),
 	}
+	s.backupHour.Store(23)
+	s.backupKeep.Store(30)
 	return s
 }
 

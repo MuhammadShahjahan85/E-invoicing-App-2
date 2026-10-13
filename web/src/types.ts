@@ -321,6 +321,7 @@ export interface Meta {
   copyright: string
   developedBy: string
   version: string
+  userGuide?: boolean
   cancelWindowHours: number
   cancelApi?: Partial<Record<Env, boolean>>
 }

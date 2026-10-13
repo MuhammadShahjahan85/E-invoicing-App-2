@@ -330,7 +330,7 @@ function UpdateProgress({ target, onClose }: { target: string; onClose: () => vo
                 </div>
               )}
               <p className="small faint">
-                Please keep this page open. Invoices waiting to be sent are kept and sent after the restart. This usually takes about a minute.
+                Please keep this page open. Invoices waiting to be sent to FBR are kept and sent after the restart.
               </p>
               {phase === 'slow' && (
                 <div className="alert alert-warn mt" style={{ textAlign: 'left' }}>

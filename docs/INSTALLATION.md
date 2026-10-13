@@ -89,7 +89,7 @@ The service can also be managed from `services.msc` ("Veridian E-invoicing Pakis
 
 ## 3. Linux installation (systemd)
 
-Copy the Linux release folder (`einvoice`, `einvoice.service`, `install.sh`) to the server, then run:
+Copy the Linux release folder (`einvoice`, `einvoice.service`, `einvoice-update.path`, `einvoice-update.service`, `install.sh`, `docs/`) to the server, then run:
 
 ```sh
 sudo sh install.sh ./einvoice
@@ -98,10 +98,11 @@ sudo sh install.sh ./einvoice
 The script:
 
 - creates the system user `einvoice`;
-- installs the binary to `/opt/einvoice/einvoice` and stores data in `/var/lib/einvoice`;
-- installs and starts the `einvoice` systemd unit.
+- installs the binary to `/opt/einvoice/einvoice` (and the guides to `/opt/einvoice/docs`) and stores data in `/var/lib/einvoice`;
+- installs and starts the `einvoice` systemd unit;
+- installs the **update helper** (`einvoice-update.path` and `einvoice-update.service`): the service, which runs without administrator rights, can then install updates an administrator starts from the app. The helper runs `einvoice update apply` as root, which checks Veridian's signature on the update again before it replaces `/opt/einvoice/einvoice` and restarts the service.
 
-Re-run it to upgrade. Data is kept.
+Re-run it to upgrade by hand. Data is kept.
 
 ```sh
 sudo systemctl status einvoice
@@ -119,6 +120,8 @@ docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-
 ```
 
 All state lives in the `/data` volume. Back up that volume.
+
+A container does not update itself: build or pull the new image and recreate the container with the same volume. With `--build-arg UPDATE_PUBKEY=<base64> --build-arg UPDATE_FEED_URL=<address of update.json>` administrators are still told when a new version is available.
 
 ## 5. HTTPS certificate
 
@@ -138,7 +141,7 @@ The file is created in the data folder on first start. Restart the service after
 | Key | Default | Meaning |
 |---|---|---|
 | `listen` | `0.0.0.0:8443` | Address and port. `127.0.0.1:8443` restricts access to this computer. |
-| `backupDir` | *(empty)* = `<data>/backups` | Backup folder, e.g. a second disk or mapped network drive |
+| `backupDir` | *(empty)* = `<data>/backups` | Backup folder, e.g. a second disk or a network folder (`\\server\share\folder`; a mapped drive letter is not visible to the Windows service). Settings → System → Backups → **Backup settings** overrides it. |
 | `tls.enabled` | `true` | Serve HTTPS |
 | `tls.certFile`, `tls.keyFile` | *(empty)* = issued by the installation's local CA in `<data>/tls` | Own certificate (PEM) |
 | `tls.hosts` | *(empty)* | Extra DNS names or IP addresses users reach the server by (VPN address, office DNS name); added to the local certificate |
@@ -147,8 +150,8 @@ The file is created in the data folder on first start. Restart the service after
 | `fbr.timeoutSeconds` | `30` | Timeout for each FBR call |
 | `fbr.cnicThreshold` | `100000` | Warn when an unregistered buyer without CNIC receives an invoice above this value (empty disables). Manufacturers and importers are always warned, whatever the value (s.23(1)(b)) |
 | `worker.intervalSeconds` | `20` | How often the background worker processes the queue |
-| `worker.backupHour` | `23` | Hour (0–23, Pakistan time) for the automatic daily backup; `-1` disables it. The server must be running at that hour. |
-| `worker.backupRetention` | `30` | Number of automatic backups kept |
+| `worker.backupHour` | `23` | Hour (0–23, Pakistan time) for the automatic daily backup; `-1` disables it. The server must be running at that hour. Overridden by **Backup settings** in the app. |
+| `worker.backupRetention` | `30` | Number of automatic backups kept. Overridden by **Backup settings** in the app. |
 | `logLevel` | `info` | Log detail |
 
 **Environment variables**
@@ -165,6 +168,7 @@ The file is created in the data folder on first start. Restart the service after
 - `einvoice service install|uninstall|start|stop [--data DIR]` — Windows service (as Administrator)
 - `einvoice tls init|trust|untrust [--data DIR]` — create the HTTPS certificates; add or remove the local CA in the Windows trusted root store
 - `einvoice firewall allow|remove [--data DIR]` — Windows Firewall rule for the local network
+- `einvoice update apply [--data DIR]` — install an update downloaded by the app (run by the Linux update helper)
 - `einvoice version`
 
 ## 7. Data folder
@@ -175,18 +179,21 @@ The file is created in the data folder on first start. Restart the service after
 | `master.key` | Key that encrypts the stored FBR tokens. **Keep a secure copy.** |
 | `config.json` | Configuration |
 | `tls/` | Local certificate authority (`ca.pem`, `ca-key.pem` — keep the key secret) and the server certificate (`cert.pem`, `key.pem`) |
-| `logs/einvoice.log` | Application log |
+| `logs/einvoice.log` | Application log (also shown under Settings → System → Server log) |
 | `backups/` | Automatic and manual backups (`einvoice-<kind>-<YYYYMMDD-HHMMSS>.db`) |
+| `updates/` | A software update while it is being installed; removed afterwards |
 
 On Windows the installer restricts the folder to Windows itself (SYSTEM) and administrators; other users can read only `config.json` and `tls\ca.pem`. Open it as an administrator (Explorer asks for permission the first time).
 
 ## 8. Backups and restore
 
-- **Automatic:** every day at `worker.backupHour` (default 23:00). The latest `worker.backupRetention` copies are kept.
+- **Automatic:** every day at the time set under Settings → System → Backups → **Backup settings** (default 23:00, from `worker.backupHour`). The latest copies are kept (default 30). Updates also back up the database first (`einvoice-pre-update-…`).
 - **Manual:** Settings → System → **Back up now** (with download), or `einvoice backup` on the command line.
 - **Off-site:** copy the backups folder and `master.key` to another disk or cloud storage at least weekly. Records must be kept for six years (rule 150S).
 
-**Restore**
+**Restore from the app** (administrators): Settings → System → Backups → **Restore** next to a backup (or **Upload a backup** first for a copy kept elsewhere), then type `RESTORE`. The current data is backed up first (`einvoice-before-restore-…`), the backup is checked, its data replaces the current data, and everybody signs in again. The original `master.key` must be in the data folder.
+
+**Restore by hand** (when the app does not start):
 
 1. Stop the service (`einvoice service stop` or `systemctl stop einvoice`).
 2. In the data folder, rename `einvoice.db` and delete `einvoice.db-wal` and `einvoice.db-shm`, if present.
@@ -195,6 +202,15 @@ On Windows the installer restricts the folder to Windows itself (SYSTEM) and adm
 5. Start the service. Check Settings → System and the Audit trail (**Verify integrity**).
 
 ## 9. Upgrades
+
+**From the app (recommended):** Settings → System → Software updates → **Update now**, or choose automatic installation at a set time. The update is downloaded from Veridian's update address over HTTPS, checked against Veridian's digital signature (Ed25519) and SHA-256, the database is backed up, and the installer runs:
+
+- Windows: the background service starts the installer silently (`Setup.exe /S /UPDATE`), which keeps the optional parts as they were (certificate trust, desktop icon, firewall rule), replaces the program and starts the service again. If it fails, it starts the service again on the previous version.
+- Linux: the update helper (see section 3) replaces `/opt/einvoice/einvoice` and restarts the service.
+
+The server needs outbound HTTPS to the update address (by default `github.com` and `objects.githubusercontent.com` / `release-assets.githubusercontent.com`). Copies built without Veridian's update key cannot install updates; they show how to obtain the latest installer.
+
+**By hand:**
 
 1. Take a manual backup.
 2. Windows: run the new installer; it stops the service, replaces the program and starts it again. Linux: re-run `install.sh` with the new binary. Docker: rebuild the image and recreate the container with the same volume.
