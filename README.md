@@ -173,6 +173,10 @@ docs/                  documentation
 Dockerfile, Makefile
 ```
 
+## Company website
+
+The Veridian Partners company website (PHP, ready for Hostinger shared hosting) is in [`website/`](website/). The upload package is [`website-dist/veridian-partners-website.zip`](website-dist/veridian-partners-website.zip) (rebuild it with `sh website-tools/build-zip.sh`), and [WEBSITE-SETUP-GUIDE.md](WEBSITE-SETUP-GUIDE.md) explains installation, settings, e-mail, the admin area and SEO. Preview it locally with `php -S 127.0.0.1:8080 -t website website-tools/dev-router.php`.
+
 ## Important notes
 
 - Tax rules, rates, SROs and FBR's technical specification change. Keep the software updated, and re-check items marked **Verify** in the compliance guide against the latest FBR notifications.

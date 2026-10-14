@@ -19,3 +19,7 @@ Thumbs.db
 .vscode/
 # Windows resources made by go-winres during release builds
 *.syso
+# Website: runtime data written on the server (enquiries, CVs, secrets)
+/website/storage/*
+!/website/storage/.htaccess
+!/website/storage/index.html

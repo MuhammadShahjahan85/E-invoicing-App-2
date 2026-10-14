@@ -1,0 +1,15 @@
+{
+  "name": "Veridian Partners",
+  "short_name": "Veridian",
+  "description": "Audit, tax, advisory and FBR e-invoicing in Pakistan.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#06281f",
+  "theme_color": "#0a3a31",
+  "icons": [
+    { "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/img/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
