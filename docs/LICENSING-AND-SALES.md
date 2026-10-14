@@ -48,6 +48,7 @@ It prints the **public key** (base64). Keep `vendor-private.key` secret and back
    - **windows-installer** (`VeridianEInvoicingPakistan-Setup-<version>.exe`);
    - **linux-package**;
    - **vendor-tools-keep-private** (licensegen).
+4. For one-click updates for your clients, also set up the update key (section 8).
 
 Tagged releases fail on purpose if `LICENSE_PUBKEY` is not set, so a developer build is never published by mistake. The `licensegen.exe` from the vendor-tools artifact runs on Windows without Go: `licensegen.exe keygen`, `licensegen.exe issue …`.
 
@@ -159,12 +160,62 @@ All product identity lives in `internal/brand/brand.go`:
 
 Change these, then update the matching values at the top of `packaging/windows/installer.nsi` (`APPNAME`, `COMPANY`, `SUPPORT`, `SERVICE`), the version details in `packaging/windows/winres/*.json`, and the artwork (`node packaging/windows/art/render.cjs` redraws the icon and installer pictures from `web/public/favicon.svg`), then rebuild. Changing `WindowsServiceName` also changes the default data folder on Windows (`%ProgramData%\<WindowsServiceName>`). Decide on it before the first installation.
 
-## 8. Release and update process
+## 8. Publishing updates (one click for your clients)
 
-1. Update the code (FBR changes, fixes), run `make test`, and update the docs.
-2. Tag a version, e.g. `v1.1.0`. Pushing the tag runs the Release workflow, which builds the installer; or build locally with `make release VERSION=1.1.0 LICENSE_PUBKEY=…`.
-3. Test the upgrade on a copy of a client database: restore a backup on a test machine, run the new version, then check invoices, reports and **Verify integrity**.
-4. Distribute the installer. Clients take a backup, then run the installer (data is kept; migrations run automatically).
+Installed copies look for new versions at an **update address** built into them, and install a version only when it carries **your digital signature** (a separate Ed25519 key from the licence key). The update file (`update.json`) lists the version, what is new, and the address, size and SHA-256 of each installer. A copy installs nothing that is not signed with your update key, nothing altered after signing, and never an older version.
+
+By default the update address is the newest **GitHub release** of this repository: `https://github.com/<owner>/<repository>/releases/latest/download/update.json`. Clients' servers need outbound HTTPS to GitHub.
+
+### One-time setup (about 10 minutes)
+
+1. On your own PC, with `licensegen.exe` from the **vendor-tools-keep-private** artifact (or `go run ./cmd/licensegen`):
+
+   ```sh
+   licensegen update-keygen -out update-private.key
+   ```
+
+   It prints the **update public key**. Keep `update-private.key` secret and backed up, like the licence key: whoever has it can publish updates to all your clients. If it is lost, publish a version with a new key; clients install that version once by hand.
+2. GitHub → your repository → **Settings → Secrets and variables → Actions**:
+   - **Variables → New repository variable**: `UPDATE_PUBKEY` = the update public key.
+   - **Secrets → New repository secret**: `UPDATE_SIGNING_KEY` = the contents of `update-private.key` (open it in Notepad and copy the single line).
+3. Build and publish a release (below). Copies installed from it are update-ready. Copies installed from an earlier build (version 1.1.0 or older, or built without `UPDATE_PUBKEY`) cannot update themselves: install the new Setup.exe on them once, over the existing installation; the data is kept.
+
+Optional: to keep this repository private, create a **public** repository just for releases (for example `veridian-einvoicing-updates`, with a README so that it has a commit), add the variable `UPDATES_REPO` = `<owner>/veridian-einvoicing-updates` and the secret `UPDATES_REPO_TOKEN` = a fine-grained token with **Contents: read and write** on that repository. Releases, installers and `update.json` are then published there. To host updates on your own website instead, set the variable `UPDATE_FEED_URL` to the address of your `update.json` and upload the files yourself (see "By hand" below).
+
+### Each release
+
+1. Write what is new in [CHANGELOG.md](../CHANGELOG.md) under a heading `## <version>` (one line per point, starting with `- `). Clients see these lines before and after updating.
+2. GitHub → **Actions → Release → Run workflow**: enter the version (e.g. `1.3.0`), tick **Publish**, and optionally type the notes there instead (separate points with `;`) and tick **Required update**. Or push a tag such as `v1.3.0`.
+3. The workflow tests the code, builds the Windows installer and the Linux package with your licence and update keys, signs `update.json` and publishes the GitHub release.
+
+Within a few hours every installed copy (that has not turned updates off) shows **Version 1.3.0 is available** to its administrators, who click **Update now**; copies set to automatic install it at their update time. **Check for updates** shows it at once.
+
+**Test first:** publish a version with a suffix, e.g. `1.3.0-rc1`. It becomes a GitHub *pre-release*, which installed copies do not see. On your own test installation, set **Settings → System → Software updates → Advanced: update address** to `https://github.com/<owner>/<repository>/releases/download/v1.3.0-rc1/update.json`, update and test. Then publish `1.3.0`. A version must be higher than the installed one to be offered.
+
+**Required updates** (for example when FBR changes its API): tick **Required update** when running the workflow. Such an update installs at each client's update time (default 02:00 Pakistan time) even where an administrator installs updates by hand. Clients who chose **Don't look for updates** are not reached.
+
+**Support period:** a licence issued with `-support YYYY-MM-DD` only receives updates *released* up to that date; later versions show "renew support with Veridian" instead of **Update now**. Renew by issuing a new licence file with a later support date. To give an update to every client regardless (e.g. a legal change), sign it with `-free` (the workflow does not do this; sign by hand, below).
+
+### By hand (any web server)
+
+```sh
+licensegen sign-update -key update-private.key -version 1.3.0 -notes-file notes.txt \
+    -url-base https://downloads.example.pk/einvoicing/1.3.0/ \
+    -windows VeridianEInvoicingPakistan-Setup-1.3.0.exe -linux einvoice-1.3.0-linux-amd64.tar.gz \
+    [-mandatory] [-free] -out update.json
+licensegen verify-update -pub <update public key> -in update.json -dir .
+```
+
+Upload the installers to the `-url-base` address and `update.json` to the address built into the clients' copies (`UPDATE_FEED_URL`), replacing the previous one. Build with `make release VERSION=1.3.0 LICENSE_PUBKEY=… UPDATE_PUBKEY=… UPDATE_FEED_URL=…`.
+
+### What happens on the client
+
+1. The installation checks the update address every 6 hours (hourly around its update time); administrators see the new version and its notes on the System page and in the notifications bell.
+2. **Update now** (or the update time): download, check size, SHA-256 and signature, back up the database, start the installer (Windows: `Setup.exe /S /UPDATE`, which keeps the client's choices of certificate trust, desktop icon and firewall rule; Linux: the update helper). The page follows the progress and reopens on the new version.
+3. The new version records **Updated from version X to Y** (with the audit trail entries `system.update.start` and `system.update.done`) and shows every user **What's new** once.
+4. If anything fails, the previous version keeps running (the Windows installer starts it again) and the System page says what happened; the backup made before the attempt is listed under Backups.
+
+**Before publishing**, test the upgrade on a copy of a client database: restore a backup on a test machine, update it, then check invoices, reports and **Verify integrity**.
 
 ## 9. Support playbook
 
@@ -174,7 +225,8 @@ Change these, then update the matching values at the top of `packaging/windows/i
 | "FBR error XXXX" | Help & error codes; the invoice's FBR call log tab (request/response) |
 | "Needs reconciliation" | Guide the client through IRIS search and **Reconcile with IRIS** |
 | "Cannot log in" | Lockout (15 minutes after 5 failures); `einvoice reset-password` |
-| "Server moved / restored" | Restore the procedure from backups; keep `master.key`; re-enter tokens if the key was lost |
+| "Server moved / restored" | Settings → System → Backups → **Upload a backup** / **Restore**; keep `master.key`; re-enter tokens if the key was lost |
+| "The update did not install" | Settings → System → Software updates shows why; **Server log** (download it); outbound HTTPS to GitHub; the copy must be update-ready (see section 8) |
 | "Licence warning" | Settings → System; issue a renewal |
 
 ---

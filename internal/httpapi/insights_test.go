@@ -47,7 +47,7 @@ func TestDashboardSearchAlertsAndCompliance(t *testing.T) {
 	}
 	if len(dash.Deadlines) != 2 || len(dash.Recent) != 1 || len(dash.Trend) != 12 || dash.Trend[11].SaleInvoices != 1 ||
 		len(dash.TopBuyers) != 1 || len(dash.TopItems) != 1 || dash.TopItems[0].HSCode != "0101.2100" ||
-		dash.Reference.HSCodes == 0 || dash.Reference.HSSource != "seed" {
+		dash.Reference.HSCodes < 7500 || dash.Reference.HSSource != "tariff" {
 		t.Fatalf("dashboard %s", b)
 	}
 	// Operators may see the dashboard but not sales by month, buyer or item.
@@ -68,6 +68,16 @@ func TestDashboardSearchAlertsAndCompliance(t *testing.T) {
 	st, b = e.adminA.do("GET", base+"/search?q=0101", nil)
 	if st != 200 || !strings.Contains(string(b), `"hsCodes":[{"code":"0101`) {
 		t.Fatalf("search HS code: %d %s", st, b)
+	}
+	// The complete tariff is built in: words find codes through their
+	// heading too, and the number can be typed without the dot.
+	st, b = e.adminA.do("GET", base+"/ref/hs-codes?q=pink+salt", nil)
+	if st != 200 || !strings.Contains(string(b), `"code":"2501.0021"`) {
+		t.Fatalf("search HS words: %d %s", st, b)
+	}
+	st, b = e.adminA.do("GET", base+"/ref/hs-codes?q=72149990", nil)
+	if st != 200 || !strings.Contains(string(b), `"code":"7214.9990"`) {
+		t.Fatalf("search HS digits: %d %s", st, b)
 	}
 	if st, b = e.adminA.do("GET", base+"/search?q=x", nil); st != 200 || !strings.Contains(string(b), `"invoices":[]`) {
 		t.Fatalf("short query: %d %s", st, b)

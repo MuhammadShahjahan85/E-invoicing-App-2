@@ -6,17 +6,23 @@
 #                                   Windows + Linux binaries in dist/<os>-<arch>/
 #   make test / make vet / make clean
 #
-# LICENSE_PUBKEY is the public key printed by `go run ./cmd/licensegen keygen`.
+# LICENSE_PUBKEY is the public key printed by `go run ./cmd/licensegen keygen`;
+# UPDATE_PUBKEY the one printed by `licensegen update-keygen`, and
+# UPDATE_FEED_URL the address of the signed update.json (software updates).
 # Builds without it run in developer mode (no licence enforcement) — never ship those.
 
 VERSION        ?= 1.0.0
 BUILD_DATE     ?= $(shell date -u +%Y-%m-%d)
 LICENSE_PUBKEY ?=
+UPDATE_PUBKEY  ?=
+UPDATE_FEED_URL ?=
 GO             := GOTOOLCHAIN=local go
 LDFLAGS        := -s -w \
 	-X einvoicing/internal/brand.Version=$(VERSION) \
 	-X einvoicing/internal/brand.BuildDate=$(BUILD_DATE) \
-	-X einvoicing/internal/license.PublicKeyB64=$(LICENSE_PUBKEY)
+	-X einvoicing/internal/license.PublicKeyB64=$(LICENSE_PUBKEY) \
+	-X einvoicing/internal/update.PublicKeyB64=$(UPDATE_PUBKEY) \
+	-X einvoicing/internal/update.FeedURL=$(UPDATE_FEED_URL)
 
 .PHONY: all build web release test vet clean
 
@@ -29,7 +35,8 @@ web:
 	cd web && npm ci && npm run build
 
 release:
-	VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE) LICENSE_PUBKEY=$(LICENSE_PUBKEY) sh scripts/build-release.sh
+	VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE) LICENSE_PUBKEY=$(LICENSE_PUBKEY) \
+		UPDATE_PUBKEY=$(UPDATE_PUBKEY) UPDATE_FEED_URL=$(UPDATE_FEED_URL) sh scripts/build-release.sh
 
 test:
 	$(GO) test ./...

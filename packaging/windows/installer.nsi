@@ -22,6 +22,9 @@
 ; folder %ProgramData%\VeridianEInvoicingPK stays in use).
 ;
 ; Silent install: Setup.exe /S [/D=C:\Program Files\Veridian E-invoicing Pakistan]
+; In-app update: the service runs Setup.exe /S /UPDATE, which upgrades the
+; program and leaves the optional parts (certificate trust, desktop icon,
+; firewall rule) as they are. If it fails, it starts the service again.
 ; Silent uninstall: "C:\Program Files\Veridian E-invoicing Pakistan\Uninstall.exe" /S
 
 Unicode true
@@ -80,6 +83,7 @@ VIAddVersionKey /LANG=1033 "Comments" "Support: ${SUPPORT}"
 !include "FileFunc.nsh"
 
 Var DataDir
+Var IsUpdate ; 1 when started by the app's software update (/UPDATE)
 
 ; ---------------------------------------------------------------- Appearance
 
@@ -226,6 +230,20 @@ Function .onInit
     ${EndIf}
   ${EndIf}
   Call FindDataDir
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/UPDATE" $1
+  ${IfNot} ${Errors}
+    StrCpy $IsUpdate 1
+    Call KeepOptionalParts
+  ${EndIf}
+FunctionEnd
+
+; A failed installation or update starts the service again, so that the app
+; keeps working on the version that is installed.
+Function .onInstFailed
+  nsExec::Exec '"$SYSDIR\sc.exe" start ${SERVICE}'
+  Pop $0
 FunctionEnd
 
 Function un.onInit
@@ -348,12 +366,14 @@ Section "Office network access" SecFirewall
 SectionEnd
 
 Section "-Finish"
-  ${IfNot} ${SectionIsSelected} ${SecFirewall}
-    nsExec::Exec '"$INSTDIR\${SERVER}" firewall remove'
-    Pop $0
-  ${EndIf}
-  ${IfNot} ${SectionIsSelected} ${SecDesktop}
-    Delete "$DESKTOP\${APPNAME}.lnk"
+  ${If} $IsUpdate != 1
+    ${IfNot} ${SectionIsSelected} ${SecFirewall}
+      nsExec::Exec '"$INSTDIR\${SERVER}" firewall remove'
+      Pop $0
+    ${EndIf}
+    ${IfNot} ${SectionIsSelected} ${SecDesktop}
+      Delete "$DESKTOP\${APPNAME}.lnk"
+    ${EndIf}
   ${EndIf}
 
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
@@ -368,6 +388,14 @@ Section "-Finish"
     MessageBox MB_ICONEXCLAMATION|MB_OK "The background service did not start.$\r$\n$\r$\nThe desktop icon tries again. If it keeps failing, the log files in $DataDir\logs show why." /SD IDOK
   ${EndIf}
 SectionEnd
+
+; KeepOptionalParts: an in-app update neither adds nor removes the optional
+; parts chosen when the software was installed.
+Function KeepOptionalParts
+  SectionSetFlags ${SecTrust} 0
+  SectionSetFlags ${SecDesktop} 0
+  SectionSetFlags ${SecFirewall} 0
+FunctionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecApp} "The program, the background service that keeps it running, and the guides."

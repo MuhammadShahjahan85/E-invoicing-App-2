@@ -301,3 +301,40 @@ func TestImportRejectsOversizedUpload(t *testing.T) {
 		t.Fatalf("oversized import: got %d, want 413", resp.StatusCode)
 	}
 }
+
+// Administrators can delete other users; the deleted user's sessions end at
+// once, and nobody can delete their own account.
+func TestDeleteUser(t *testing.T) {
+	e := newEnv(t)
+	op := e.login("operatorA", "Initial123")
+	if st, _ := op.do("GET", "/auth/me", nil); st != 200 {
+		t.Fatalf("operator session: %d", st)
+	}
+	u, err := e.svc.Store.GetUserByUsername(context.Background(), "operatorA")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := op.do("DELETE", fmt.Sprintf("/users/%d", u.ID), nil); st != 403 {
+		t.Fatalf("operator deleting a user: got %d, want 403", st)
+	}
+	me, err := e.svc.Store.GetUserByUsername(context.Background(), "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st, b := e.adminA.do("DELETE", fmt.Sprintf("/users/%d", me.ID), nil); st != 422 || !strings.Contains(string(b), "your own account") {
+		t.Fatalf("self delete: %d %s", st, b)
+	}
+	if st, b := e.adminA.do("DELETE", fmt.Sprintf("/users/%d", u.ID), nil); st != 200 {
+		t.Fatalf("delete: %d %s", st, b)
+	}
+	if st, _ := op.do("GET", "/auth/me", nil); st != 401 {
+		t.Fatalf("deleted user's session still works: %d", st)
+	}
+	if st, _ := e.adminA.do("DELETE", fmt.Sprintf("/users/%d", u.ID), nil); st != 404 {
+		t.Fatalf("second delete: got %d, want 404", st)
+	}
+	st, b := e.adminA.do("GET", "/users", nil)
+	if st != 200 || strings.Contains(string(b), "operatorA") {
+		t.Fatalf("user list after delete: %d %s", st, b)
+	}
+}

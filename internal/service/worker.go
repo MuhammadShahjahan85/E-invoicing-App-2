@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"einvoicing/internal/db"
@@ -29,15 +30,22 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 	if o.Interval <= 0 {
 		o.Interval = 20 * time.Second
 	}
+	// config.json's schedule, unless changed on the System page.
+	s.backupHour.Store(int64(o.BackupHour))
+	if o.BackupRetention > 0 {
+		s.backupKeep.Store(int64(o.BackupRetention))
+	}
 	// At startup nothing of this process is in flight, so every submission
 	// still marked SUBMITTING was interrupted by the previous run.
 	s.recoverStuck(ctx, s.Now().UTC().Add(time.Second))
 	s.detectUnexpectedStop(ctx)
+	s.FinishUpdate(ctx)
 	defer s.MarkCleanShutdown()
 	t := time.NewTicker(o.Interval)
 	defer t.Stop()
 	lastBackupDay := ""
-	var lastIntegrity time.Time
+	var lastIntegrity, lastRefCheck time.Time
+	var refreshing atomic.Bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,19 +69,63 @@ func (s *Service) RunWorker(ctx context.Context, o WorkerOptions) {
 		s.runClosings(ctx)
 		// E-mails can take a while (slow mail server); never hold up the queue.
 		go s.runNotifications(ctx)
+		// FBR's reference lists (HS codes, units, sale types, rates, SROs)
+		// are downloaded again every day; checked hourly, in the background.
+		if time.Since(lastRefCheck) >= time.Hour && refreshing.CompareAndSwap(false, true) {
+			lastRefCheck = time.Now()
+			go func() {
+				defer refreshing.Store(false)
+				s.refreshReference(ctx)
+			}()
+		}
+		// New versions of the software, from the vendor's update address.
+		s.startUpdateTick(ctx)
 		_ = s.Store.PurgeExpiredSessions(ctx)
-		if o.BackupHour >= 0 {
+		if bs := s.GetBackupSettings(ctx); bs.Hour >= 0 {
 			now := s.Now().In(PKT)
 			day := now.Format("2006-01-02")
-			if now.Hour() == o.BackupHour && day != lastBackupDay {
+			if now.Hour() == bs.Hour && day != lastBackupDay {
 				lastBackupDay = day
 				if _, err := s.Backup(ctx, System, "auto"); err != nil {
 					s.Log.Error("automatic backup failed", "err", err)
 				} else {
-					s.pruneBackups(o.BackupRetention)
+					s.pruneBackups(bs.Retention)
 				}
 			}
 		}
+	}
+}
+
+// refreshReference downloads FBR's reference lists again for each
+// environment in use (sandbox or production) once they are a day old, so
+// HS codes, units, sale types, rates and SROs follow FBR's changes. The
+// lists are kept per environment, so one company with a token is enough.
+func (s *Service) refreshReference(ctx context.Context) {
+	cs, err := s.Store.ListCompanies(ctx)
+	if err != nil {
+		return
+	}
+	done := map[domain.Environment]bool{}
+	for _, c := range cs {
+		env := c.Environment
+		if env == domain.EnvSimulator || done[env] || ctx.Err() != nil {
+			continue
+		}
+		if (env == domain.EnvSandbox && !c.HasSandboxToken) || (env == domain.EnvProduction && !c.HasProductionToken) {
+			continue
+		}
+		last, _ := s.Store.LastReferenceSync(ctx, env)
+		if t, err := time.Parse(time.RFC3339, last); err == nil && s.Now().Sub(t) < 24*time.Hour {
+			done[env] = true
+			continue
+		}
+		rep, err := s.SyncReference(ctx, System, c.ID, env)
+		if err != nil {
+			s.Log.Warn("automatic FBR reference data download failed", "company", c.ID, "environment", env, "err", err)
+			continue
+		}
+		done[env] = true
+		s.Log.Info("FBR reference data downloaded", "company", c.ID, "environment", env, "counts", rep.Counts, "errors", len(rep.Errors))
 	}
 }
 
@@ -136,14 +188,12 @@ type BackupInfo struct {
 // The master key (needed to decrypt FBR tokens) is deliberately NOT included;
 // keep a separate secure copy of master.key.
 func (s *Service) Backup(ctx context.Context, a Actor, kind string) (*BackupInfo, error) {
-	dir := s.Opts.BackupDir
-	if dir == "" {
-		dir = filepath.Join(s.Opts.DataDir, "backups")
-	}
+	dir := s.BackupDir()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, err
 	}
-	name := fmt.Sprintf("einvoice-%s-%s.db", kind, s.Now().In(PKT).Format("20060102-150405"))
+	// Two backups within one second get different names.
+	name := uniqueName(dir, "einvoice-"+kind+"-"+s.Now().In(PKT).Format("20060102-150405"), ".db")
 	path := filepath.Join(dir, name)
 	if err := db.Backup(ctx, s.Store.DB, path); err != nil {
 		return nil, err
@@ -181,12 +231,14 @@ func (s *Service) ListBackups() ([]BackupInfo, error) {
 	return out, nil
 }
 
-// BackupDir returns the backup directory.
+// BackupDir returns the backup directory: the one chosen on the System
+// page, else that of config.json, else <data>/backups.
 func (s *Service) BackupDir() string {
-	if s.Opts.BackupDir != "" {
-		return s.Opts.BackupDir
+	var b BackupSettings
+	if s.getJSON(context.Background(), keyBackupSettings, &b) && b.Dir != "" {
+		return b.Dir
 	}
-	return filepath.Join(s.Opts.DataDir, "backups")
+	return s.defaultBackupDir()
 }
 
 // BackupPath validates a backup name and returns its path.

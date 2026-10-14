@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"einvoicing/internal/domain"
+	"einvoicing/internal/hscodes"
 	"einvoicing/internal/service"
 	"einvoicing/internal/store"
 )
@@ -233,7 +234,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request, rc *req
 	}
 	refSync, _ := s.Svc.Store.LastReferenceSync(r.Context(), env)
 	hsSource, hsCount, _ := s.Svc.Store.HSCodeSource(r.Context())
-	out["reference"] = map[string]any{"lastSync": refSync, "hsSource": hsSource, "hsCodes": hsCount}
+	out["reference"] = map[string]any{"lastSync": refSync, "hsSource": hsSource, "hsCodes": hsCount, "hsEdition": hscodes.Edition()}
 	// Sales figures by month, buyer and item are report data.
 	if allowed(rc, PermReports) {
 		out["trend"] = s.salesTrend(r, c.ID, env, now, 12)
@@ -525,7 +526,7 @@ func (s *Server) handleRef(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 		}
 		src, n, _ := s.Svc.Store.HSCodeSource(ctx)
 		last, _ := s.Svc.Store.LastReferenceSync(ctx, env)
-		writeJSON(w, 200, map[string]any{"entries": st, "hsCodes": n, "hsSource": src, "lastSync": last, "environment": env})
+		writeJSON(w, 200, map[string]any{"entries": st, "hsCodes": n, "hsSource": src, "hsEdition": hscodes.Edition(), "lastSync": last, "environment": env})
 	default:
 		writeErr(w, 404, "unknown reference list")
 	}

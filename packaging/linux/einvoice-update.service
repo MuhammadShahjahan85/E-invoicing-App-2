@@ -1,0 +1,9 @@
+# Started by einvoice-update.path. Runs as root: checks the vendor's signature
+# on the update again, replaces /opt/einvoice/einvoice and restarts the service.
+[Unit]
+Description=Install a Veridian E-invoicing Pakistan update requested from the app
+Documentation=file:///opt/einvoice/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/opt/einvoice/einvoice update apply --data /var/lib/einvoice

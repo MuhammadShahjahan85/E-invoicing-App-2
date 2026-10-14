@@ -62,19 +62,26 @@ func (s *Store) RefStatus(ctx context.Context) ([]RefEntry, error) {
 type HSCode struct {
 	Code        string `json:"code"`
 	Description string `json:"description"`
+	// Context is the tariff heading and groups above the code, e.g.
+	// "Live bovine animals › Cattle".
+	Context string `json:"context,omitempty"`
+	// InFBR is set when the code is on the list downloaded from FBR's
+	// Digital Invoicing API.
+	InFBR bool `json:"inFbr"`
 }
 
-// ReplaceHSCodes replaces the HS code table from a source ("fbr" or "seed").
-func (s *Store) ReplaceHSCodes(ctx context.Context, codes []HSCode, source string) error {
+// LoadTariffHSCodes stores the built-in Pakistan Customs Tariff codes. The
+// descriptions of the tariff are kept; whether a code is on FBR's list is
+// left as it is.
+func (s *Store) LoadTariffHSCodes(ctx context.Context, codes []HSCode) error {
 	return s.Tx(ctx, func(q Querier) error {
-		if source == "fbr" {
-			if _, err := q.ExecContext(ctx, `DELETE FROM ref_hs_codes`); err != nil {
-				return err
-			}
+		if _, err := q.ExecContext(ctx, `DELETE FROM ref_hs_codes WHERE source='seed'`); err != nil {
+			return err
 		}
 		for _, c := range codes {
-			if _, err := q.ExecContext(ctx, `INSERT INTO ref_hs_codes(code, description, source) VALUES(?,?,?)
-				ON CONFLICT(code) DO UPDATE SET description=excluded.description, source=excluded.source`, c.Code, c.Description, source); err != nil {
+			if _, err := q.ExecContext(ctx, `INSERT INTO ref_hs_codes(code, description, context, source, in_fbr) VALUES(?,?,?,'pct',0)
+				ON CONFLICT(code) DO UPDATE SET description=excluded.description, context=excluded.context, source='pct'`,
+				c.Code, c.Description, c.Context); err != nil {
 				return err
 			}
 		}
@@ -82,28 +89,90 @@ func (s *Store) ReplaceHSCodes(ctx context.Context, codes []HSCode, source strin
 	})
 }
 
-// SearchHSCodes searches codes by prefix or description.
+// ReplaceHSCodes records the list downloaded from FBR (source "fbr"): its
+// codes are marked as on FBR's list, codes FBR added are stored with FBR's
+// description, and the tariff's own descriptions are kept.
+func (s *Store) ReplaceHSCodes(ctx context.Context, codes []HSCode, source string) error {
+	return s.Tx(ctx, func(q Querier) error {
+		if source == "fbr" {
+			if _, err := q.ExecContext(ctx, `UPDATE ref_hs_codes SET in_fbr=0`); err != nil {
+				return err
+			}
+		}
+		inFBR := 0
+		if source == "fbr" {
+			inFBR = 1
+		}
+		for _, c := range codes {
+			if _, err := q.ExecContext(ctx, `INSERT INTO ref_hs_codes(code, description, source, in_fbr) VALUES(?,?,?,?)
+				ON CONFLICT(code) DO UPDATE SET in_fbr=excluded.in_fbr,
+					description=CASE WHEN ref_hs_codes.source='pct' THEN ref_hs_codes.description ELSE excluded.description END`,
+				c.Code, c.Description, source, inFBR); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// SearchHSCodes finds codes by number ("7214", "7214.99" or "721499") or
+// by words in the description and the heading above it ("steel bars").
 func (s *Store) SearchHSCodes(ctx context.Context, q string, limit int) ([]HSCode, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 	q = strings.TrimSpace(q)
-	rows, err := s.DB.QueryContext(ctx, `SELECT code, description FROM ref_hs_codes
-		WHERE code LIKE ? OR description LIKE ? ORDER BY CASE WHEN code LIKE ? THEN 0 ELSE 1 END, code LIMIT ?`,
-		q+"%", "%"+q+"%", q+"%", limit)
+	var where []string
+	var args []any
+	digits := strings.ReplaceAll(q, ".", "")
+	isNumber := q != "" && strings.Trim(digits, "0123456789") == ""
+	prefix := q
+	if isNumber && len(digits) > 4 && !strings.Contains(q, ".") {
+		prefix = digits[:4] + "." + digits[4:]
+	}
+	if isNumber {
+		where = append(where, `code LIKE ?`)
+		args = append(args, prefix+"%")
+	} else {
+		for _, w := range strings.Fields(q) {
+			where = append(where, `(description LIKE ? OR context LIKE ?)`)
+			args = append(args, "%"+w+"%", "%"+w+"%")
+		}
+	}
+	if len(where) == 0 {
+		return []HSCode{}, nil
+	}
+	// Codes whose own description matches come before those matched by
+	// their heading only.
+	first := "%" + q + "%"
+	args = append(args, first, limit)
+	rows, err := s.DB.QueryContext(ctx, `SELECT code, description, context, in_fbr FROM ref_hs_codes
+		WHERE `+strings.Join(where, " AND ")+`
+		ORDER BY CASE WHEN description LIKE ? THEN 0 ELSE 1 END, code LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []HSCode
+	out := []HSCode{}
 	for rows.Next() {
 		var c HSCode
-		if err := rows.Scan(&c.Code, &c.Description); err != nil {
+		if err := rows.Scan(&c.Code, &c.Description, &c.Context, &c.InFBR); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// GetHSCode returns one stored code.
+func (s *Store) GetHSCode(ctx context.Context, code string) (*HSCode, error) {
+	var c HSCode
+	err := s.DB.QueryRowContext(ctx, `SELECT code, description, context, in_fbr FROM ref_hs_codes WHERE code=?`, strings.TrimSpace(code)).
+		Scan(&c.Code, &c.Description, &c.Context, &c.InFBR)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return &c, err
 }
 
 // CountHSCodes returns the number of stored HS codes.

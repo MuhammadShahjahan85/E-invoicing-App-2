@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -17,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver
+	sqlite "modernc.org/sqlite" // pure-Go SQLite driver
 )
 
 //go:embed migrations/*.sql
@@ -148,6 +149,85 @@ func Now() string { return time.Now().UTC().Format(time.RFC3339) }
 func Backup(ctx context.Context, d *sql.DB, dest string) error {
 	_, err := d.ExecContext(ctx, `VACUUM INTO ?`, dest)
 	return err
+}
+
+// LatestMigration is the schema version this build migrates to.
+func LatestMigration() int {
+	entries, _ := fs.ReadDir(migrationsFS, "migrations")
+	latest := 0
+	for _, e := range entries {
+		if v, err := strconv.Atoi(strings.SplitN(e.Name(), "_", 2)[0]); err == nil && v > latest {
+			latest = v
+		}
+	}
+	return latest
+}
+
+func readOnlyURI(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	return "file:" + filepath.ToSlash(abs) + "?mode=ro"
+}
+
+// Inspect opens a database file read-only, checks its integrity and that it
+// is a database of this software, and returns its schema version.
+func Inspect(ctx context.Context, path string) (int, error) {
+	d, err := sql.Open("sqlite", readOnlyURI(path)+"&_pragma=busy_timeout(5000)")
+	if err != nil {
+		return 0, err
+	}
+	defer d.Close()
+	var check string
+	if err := d.QueryRowContext(ctx, `PRAGMA integrity_check`).Scan(&check); err != nil {
+		return 0, errors.New("it is not a database file")
+	}
+	if check != "ok" {
+		return 0, fmt.Errorf("the file is damaged (%s)", check)
+	}
+	var tables, version int
+	err = d.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table'
+		AND name IN ('schema_migrations','users','companies','invoices','settings','audit_log')`).Scan(&tables)
+	if err != nil || tables != 6 {
+		return 0, errors.New("it is not a backup of this software")
+	}
+	if err := d.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&version); err != nil {
+		return 0, errors.New("it is not a backup of this software")
+	}
+	return version, nil
+}
+
+// Restore replaces the contents of the open database with those of the
+// database file src, in one step under the database lock (SQLite's online
+// backup API), then applies the migrations the file predates.
+func Restore(ctx context.Context, d *sql.DB, src string) error {
+	c, err := d.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	err = c.Raw(func(dc any) error {
+		r, ok := dc.(interface {
+			NewRestore(string) (*sqlite.Backup, error)
+		})
+		if !ok {
+			return errors.New("the database driver cannot restore backups")
+		}
+		b, err := r.NewRestore(readOnlyURI(src))
+		if err != nil {
+			return err
+		}
+		if _, err := b.Step(-1); err != nil {
+			b.Finish()
+			return err
+		}
+		return b.Finish()
+	})
+	c.Close()
+	if err != nil {
+		return err
+	}
+	return Migrate(ctx, d)
 }
 
 // InTx runs fn in a transaction.

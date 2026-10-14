@@ -125,8 +125,9 @@ function HSCodes({ initial }: { initial: string }) {
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by HS (PCT) code or description, e.g. 3104 or fertilizer" />
         </div>
         {st && (
-          <span className={'badge ' + (st.hsSource === 'fbr' ? 'b-green' : 'b-amber')}>
-            {st.hsCodes.toLocaleString()} codes · {st.hsSource === 'fbr' ? 'downloaded from FBR' : 'built-in starter list'}
+          <span className={'badge ' + (st.hsSource === 'fbr' ? 'b-green' : 'b-blue')} title="The complete Pakistan Customs Tariff is built in">
+            {st.hsCodes.toLocaleString()} codes · Customs Tariff {st.hsEdition ?? ''}
+            {st.hsSource === 'fbr' ? ' + FBR list' : ''}
           </span>
         )}
       </div>
@@ -135,8 +136,9 @@ function HSCodes({ initial }: { initial: string }) {
           <div className="alert alert-info">
             <CircleAlert size={18} />
             <div className="alert-body">
-              Only the built-in starter list is loaded. Once the company has an FBR sandbox or production token, download FBR's complete HS code list
-              under <b>Data sync</b>.
+              Every code of the Pakistan Customs Tariff {st.hsEdition ?? ''} is built in, including the services of chapter 98. Once the company has an FBR
+              sandbox or production token, also download FBR's own list under <b>Data sync</b>: the codes FBR accepts for Digital Invoicing are then marked{' '}
+              <span className="badge b-green">FBR</span>.
             </div>
           </div>
         </div>
@@ -161,7 +163,7 @@ function HSCodes({ initial }: { initial: string }) {
             <thead>
               <tr>
                 <th style={{ width: 130 }}>HS code</th>
-                <th>Description (FBR)</th>
+                <th>Description</th>
                 <th style={{ width: 220 }}>Unit of measure</th>
               </tr>
             </thead>
@@ -172,8 +174,16 @@ function HSCodes({ initial }: { initial: string }) {
                   <tr key={h.code} className="clickable" onClick={() => toggle(h.code)}>
                     <td className="mono">
                       <b>{h.code}</b>
+                      {h.inFbr && (
+                        <span className="badge b-green" style={{ marginLeft: 6 }} title="On the HS code list downloaded from FBR">
+                          FBR
+                        </span>
+                      )}
                     </td>
-                    <td>{h.description}</td>
+                    <td>
+                      {h.description}
+                      {h.context && <div className="hs-ctx">{h.context}</div>}
+                    </td>
                     <td className="small">
                       {open !== h.code && !u ? (
                         <span className="btn-link">Show FBR unit</span>
@@ -943,7 +953,13 @@ function SyncStatus() {
               <tr>
                 <td>HS codes (itemdesccode)</td>
                 <td className="num">{data?.hsCodes.toLocaleString()}</td>
-                <td>{data?.hsSource === 'fbr' ? <span className="badge b-green">FBR</span> : <span className="badge b-amber">Starter list</span>}</td>
+                <td>
+                  {data?.hsSource === 'fbr' ? (
+                    <span className="badge b-green">FBR + Customs Tariff {data?.hsEdition}</span>
+                  ) : (
+                    <span className="badge b-blue">Customs Tariff {data?.hsEdition} (built in)</span>
+                  )}
+                </td>
                 <td>—</td>
               </tr>
               {Array.from(groups.entries()).map(([kind, g]) => (
@@ -964,7 +980,11 @@ function SyncStatus() {
           <li>Downloads use the {env === 'production' ? 'production' : env === 'sandbox' ? 'sandbox' : 'simulator'} environment of this company and its security token.</li>
           <li>Sale types, units, provinces and HS codes are checked on every invoice before it is sent to FBR.</li>
           <li>Rates, SROs, serial numbers and HS units are asked live when you pick them, and kept for a day.</li>
-          <li>Refresh the lists after FBR announces new sale types, rates or SROs (for example after the budget).</li>
+          <li>
+            <b>Updated automatically:</b> while the company is connected to FBR (sandbox or production), every list is downloaded again each day.{' '}
+            <b>Download from FBR now</b> fetches them at once, for example on the day FBR announces new rates or SROs.
+          </li>
+          <li>The complete Pakistan Customs Tariff {data?.hsEdition ?? ''} is built in, so every HS code can be found even before the first download.</li>
         </ul>
         <p className="small faint" style={{ marginBottom: 0 }}>
           Last full download: <b>{data?.lastSync ? dateTimeFmt(data.lastSync) : 'never'}</b>

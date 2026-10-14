@@ -3,7 +3,7 @@
 
 import { Fragment, useState } from 'react'
 import { api, errorMessage } from '../../api'
-import { ErrorBox, Field, Modal, Spinner, useLoad } from '../../components/ui'
+import { Confirm, ErrorBox, Field, Modal, Spinner, useLoad } from '../../components/ui'
 import { dateTimeFmt } from '../../format'
 import { useSession, useToast } from '../../state'
 import type { User } from '../../types'
@@ -30,8 +30,21 @@ interface Form {
 
 export default function Users() {
   const s = useSession()
+  const toast = useToast()
   const { data, error, loading, reload } = useLoad(() => api.get<User[]>('/users'), [])
   const [editing, setEditing] = useState<Form | null>(null)
+  const [removing, setRemoving] = useState<{ id: number; username: string } | null>(null)
+
+  const doRemove = async (u: { id: number; username: string }) => {
+    try {
+      await api.del(`/users/${u.id}`)
+      toast('ok', `User ${u.username} deleted`)
+      setEditing(null)
+      reload()
+    } catch (e) {
+      toast('err', errorMessage(e))
+    }
+  }
 
   return (
     <>
@@ -65,6 +78,7 @@ export default function Users() {
                     <th>Companies</th>
                     <th>Last login</th>
                     <th>Status</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -102,6 +116,22 @@ export default function Users() {
                         {u.active ? <span className="badge b-green">active</span> : <span className="badge b-gray">disabled</span>}{' '}
                         {u.mustChangePassword && <span className="badge b-amber">must change password</span>}
                       </td>
+                      <td className="right">
+                        {u.id === s.user.id ? (
+                          <span className="small faint">you</span>
+                        ) : (
+                          <button
+                            className="btn btn-sm btn-danger"
+                            title={`Delete ${u.username}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRemoving({ id: u.id, username: u.username })
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -129,13 +159,33 @@ export default function Users() {
             setEditing(null)
             reload()
           }}
+          onDelete={editing.id ? () => setRemoving({ id: editing.id!, username: editing.username }) : undefined}
+        />
+      )}
+      {removing && (
+        <Confirm
+          danger
+          label="Delete user"
+          text={
+            <>
+              <p>
+                Delete user <b>{removing.username}</b>? They will be signed out and can no longer log in. This cannot be undone.
+              </p>
+              <p className="small muted">
+                Invoices they issued and their entries in the audit trail are kept. Deleting a user frees a seat on your licence. To stop someone
+                logging in for now, untick <b>Active</b> instead.
+              </p>
+            </>
+          }
+          onConfirm={() => doRemove(removing)}
+          onClose={() => setRemoving(null)}
         />
       )}
     </>
   )
 }
 
-function UserForm({ initial, onClose, onSaved }: { initial: Form; onClose: () => void; onSaved: () => void }) {
+function UserForm({ initial, onClose, onSaved, onDelete }: { initial: Form; onClose: () => void; onSaved: () => void; onDelete?: () => void }) {
   const s = useSession()
   const toast = useToast()
   const [f, setF] = useState<Form>(initial)
@@ -162,6 +212,11 @@ function UserForm({ initial, onClose, onSaved }: { initial: Form; onClose: () =>
       onClose={onClose}
       footer={
         <>
+          {onDelete && !isSelf && (
+            <button className="btn btn-danger" onClick={onDelete} style={{ marginRight: 'auto' }}>
+              Delete user
+            </button>
+          )}
           <button className="btn" onClick={onClose}>
             Cancel
           </button>

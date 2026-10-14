@@ -348,10 +348,10 @@ export function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDon
       for (const h of res.hsCodes)
         out.push({
           key: 'h' + h.code,
-          group: 'FBR HS codes',
+          group: 'HS codes',
           icon: KeyRound,
           title: h.code,
-          sub: h.description,
+          sub: h.context ? `${h.description} · ${h.context}` : h.description,
           to: `/library?tab=hs&q=${encodeURIComponent(h.code)}`,
         })
     }

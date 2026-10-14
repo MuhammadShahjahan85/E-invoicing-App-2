@@ -128,6 +128,7 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request, rc *reqCtx) 
 		"copyright":          brand.Copyright,
 		"developedBy":        brand.DevelopedBy,
 		"version":            brand.Version,
+		"userGuide":          service.UserGuidePath() != "",
 		"cancelWindowHours":  int(service.CancelWindow.Hours()),
 		// The FBR cancellation API is opt-in (fbr.endpoints.cancelPath /
 		// cancelSandboxPath in config.json) until PRAL publishes its format.

@@ -67,6 +67,19 @@ func (s *Server) handleSaveUser(w http.ResponseWriter, r *http.Request, rc *reqC
 	writeJSON(w, 200, u)
 }
 
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if err := s.Svc.DeleteUser(r.Context(), rc.Actor, id); err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
 // --- API keys ---
 
 func (s *Server) handleListAPIKeys(w http.ResponseWriter, r *http.Request, rc *reqCtx) {

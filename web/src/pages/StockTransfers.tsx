@@ -5,7 +5,7 @@ import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Download, Printer, Truck } from 'lucide-react'
 import { api, errorMessage, qs } from '../api'
-import { Empty, ErrorBox, Field, Modal, Pager, Spinner, useLoad } from '../components/ui'
+import { Empty, ErrorBox, Field, FloatingList, Modal, Pager, Spinner, useLoad } from '../components/ui'
 import { dateTimeFmt, hoursSince, money, num, qty } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
 import type { Paged, Product, StockTransfer } from '../types'
@@ -421,6 +421,7 @@ function TransferLine({ n, l, cp, update, remove }: { n: number; l: Line; cp: st
   const [products, setProducts] = useState<Product[]>([])
   const [open, setOpen] = useState(false)
   const t = useRef<number>()
+  const descInput = useRef<HTMLInputElement>(null)
   const search = (q: string) => {
     window.clearTimeout(t.current)
     t.current = window.setTimeout(async () => {
@@ -438,6 +439,7 @@ function TransferLine({ n, l, cp, update, remove }: { n: number; l: Line; cp: st
       <td>
         <div className="dropdown">
           <input
+            ref={descInput}
             value={l.description}
             placeholder="Search products or describe the goods"
             onChange={(e) => {
@@ -452,7 +454,7 @@ function TransferLine({ n, l, cp, update, remove }: { n: number; l: Line; cp: st
             onBlur={() => setTimeout(() => setOpen(false), 180)}
           />
           {open && products.length > 0 && (
-            <div className="suggest">
+            <FloatingList anchor={descInput}>
               {products.map((p) => (
                 <div
                   key={p.id}
@@ -466,7 +468,7 @@ function TransferLine({ n, l, cp, update, remove }: { n: number; l: Line; cp: st
                   </span>
                 </div>
               ))}
-            </div>
+            </FloatingList>
           )}
         </div>
       </td>

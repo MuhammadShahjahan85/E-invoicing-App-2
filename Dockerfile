@@ -1,6 +1,8 @@
 # Veridian E-invoicing Pakistan — container image.
 #
 #   docker build --build-arg VERSION=1.0.0 --build-arg LICENSE_PUBKEY=<base64> -t veridian-einvoicing .
+#   (optional: --build-arg UPDATE_PUBKEY=<base64> --build-arg UPDATE_FEED_URL=<address of update.json>,
+#   so that administrators are told about new versions; a container is updated by pulling the new image)
 #   docker run -d --name einvoice --restart unless-stopped -p 8443:8443 -v einvoice-data:/data veridian-einvoicing
 #
 # Back up the /data volume (database, master.key, certificates, backups).
@@ -17,6 +19,8 @@ FROM golang:1.24-alpine AS build
 ARG VERSION=1.0.0
 ARG BUILD_DATE=unknown
 ARG LICENSE_PUBKEY=
+ARG UPDATE_PUBKEY=
+ARG UPDATE_FEED_URL=
 WORKDIR /src
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local
 COPY go.mod go.sum ./
@@ -24,7 +28,7 @@ RUN go mod download
 COPY . .
 COPY --from=web /src/internal/webui/dist ./internal/webui/dist
 RUN go build -trimpath \
-    -ldflags "-s -w -X einvoicing/internal/brand.Version=${VERSION} -X einvoicing/internal/brand.BuildDate=${BUILD_DATE} -X einvoicing/internal/license.PublicKeyB64=${LICENSE_PUBKEY}" \
+    -ldflags "-s -w -X einvoicing/internal/brand.Version=${VERSION} -X einvoicing/internal/brand.BuildDate=${BUILD_DATE} -X einvoicing/internal/license.PublicKeyB64=${LICENSE_PUBKEY} -X einvoicing/internal/update.PublicKeyB64=${UPDATE_PUBKEY} -X einvoicing/internal/update.FeedURL=${UPDATE_FEED_URL}" \
     -o /out/einvoice ./cmd/einvoice
 
 FROM alpine:3.20

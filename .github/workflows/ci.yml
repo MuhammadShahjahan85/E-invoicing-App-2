@@ -22,7 +22,7 @@ jobs:
 
       - name: Cross-compile Windows and Linux binaries
         run: |
-          GOOS=windows GOARCH=amd64 go vet ./cmd/... ./internal/winsvc ./internal/wintrust
+          GOOS=windows GOARCH=amd64 go vet ./cmd/... ./internal/winsvc ./internal/wintrust ./internal/update
           mkdir -p dist/windows-amd64
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o dist/windows-amd64/einvoice.exe ./cmd/einvoice
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags -H=windowsgui -o dist/windows-amd64/VeridianEInvoicing.exe ./cmd/launcher

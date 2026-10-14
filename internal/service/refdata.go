@@ -13,7 +13,7 @@ import (
 
 	"einvoicing/internal/domain"
 	"einvoicing/internal/fbr"
-	"einvoicing/internal/fbrmock"
+	"einvoicing/internal/hscodes"
 	"einvoicing/internal/store"
 )
 
@@ -23,17 +23,24 @@ import (
 
 func refKey(env domain.Environment, kind string) string { return string(env) + ":" + kind }
 
-// EnsureSeedData loads the seed HS code list on first run.
+// EnsureSeedData loads the built-in HS (PCT) code list: on the first start,
+// and again when an update of the software brings a newer Pakistan Customs
+// Tariff. Whether a code is on FBR's downloaded list is kept.
 func (s *Service) EnsureSeedData(ctx context.Context) error {
-	n, err := s.Store.CountHSCodes(ctx)
-	if err != nil || n > 0 {
+	edition := hscodes.Edition()
+	if cur, _ := s.Store.GetSetting(ctx, "hscodes.tariff"); edition != "" && cur == edition {
+		return nil
+	}
+	all := hscodes.All()
+	codes := make([]store.HSCode, 0, len(all))
+	for _, e := range all {
+		codes = append(codes, store.HSCode{Code: e.Code, Description: e.Description, Context: e.Context})
+	}
+	if err := s.Store.LoadTariffHSCodes(ctx, codes); err != nil {
 		return err
 	}
-	var codes []store.HSCode
-	for _, h := range fbrmock.SeedHSCodes() {
-		codes = append(codes, store.HSCode{Code: h.Code, Description: h.Description})
-	}
-	return s.Store.ReplaceHSCodes(ctx, codes, "seed")
+	s.Log.Info("HS codes loaded", "tariff", edition, "codes", len(codes))
+	return s.Store.SetSetting(ctx, "hscodes.tariff", edition)
 }
 
 // cachedList returns the set of descriptions of a cached reference list.
@@ -121,14 +128,18 @@ func (s *Service) SyncReference(ctx context.Context, a Actor, companyID int64, e
 		for _, h := range hs {
 			codes = append(codes, store.HSCode{Code: h.Code, Description: h.Description})
 		}
-		source := "fbr"
-		if env == domain.EnvSimulator {
-			source = "seed"
-		}
-		if err := s.Store.ReplaceHSCodes(ctx, codes, source); err != nil {
-			rep.Errors["itemdesccode"] = err.Error()
-		} else {
+		switch {
+		case env == domain.EnvSimulator:
+			// The simulator's short list must not mark codes as FBR's.
 			rep.Counts["itemdesccode"] = len(codes)
+		case len(codes) == 0:
+			rep.Errors["itemdesccode"] = "FBR returned no HS codes; the list was kept"
+		default:
+			if err := s.Store.ReplaceHSCodes(ctx, codes, "fbr"); err != nil {
+				rep.Errors["itemdesccode"] = err.Error()
+			} else {
+				rep.Counts["itemdesccode"] = len(codes)
+			}
 		}
 	}
 	// Fill the company's province code from the synced list.

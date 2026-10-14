@@ -321,6 +321,7 @@ export interface Meta {
   copyright: string
   developedBy: string
   version: string
+  userGuide?: boolean
   cancelWindowHours: number
   cancelApi?: Partial<Record<Env, boolean>>
 }
@@ -376,7 +377,7 @@ export interface DashboardData {
   trend?: PeriodRow[]
   topBuyers?: CustomerRow[]
   topItems?: ItemRow[]
-  reference?: { lastSync: string; hsSource: string; hsCodes: number }
+  reference?: { lastSync: string; hsSource: string; hsCodes: number; hsEdition?: string }
   tie?: PeriodTie
 }
 
@@ -506,7 +507,10 @@ export interface SearchResults {
 export interface RefStatus {
   entries: { key: string; kind: string; source: string; fetchedAt: string }[] | null
   hsCodes: number
+  /** "fbr" once FBR's list has been downloaded, otherwise "tariff" (built in). */
   hsSource: string
+  /** Edition of the built-in Pakistan Customs Tariff, e.g. "2026-27". */
+  hsEdition?: string
   lastSync: string
   environment: Env
 }
@@ -590,6 +594,10 @@ export interface RateRef {
 export interface HSCode {
   code: string
   description: string
+  /** The tariff heading and groups above the code. */
+  context?: string
+  /** On the HS code list downloaded from FBR. */
+  inFbr?: boolean
 }
 
 export interface Paged<T> {
@@ -764,4 +772,49 @@ export interface ImportSummary {
   failed: number
   results: ImportResult[]
   preview: boolean
+}
+
+/** A release offered by the vendor's signed update file. */
+export interface UpdateManifest {
+  version: string
+  released: string
+  notes: string
+  mandatory?: boolean
+  free?: boolean
+}
+
+/** An installation attempt (pending, or the last one). */
+export interface UpdateResult {
+  from: string
+  to: string
+  at: string
+  by: string
+  ok: boolean
+  message?: string
+  backup?: string
+  notes?: string
+}
+
+/** GET /system/updates */
+export interface UpdateStatus {
+  current: string
+  buildDate: string
+  platform: string
+  configured: boolean
+  settings: { mode: 'auto' | 'notify' | 'off'; hour: number; feed: string }
+  builtInFeed: string
+  lastCheck?: string
+  lastError?: string
+  available?: UpdateManifest
+  state: 'idle' | 'downloading' | 'ready' | 'installing' | 'failed'
+  message?: string
+  downloaded: number
+  size: number
+  canInstall: boolean
+  manualNote?: string
+  blocked?: string
+  ready: boolean
+  nextAuto?: string
+  pending?: UpdateResult
+  last?: UpdateResult
 }

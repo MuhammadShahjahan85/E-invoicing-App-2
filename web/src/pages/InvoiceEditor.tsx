@@ -1,11 +1,11 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BadgeCheck, Sparkles, TriangleAlert } from 'lucide-react'
 import { api, ApiError, errorMessage } from '../api'
-import { ErrorBox, Field, HSCodeInput, IssueList, PageSpinner } from '../components/ui'
+import { ErrorBox, Field, FloatingList, HSCodeInput, IssueList, PageSpinner } from '../components/ui'
 import { dateFmt, money, num, todayPK } from '../format'
 import { useCompanyPath, useSession, useToast } from '../state'
 import { provinceFromAddress } from '../pkcities'
@@ -177,6 +177,8 @@ export default function InvoiceEditor() {
   // Track whether the user has changed anything yet.
   const initialBody = useRef<string>()
   const [touched, setTouched] = useState(editing)
+  const checksRef = useRef<HTMLDivElement>(null)
+  const checksHeight = useRef(-1)
   useEffect(() => {
     if (loading) return
     const j = JSON.stringify(body)
@@ -255,6 +257,20 @@ export default function InvoiceEditor() {
     }
   }
 
+  // The checks above the form change height while the user types; keep the
+  // field being typed in where it is (as browsers anchor scrolling).
+  useLayoutEffect(() => {
+    const el = checksRef.current
+    if (!el) return
+    const h = el.offsetHeight
+    const delta = checksHeight.current < 0 ? 0 : h - checksHeight.current
+    checksHeight.current = h
+    const a = document.activeElement
+    if (delta && a && a !== document.body && el.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      window.scrollBy(0, delta)
+    }
+  })
+
   if (loading) return <PageSpinner />
   if (loadError) return <ErrorBox error={loadError} />
 
@@ -285,17 +301,19 @@ export default function InvoiceEditor() {
         </div>
       </div>
 
-      {saveError && <div className="alert alert-error">{saveError}</div>}
-      {computeError && <div className="alert alert-error">{computeError}</div>}
-      <IssueList issues={issues} />
-      {!touched && (
-        <div className="alert alert-info">
-          <Sparkles size={18} />
-          <div className="alert-body">
-            Choose the buyer and add the first product — taxes are computed as you type, and FBR's checks are applied before anything is sent.
+      <div ref={checksRef}>
+        {saveError && <div className="alert alert-error">{saveError}</div>}
+        {computeError && <div className="alert alert-error">{computeError}</div>}
+        <IssueList issues={issues} />
+        {!touched && (
+          <div className="alert alert-info">
+            <Sparkles size={18} />
+            <div className="alert-body">
+              Choose the buyer and add the first product — taxes are computed as you type, and FBR's checks are applied before anything is sent.
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid g2">
         <div className="card">
@@ -684,6 +702,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
   const [products, setProducts] = useState<Product[]>([])
   const [open, setOpen] = useState(false)
   const t = useRef<number>()
+  const descInput = useRef<HTMLInputElement>(null)
   const searchProducts = (q: string) => {
     window.clearTimeout(t.current)
     t.current = window.setTimeout(async () => {
@@ -731,6 +750,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
         <td>
           <div className="dropdown">
             <input
+              ref={descInput}
               value={pq || l.description}
               placeholder="Type to search products, or enter a description"
               onChange={(e) => {
@@ -746,7 +766,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
               onBlur={() => setTimeout(() => setOpen(false), 180)}
             />
             {open && products.length > 0 && (
-              <div className="suggest">
+              <FloatingList anchor={descInput}>
                 {products.map((p) => (
                   <div key={p.id} onMouseDown={() => pickProduct(p)}>
                     <b>{p.description}</b> <span className="muted">
@@ -754,7 +774,7 @@ function LineRow({ n, l, c, st, cp, uoms, saleTypes, rates, date, onFocusRate, u
                     </span>
                   </div>
                 ))}
-              </div>
+              </FloatingList>
             )}
           </div>
           <button className="btn-link small" onClick={() => update({ showMore: !l.showMore })}>

@@ -2,7 +2,7 @@
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { BookOpen, ExternalLink } from 'lucide-react'
 import { useSession } from '../state'
 import { documents, faqs, faqSource, integrators, integratorSource } from './helpContent'
 
@@ -25,6 +25,13 @@ export default function Help() {
           <h1>Help & error codes</h1>
           <p>Reference for FBR Digital Invoicing rules and the error codes returned by the DI API (technical specification v1.12).</p>
         </div>
+        {s.meta.userGuide && (
+          <div className="actions">
+            <a className="btn btn-primary" href="/api/v1/help/guide" target="_blank" rel="noopener">
+              <BookOpen size={16} /> User guide (PDF)
+            </a>
+          </div>
+        )}
       </div>
       <div className="tabs">
         <button className={'tab' + (tab === 'errors' ? ' active' : '')} onClick={() => setTab('errors')}>

@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Veridian Partners Consultancy Private Limited. All rights reserved.
 // Veridian E-invoicing Pakistan is proprietary software; see the LICENSE file.
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { CircleAlert, TriangleAlert, X } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { statusLabels } from '../format'
@@ -172,11 +173,61 @@ export function Pager({ total, limit, offset, onChange }: { total: number; limit
   )
 }
 
+/** FloatingList shows a suggestion list under its anchor (above it near the
+ * bottom of the window), on top of the page, so that scrolling tables and
+ * dialogs do not cut it off. */
+export function FloatingList({ anchor, children }: { anchor: RefObject<HTMLElement>; children: ReactNode }) {
+  const [pos, setPos] = useState<CSSProperties | null>(null)
+  useLayoutEffect(() => {
+    // Follows the anchor every frame while open: scrolling, resizing and
+    // content appearing above it (e.g. validation messages) all move it.
+    let frame = 0
+    let last = ''
+    const place = () => {
+      const el = anchor.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const key = [r.top, r.left, r.width, r.height, vw, vh].join('|')
+        if (key !== last) {
+          last = key
+          if (r.bottom < 0 || r.top > vh) {
+            // The field being typed in was pushed out of view: bring it back.
+            if (document.activeElement === el) el.scrollIntoView({ block: 'nearest' })
+            setPos(null)
+          } else {
+            const width = Math.min(Math.max(r.width, 320), vw - 16)
+            const left = Math.max(8, Math.min(r.left, vw - width - 8))
+            const below = vh - r.bottom - 12
+            const above = r.top - 12
+            const up = below < 180 && above > below
+            const maxHeight = Math.max(120, Math.min(300, up ? above : below))
+            setPos(up ? { left, width, maxHeight, top: 'auto', bottom: vh - r.top + 4 } : { left, width, maxHeight, top: r.bottom + 4 })
+          }
+        }
+      }
+      frame = window.requestAnimationFrame(place)
+    }
+    place()
+    return () => window.cancelAnimationFrame(frame)
+  }, [anchor])
+  if (!pos) return null
+  return createPortal(
+    // Keeps the focus in the input while the list is scrolled or clicked.
+    <div className="suggest floating" style={pos} onMouseDown={(e) => e.preventDefault()}>
+      {children}
+    </div>,
+    document.body,
+  )
+}
+
 /** HSCodeInput: free text with suggestions from the HS code list. */
 export function HSCodeInput({ value, onChange, companyPath, onPick }: { value: string; onChange: (v: string) => void; companyPath: string; onPick?: (h: HSCode) => void }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<HSCode[]>([])
   const timer = useRef<number>()
+  const input = useRef<HTMLInputElement>(null)
   const search = (q: string) => {
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(async () => {
@@ -194,6 +245,7 @@ export function HSCodeInput({ value, onChange, companyPath, onPick }: { value: s
   return (
     <div className="dropdown">
       <input
+        ref={input}
         value={value}
         placeholder="0101.2100"
         onChange={(e) => {
@@ -205,7 +257,7 @@ export function HSCodeInput({ value, onChange, companyPath, onPick }: { value: s
         onBlur={() => setTimeout(() => setOpen(false), 180)}
       />
       {open && items.length > 0 && (
-        <div className="suggest">
+        <FloatingList anchor={input}>
           {items.map((h) => (
             <div
               key={h.code}
@@ -216,9 +268,10 @@ export function HSCodeInput({ value, onChange, companyPath, onPick }: { value: s
               }}
             >
               <b className="mono">{h.code}</b> <span className="muted">{h.description}</span>
+              {h.context && <span className="hs-ctx">{h.context}</span>}
             </div>
           ))}
-        </div>
+        </FloatingList>
       )}
     </div>
   )
